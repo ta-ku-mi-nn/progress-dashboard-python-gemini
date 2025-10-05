@@ -1,0 +1,20 @@
+{
+  "admin": {
+    "username": "admin",
+    "password": "scrypt:32768:8:1$bi4yN0a9J8uPKQ9e$8a1ebbf71829018fb601d7fee257e11367f4ca0dbcb84ba42d4b9b2311a31c26f67b615cece72eb09a07d995b011f7ab57f45a52fcddae9a54515d24e94e5753",
+    "role": "admin",
+    "school": "デフォルト校舎"
+  },
+  "tokyo_user1": {
+    "username": "tokyo_user1",
+    "password": "scrypt:32768:8:1$ahZEpA39Bfz0RPlV$80e0ad85cd4322384e11f99eb652c8552d3be62e136abbc57e562f91ea94a12118c4e0522e858e3e74eecbb617bc95b85330ebcf50d0ee2d8a7d2985de132f73",
+    "role": "user",
+    "school": "東京校"
+  },
+  "osaka_admin": {
+    "username": "osaka_admin",
+    "password": "scrypt:32768:8:1$wawCFa6ZVqNBDItT$70a72c0af9201747a8ecb1de9588c6c7efbce6e6d8890fda5d235e56c828539fca97f9f9307d5654f117e12531ff9e1c6ed77d5e577acd4221bc74f5d3573b2d",
+    "role": "admin",
+    "school": "大阪校"
+  }
+}

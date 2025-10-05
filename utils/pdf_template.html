@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>進捗ダッシュボードPDF</title>
+    <style>
+        body { font-family: 'Meiryo', sans-serif; margin: 40px; }
+        h1 { color: #333; }
+        .section { margin-bottom: 32px; }
+        .img-section img { max-width: 600px; border: 1px solid #ccc; margin-bottom: 16px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+        th, td { border: 1px solid #aaa; padding: 8px; text-align: center; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>進捗ダッシュボード</h1>
+    <div class="section">
+        <strong>計画時間:</strong> {{ planned_hours }}<br>
+        <strong>達成時間:</strong> {{ achieved_hours }}<br>
+        <strong>達成率:</strong> {{ achievement_rate }}<br>
+        <strong>完了参考書:</strong> {{ achieved_books }}
+    </div>
+    <div class="section img-section">
+        <h2>全体進捗グラフ</h2>
+        {% if bar_img %}
+        <img src="{{ bar_img }}" alt="全体進捗グラフ">
+        {% else %}
+        <p>グラフ画像なし</p>
+        {% endif %}
+    </div>
+    <div class="section img-section">
+        <h2>科目別進捗グラフ</h2>
+        {% if subject_progress_img %}
+        <img src="{{ subject_progress_img }}" alt="科目別進捗グラフ">
+        {% else %}
+        <p>グラフ画像なし</p>
+        {% endif %}
+    </div>
+    <div class="section img-section">
+        <h2>進捗統計グラフ</h2>
+        {% if progress_stats_img %}
+        <img src="{{ progress_stats_img }}" alt="進捗統計グラフ">
+        {% else %}
+        <p>グラフ画像なし</p>
+        {% endif %}
+    </div>
+    <div class="section">
+        <h2>詳細進捗</h2>
+        <table>
+            <tr>
+                <th>科目</th>
+                <th>計画</th>
+                <th>達成</th>
+                <th>達成率</th>
+            </tr>
+            {% for row in subject_details %}
+            <tr>
+                <td>{{ row.subject }}</td>
+                <td>{{ row.planned }}</td>
+                <td>{{ row.achieved }}</td>
+                <td>{{ row.rate }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
