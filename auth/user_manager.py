@@ -1,66 +1,69 @@
-import json
+# auth/user_manager.py
+
+import sqlite3
 import os
-import threading
 from werkzeug.security import generate_password_hash, check_password_hash
-from config.settings import APP_CONFIG
 
-# 設定ファイルからユーザーファイルのパスを取得
-USERS_FILE = APP_CONFIG['data']['users_file']
-# ファイルアクセスが同時に発生した場合のデータ破損を防ぐためのロック
-LOCK = threading.Lock()
+# このファイルの場所を基準に、プロジェクトルートにあるDBファイルを絶対パスで指定
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 
-def load_users():
-    """ユーザー情報をJSONファイルから読み込む"""
-    with LOCK:
-        if not os.path.exists(USERS_FILE):
-            return {}
-        try:
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            # ファイルが空または見つからない場合は空の辞書を返す
-            return {}
-
-def save_users(users):
-    """ユーザー情報をJSONファイルに保存する"""
-    with LOCK:
-        with open(USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(users, f, indent=2, ensure_ascii=False)
+def get_db_connection():
+    """データベース接続を取得し、辞書形式で結果を返せるようにする"""
+    conn = sqlite3.connect(DATABASE_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def get_user(username):
-    """指定されたユーザー名のユーザー情報を取得する"""
-    users = load_users()
-    return users.get(username)
+    """ユーザー名でユーザー情報をデータベースから取得する"""
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    conn.close()
+    return user
 
 def authenticate_user(username, password):
-    """ユーザー名とパスワードを検証して認証する"""
+    """ユーザー名とパスワードをデータベースで検証する"""
     user = get_user(username)
-    # ユーザーが存在し、かつパスワードのハッシュが一致するか確認
     if user and check_password_hash(user['password'], password):
-        return user
+        return dict(user) # ログイン成功時は辞書として返す
     return None
 
 def add_user(username, password, role='user', school=None):
-    """新しいユーザーを追加する"""
-    users = load_users()
-    if username in users:
+    """新しいユーザーをデータベースに追加する"""
+    if get_user(username):
         return False, "このユーザー名は既に使用されています。"
-    
-    users[username] = {
-        'username': username,
-        'password': generate_password_hash(password), # パスワードをハッシュ化
-        'role': role,
-        'school': school
-    }
-    save_users(users)
-    return True, "ユーザーが正常に作成されました。"
+
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'INSERT INTO users (username, password, role, school) VALUES (?, ?, ?, ?)',
+            (username, generate_password_hash(password), role, school)
+        )
+        conn.commit()
+        return True, "ユーザーが正常に作成されました。"
+    except sqlite3.IntegrityError:
+        return False, "このユーザー名は既に使用されています。"
+    finally:
+        conn.close()
 
 def update_password(username, new_password):
-    """指定されたユーザーのパスワードを更新する"""
-    users = load_users()
-    if username not in users:
+    """指定されたユーザーのパスワードをデータベースで更新する"""
+    if not get_user(username):
         return False, "ユーザーが見つかりません。"
-    
-    users[username]['password'] = generate_password_hash(new_password)
-    save_users(users)
+
+    conn = get_db_connection()
+    conn.execute(
+        'UPDATE users SET password = ? WHERE username = ?',
+        (generate_password_hash(new_password), username)
+    )
+    conn.commit()
+    conn.close()
     return True, "パスワードが更新されました。"
+
+def load_users():
+    """すべてのユーザー情報をデータベースから読み込む（管理者ページ用）"""
+    conn = get_db_connection()
+    users_cursor = conn.execute('SELECT id, username, role, school FROM users ORDER BY username').fetchall()
+    conn.close()
+    # コールバックで扱いやすいように辞書のリストに変換
+    return [dict(user) for user in users_cursor]

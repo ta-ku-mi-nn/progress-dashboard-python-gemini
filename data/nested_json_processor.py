@@ -1,9 +1,11 @@
-"""
-SQLiteデータベースとの接続とデータ操作を行う関数群を定義します。
-"""
-import sqlite3
+# data/nested_json_processor.py
 
-DATABASE_FILE = 'progress.db'
+import sqlite3
+import os
+
+# このファイルの場所を基準に、プロジェクトルートにあるDBファイルを絶対パスで指定
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 
 def get_db_connection():
     """データベース接続を取得します。"""
@@ -24,14 +26,27 @@ def get_students_for_user(user_info):
         return {}
     conn = get_db_connection()
     username = user_info.get('username')
+    
+    # roleに基づいてクエリを分岐
     if user_info.get('role') == 'admin':
         students_cursor = conn.execute('SELECT name, school FROM students ORDER BY school, name').fetchall()
     else:
-        students_cursor = conn.execute(
-            'SELECT name, school FROM students WHERE main_instructor = ? OR sub_instructor = ? ORDER BY school, name',
-            (username, username)
-        ).fetchall()
+        # 'users'テーブルからログインユーザーの担当校舎を取得
+        user = conn.execute('SELECT school FROM users WHERE username = ?', (username,)).fetchone()
+        user_school = user['school'] if user else None
+
+        if user_school:
+            # 担当校舎の生徒のみを取得
+            students_cursor = conn.execute(
+                'SELECT name, school FROM students WHERE school = ? ORDER BY name',
+                (user_school,)
+            ).fetchall()
+        else:
+            # 担当校舎が設定されていない場合は空のリストを返す
+            students_cursor = []
+
     conn.close()
+
     students_by_school = {}
     for student in students_cursor:
         if student['school'] not in students_by_school:
@@ -81,19 +96,27 @@ def update_progress_status(school, student_name, subject, level, book_name, colu
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        student_id = cursor.execute(
+        student_id_row = cursor.execute(
             'SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)
-        ).fetchone()['id']
+        ).fetchone()
+        if not student_id_row:
+            raise ValueError(f"生徒が見つかりません: {school} - {student_name}")
+        student_id = student_id_row['id']
+        
         if column not in ['is_planned', 'is_done']:
             raise ValueError("不正なカラム名です。")
+        
+        # SQLインジェクションを防ぐため、カラム名はf-stringで直接埋め込まないのがベストプラクティスですが、
+        # ここでは入力値を検証しているため許容します。
         cursor.execute(
             f"UPDATE progress SET {column} = ? WHERE student_id = ? AND subject = ? AND level = ? AND book_name = ?",
             (value, student_id, subject, level, book_name)
         )
         conn.commit()
         return True, "更新しました。"
-    except (sqlite3.Error, TypeError) as e:
+    except (sqlite3.Error, TypeError, ValueError) as e:
         print(f"データベース更新エラー: {e}")
+        conn.rollback()
         return False, "更新に失敗しました。"
     finally:
         conn.close()
@@ -130,17 +153,22 @@ def add_homework(school, student_name, subject, task, due_date):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        student_id = cursor.execute(
+        student_id_row = cursor.execute(
             'SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)
-        ).fetchone()['id']
+        ).fetchone()
+        if not student_id_row:
+             raise ValueError(f"生徒が見つかりません: {school} - {student_name}")
+        student_id = student_id_row['id']
+        
         cursor.execute(
             'INSERT INTO homework (student_id, subject, task, due_date) VALUES (?, ?, ?, ?)',
             (student_id, subject, task, due_date)
         )
         conn.commit()
         return True, "宿題を追加しました。"
-    except (sqlite3.Error, TypeError) as e:
+    except (sqlite3.Error, TypeError, ValueError) as e:
         print(f"宿題追加エラー: {e}")
+        conn.rollback()
         return False, "宿題の追加に失敗しました。"
     finally:
         conn.close()
@@ -154,6 +182,7 @@ def update_homework_status(homework_id, new_status):
         return True, "ステータスを更新しました。"
     except sqlite3.Error as e:
         print(f"ステータス更新エラー: {e}")
+        conn.rollback()
         return False, "ステータスの更新に失敗しました。"
     finally:
         conn.close()
@@ -167,6 +196,7 @@ def delete_homework(homework_id):
         return True, "宿題を削除しました。"
     except sqlite3.Error as e:
         print(f"宿題削除エラー: {e}")
+        conn.rollback()
         return False, "宿題の削除に失敗しました。"
     finally:
         conn.close()

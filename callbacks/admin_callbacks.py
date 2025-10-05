@@ -31,7 +31,8 @@ def register_admin_callbacks(app, data):
         if is_open: # 閉じるボタンが押された場合
             return False, no_update
 
-        users = load_users()
+        # データベースから直接ユーザーリストを読み込む
+        users = load_users() 
         if not users:
             table = dbc.Alert("登録されているユーザーがいません。", color="info")
         else:
@@ -40,10 +41,10 @@ def register_admin_callbacks(app, data):
             ]))]
             table_body = [html.Tbody([
                 html.Tr([
-                    html.Td(user_info.get('username')),
-                    html.Td(user_info.get('role')),
-                    html.Td(user_info.get('school', 'N/A'))
-                ]) for user_info in users.values()
+                    html.Td(user['username']),
+                    html.Td(user['role']),
+                    html.Td(user.get('school', 'N/A'))
+                ]) for user in users
             ])]
             table = dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True)
 
