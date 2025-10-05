@@ -1,0 +1,523 @@
+"""
+JSON形式のデータ処理モジュール
+"""
+import json
+import os
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+import shutil
+
+# 設定
+JSON_PATH = "progress_data.json"
+BACKUP_DIR = "backups"
+
+class ProgressDataManager:
+    """進捗データをJSON形式で管理するクラス"""
+    
+    def __init__(self, json_path: str = JSON_PATH):
+        self.json_path = json_path
+        self.data = None
+        self._ensure_backup_dir()
+    
+    def _ensure_backup_dir(self):
+        """バックアップディレクトリを作成"""
+        if not os.path.exists(BACKUP_DIR):
+            os.makedirs(BACKUP_DIR)
+    
+    def load_data(self) -> Dict[str, Any]:
+        """JSONデータを読み込み"""
+        try:
+            if not os.path.exists(self.json_path):
+                # 初期データを作成
+                self._create_initial_data()
+            
+            with open(self.json_path, 'r', encoding='utf-8') as f:
+                self.data = json.load(f)
+            
+            print(f"✅ JSONデータ読み込み完了: {len(self.data.get('progress', []))} 件")
+            return self.data
+            
+        except Exception as e:
+            print(f"❌ JSONデータ読み込みエラー: {e}")
+            return self._get_empty_data()
+    
+    def _create_initial_data(self):
+        """初期JSONデータを作成"""
+        initial_data = {
+            "metadata": {
+                "version": "2.0",
+                "created_at": datetime.now().isoformat(),
+                "total_records": 0
+            },
+            "students": {},
+            "books": [],
+            "progress": []
+        }
+        
+        with open(self.json_path, 'w', encoding='utf-8') as f:
+            json.dump(initial_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"📄 初期JSONファイルを作成: {self.json_path}")
+    
+    def _get_empty_data(self) -> Dict[str, Any]:
+        """空のデータ構造を返す"""
+        return {
+            "metadata": {"version": "2.0", "created_at": datetime.now().isoformat()},
+            "students": {},
+            "books": [],
+            "progress": []
+        }
+    
+    def save_data(self) -> bool:
+        """JSONデータを保存（バックアップ付き）"""
+        try:
+            if self.data is None:
+                print("⚠️ 保存するデータがありません")
+                return False
+            
+            # バックアップ作成
+            if os.path.exists(self.json_path):
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = os.path.join(BACKUP_DIR, f"progress_data_backup_{timestamp}.json")
+                shutil.copy2(self.json_path, backup_path)
+                print(f"📄 バックアップ作成: {backup_path}")
+            
+            # メタデータを更新
+            self.data["metadata"]["last_updated"] = datetime.now().isoformat()
+            self.data["metadata"]["total_records"] = len(self.data.get("progress", []))
+            
+            # データ保存
+            with open(self.json_path, 'w', encoding='utf-8') as f:
+                json.dump(self.data, f, ensure_ascii=False, indent=2)
+            
+            file_size = os.path.getsize(self.json_path)
+            print(f"✅ JSON保存完了: {file_size:,} bytes")
+            return True
+            
+        except Exception as e:
+            print(f"❌ JSON保存エラー: {e}")
+            return False
+    
+    def get_students(self, user_filter: Optional[Dict] = None) -> List[str]:
+        """生徒一覧を取得"""
+        if not self.data:
+            self.load_data()
+        
+        students = list(self.data.get("students", {}).keys())
+        
+        # ユーザーフィルターを適用
+        if user_filter and "campus" in user_filter:
+            campus_filter = user_filter["campus"]
+            filtered_students = []
+            for student_name in students:
+                student_info = self.data["students"][student_name]
+                if student_info.get("campus") == campus_filter or not campus_filter:
+                    filtered_students.append(student_name)
+            return filtered_students
+        
+        return students
+    
+    def get_progress_data(self, student_name: Optional[str] = None, 
+                         user_filter: Optional[Dict] = None) -> List[Dict]:
+        """進捗データを取得"""
+        if not self.data:
+            self.load_data()
+        
+        progress_data = self.data.get("progress", [])
+        
+        # 生徒フィルター
+        if student_name:
+            progress_data = [p for p in progress_data if p.get("student_name") == student_name]
+        
+        # ユーザーフィルター（校舎別など）
+        if user_filter and "campus" in user_filter:
+            campus_filter = user_filter["campus"]
+            if campus_filter:
+                # 生徒の校舎情報をチェック
+                filtered_data = []
+                for progress in progress_data:
+                    student_info = self.data["students"].get(progress["student_name"], {})
+                    if student_info.get("campus") == campus_filter:
+                        filtered_data.append(progress)
+                progress_data = filtered_data
+        
+        return progress_data
+    
+    def add_student(self, student_name: str, username: str = "", campus: str = "") -> bool:
+        """新しい生徒を追加"""
+        try:
+            if not self.data:
+                self.load_data()
+            
+            if student_name in self.data["students"]:
+                print(f"⚠️ 生徒「{student_name}」は既に存在します")
+                return False
+            
+            # 新しい生徒を追加
+            self.data["students"][student_name] = {
+                "name": student_name,
+                "username": username,
+                "campus": campus,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            # 既存の参考書データをコピーして新しい生徒用の進捗を作成
+            if self.data["books"]:
+                existing_progress = self.data.get("progress", [])
+                if existing_progress:
+                    # 最初の生徒のデータをテンプレートとして使用
+                    template_student = None
+                    for progress in existing_progress:
+                        template_student = progress["student_name"]
+                        break
+                    
+                    if template_student:
+                        template_progress = [p for p in existing_progress if p["student_name"] == template_student]
+                        
+                        # 新しい生徒用の進捗を作成
+                        new_progress_id = len(existing_progress) + 1
+                        for template in template_progress:
+                            new_progress = {
+                                "id": f"progress_{new_progress_id:06d}",
+                                "student_name": student_name,
+                                "book_id": template["book_id"],
+                                "planned": False,
+                                "completed": False,
+                                "achievement_percentage": 0.0,
+                                "last_updated": datetime.now().isoformat()
+                            }
+                            self.data["progress"].append(new_progress)
+                            new_progress_id += 1
+                        
+                        print(f"📚 新しい生徒用に{len(template_progress)}件の進捗データを作成")
+            
+            print(f"👤 生徒「{student_name}」を追加しました")
+            return True
+            
+        except Exception as e:
+            print(f"❌ 生徒追加エラー: {e}")
+            return False
+
+
+def add_new_student_json(df, student_name, current_user_info=None):
+    """
+    CSV互換性のための生徒追加関数
+    
+    Args:
+        df: DataFrameオブジェクト（JSONから変換されたもの）
+        student_name: 追加する生徒名
+        current_user_info: 現在のユーザー情報（辞書）
+        
+    Returns:
+        pd.DataFrame: 更新されたDataFrame
+    """
+    try:
+        # ユーザー情報から校舎とユーザー名を取得
+        campus = current_user_info.get('campus', '') if current_user_info else ''
+        username = current_user_info.get('username', '') if current_user_info else ''
+        
+        # データマネージャーに生徒を追加
+        success = data_manager.add_student(student_name, username, campus)
+        
+        if success:
+            # 更新されたデータを取得してDataFrameとして返す
+            data_manager.save_data()
+            
+            # 新しいデータを読み込んでDataFrameに変換
+            updated_data = data_manager.load_data()
+            if updated_data and "progress" in updated_data:
+                import pandas as pd
+                updated_df = pd.DataFrame(updated_data["progress"])
+                
+                # 必要な列を追加/調整
+                if not updated_df.empty:
+                    # JSON形式から CSV互換形式への変換
+                    if "student_name" in updated_df.columns:
+                        updated_df = updated_df.rename(columns={"student_name": "生徒"})
+                    if "planned" in updated_df.columns:
+                        updated_df = updated_df.rename(columns={"planned": "予定"})
+                    if "completed" in updated_df.columns:
+                        updated_df = updated_df.rename(columns={"completed": "達成済"})
+                    if "achievement_percentage" in updated_df.columns:
+                        updated_df["達成割合"] = updated_df["achievement_percentage"].apply(
+                            lambda x: f"{x}%" if x > 0 else ""
+                        )
+                    
+                    # 必要な列を追加
+                    required_columns = ["ルートレベル", "科目", "参考書名", "所要時間", "ユーザー名", "校舎"]
+                    for col in required_columns:
+                        if col not in updated_df.columns:
+                            if col == "ユーザー名":
+                                updated_df[col] = updated_df.get("生徒", student_name)
+                            elif col == "校舎":
+                                updated_df[col] = campus
+                            else:
+                                updated_df[col] = ""
+                
+                return updated_df
+            else:
+                return df
+        else:
+            return df
+            
+    except Exception as e:
+        print(f"❌ add_new_student_json エラー: {e}")
+        return df
+    
+    def update_progress(self, student_name: str, book_id: str, 
+                       planned: bool = None, completed: bool = None, 
+                       achievement_percentage: float = None) -> bool:
+        """進捗を更新"""
+        try:
+            if not self.data:
+                self.load_data()
+            
+            # 該当する進捗を検索
+            for progress in self.data["progress"]:
+                if (progress["student_name"] == student_name and 
+                    progress["book_id"] == book_id):
+                    
+                    # 値を更新
+                    if planned is not None:
+                        progress["planned"] = planned
+                    if completed is not None:
+                        progress["completed"] = completed
+                    if achievement_percentage is not None:
+                        progress["achievement_percentage"] = achievement_percentage
+                    
+                    progress["last_updated"] = datetime.now().isoformat()
+                    print(f"📊 進捗更新: {student_name} - {book_id}")
+                    return True
+            
+            print(f"⚠️ 該当する進捗が見つかりません: {student_name} - {book_id}")
+            return False
+            
+        except Exception as e:
+            print(f"❌ 進捗更新エラー: {e}")
+            return False
+    
+    def get_books(self) -> List[Dict]:
+        """参考書一覧を取得"""
+        if not self.data:
+            self.load_data()
+        return self.data.get("books", [])
+    
+    def to_dataframe(self):
+        """pandas DataFrameに変換（既存コードとの互換性用）"""
+        try:
+            import pandas as pd
+            
+            if not self.data:
+                self.load_data()
+            
+            # 進捗データを展開してCSV形式と同じ構造に変換
+            rows = []
+            books_dict = {book["id"]: book for book in self.data.get("books", [])}
+            
+            for progress in self.data.get("progress", []):
+                book = books_dict.get(progress["book_id"], {})
+                student_info = self.data["students"].get(progress["student_name"], {})
+                
+                row = {
+                    "生徒": progress["student_name"],
+                    "ルートレベル": book.get("route_level", ""),
+                    "科目": book.get("subject", ""),
+                    "参考書名": book.get("name", ""),
+                    "所要時間": book.get("estimated_hours", 0.0),
+                    "予定": progress["planned"],
+                    "達成済": progress["completed"],
+                    "達成割合": f"{progress['achievement_percentage']:.1f}%" if progress["achievement_percentage"] > 0 else "",
+                    "ユーザー名": student_info.get("username", ""),
+                    "校舎": student_info.get("campus", "")
+                }
+                rows.append(row)
+            
+            return pd.DataFrame(rows)
+            
+        except Exception as e:
+            print(f"❌ DataFrame変換エラー: {e}")
+            import pandas as pd
+            return pd.DataFrame()
+
+# グローバルインスタンス
+data_manager = ProgressDataManager()
+
+# 既存のCSV関数との互換性を保つ関数
+def load_json_data(user_filter=None):
+    """JSONデータを読み込み（CSV関数との互換性）"""
+    data_manager.load_data()
+    return data_manager.to_dataframe()
+
+def save_json_data(df=None):
+    """JSONデータを保存（CSV関数との互換性）"""
+    if df is not None:
+        # DataFrameからJSONに逆変換（必要に応じて実装）
+        pass
+    return data_manager.save_data()
+
+def add_new_student_json(df=None, student_name: str = None, current_user_info: Dict = None):
+    """
+    新しい生徒をJSONに追加（CSV互換性）
+    
+    Args:
+        df: DataFrame（既存データ）
+        student_name: 生徒名
+        current_user_info: 現在のユーザー情報
+        
+    Returns:
+        pd.DataFrame: 更新されたDataFrame
+    """
+    import pandas as pd
+    
+    try:
+        if not student_name:
+            print("⚠️ 生徒名が指定されていません")
+            return df if df is not None else pd.DataFrame()
+        
+        username = current_user_info.get("username", "") if current_user_info else ""
+        campus = current_user_info.get("campus", "") if current_user_info else ""
+        
+        # JSONにデータを追加
+        success = data_manager.add_student(student_name, username, campus)
+        
+        if success:
+            data_manager.save_data()
+            print(f"✅ 生徒 '{student_name}' をJSONに追加しました")
+            
+            # 更新されたデータをDataFrame形式で返す
+            return load_json_data()
+        else:
+            print(f"❌ 生徒 '{student_name}' の追加に失敗しました")
+            return df if df is not None else pd.DataFrame()
+            
+    except Exception as e:
+        print(f"❌ add_new_student_json エラー: {e}")
+        return df if df is not None else pd.DataFrame()
+
+
+def load_json_data(user_filter=None):
+    """
+    CSV互換性のためのJSON読み込み関数
+    
+    Args:
+        user_filter: ユーザーフィルター辞書 {'生徒': 'username'} など
+        
+    Returns:
+        pd.DataFrame: CSVと同じ形式のDataFrame
+    """
+    try:
+        # データマネージャーからデータを読み込み
+        data = data_manager.load_data()
+        
+        if not data or "progress" not in data:
+            # 空のDataFrameを返す
+            import pandas as pd
+            return pd.DataFrame(columns=[
+                "ルートレベル", "科目", "参考書名", "所要時間", "予定", "達成済", 
+                "達成割合", "生徒", "ユーザー名", "校舎"
+            ])
+        
+        # DataFrameに変換
+        import pandas as pd
+        df = pd.DataFrame(data["progress"])
+        
+        if not df.empty:
+            # JSON形式からCSV互換形式への変換
+            column_mapping = {
+                "student_name": "生徒",
+                "planned": "予定", 
+                "completed": "達成済",
+                "achievement_percentage": "達成割合",
+                "route_level": "ルートレベル",
+                "subject": "科目",
+                "book_name": "参考書名",
+                "time_hours": "所要時間",
+                "campus": "校舎"
+            }
+            
+            for json_col, csv_col in column_mapping.items():
+                if json_col in df.columns:
+                    if json_col == "achievement_percentage":
+                        # パーセンテージ形式に変換
+                        df[csv_col] = df[json_col].apply(lambda x: f"{x}%" if pd.notna(x) and x > 0 else "")
+                    elif json_col == "time_hours":
+                        # 数値型を文字列に変換
+                        df[csv_col] = df[json_col].astype(str)
+                    else:
+                        df[csv_col] = df[json_col]
+            
+            # ユーザー名を生徒名から設定
+            if "生徒" in df.columns:
+                df["ユーザー名"] = df["生徒"]
+            
+            # 必要な列が不足している場合は空文字で埋める
+            required_columns = ["ルートレベル", "科目", "参考書名", "所要時間", "予定", "達成済", 
+                              "達成割合", "生徒", "ユーザー名", "校舎"]
+            for col in required_columns:
+                if col not in df.columns:
+                    df[col] = ""
+            
+            # ユーザーフィルターを適用
+            if user_filter and "生徒" in user_filter:
+                filter_value = user_filter["生徒"]
+                if "生徒" in df.columns:
+                    df = df[df["生徒"] == filter_value]
+        
+        return df
+        
+    except Exception as e:
+        print(f"❌ load_json_data エラー: {e}")
+        import pandas as pd
+        return pd.DataFrame(columns=[
+            "ルートレベル", "科目", "参考書名", "所要時間", "予定", "達成済", 
+            "達成割合", "生徒", "ユーザー名", "校舎"
+        ])
+
+
+def save_json_data_full(df):
+    """
+    CSV互換性のためのJSON完全保存関数
+    
+    Args:
+        df: 保存するDataFrame
+        
+    Returns:
+        bool: 保存成功フラグ
+    """
+    try:
+        # DataFrameからJSONデータを構築
+        progress_data = []
+        
+        if not df.empty:
+            for _, row in df.iterrows():
+                # CSV形式からJSON形式への変換
+                progress_item = {
+                    "id": f"progress_{len(progress_data) + 1:06d}",
+                    "student_name": row.get("生徒", ""),
+                    "book_id": f"book_{len(progress_data) + 1:06d}",  # 簡易的なbook_id
+                    "planned": bool(row.get("予定", False)),
+                    "completed": bool(row.get("達成済", False)),
+                    "achievement_percentage": float(
+                        str(row.get("達成割合", "")).replace("%", "") or 0
+                    ),
+                    "last_updated": datetime.now().isoformat(),
+                    # 追加情報
+                    "route_level": row.get("ルートレベル", ""),
+                    "subject": row.get("科目", ""),
+                    "book_name": row.get("参考書名", ""),
+                    "time_hours": float(row.get("所要時間", 0)),
+                    "campus": row.get("校舎", "")
+                }
+                progress_data.append(progress_item)
+        
+        # データマネージャーのデータを更新
+        if data_manager.data:
+            data_manager.data["progress"] = progress_data
+            return data_manager.save_data()
+        else:
+            print("⚠️ データマネージャーが初期化されていません")
+            return False
+            
+    except Exception as e:
+        print(f"❌ save_json_data_full エラー: {e}")
+        return False
