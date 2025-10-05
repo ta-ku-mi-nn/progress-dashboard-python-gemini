@@ -15,23 +15,24 @@ def create_all_modals(subjects):
         bulk_buttons_config = {}
 
     bulk_buttons = []
-    for subject, categories in bulk_buttons_config.items():
-        # subjectsがNoneでないことを確認
-        if subjects and subject in subjects:
-            buttons = [html.H5(subject)]
-            for category, books in categories.items():
-                buttons.append(
-                    dbc.Button(
-                        category,
-                        id={'type': 'bulk-plan-button', 'index': f'{subject}-{category}'},
-                        color='primary',
-                        className='me-2 mb-2'
+    # subjectsがNoneでないことを確認
+    if subjects:
+        for subject, categories in bulk_buttons_config.items():
+            if subject in subjects:
+                buttons = [html.H5(subject)]
+                for category, books in categories.items():
+                    buttons.append(
+                        dbc.Button(
+                            category,
+                            id={'type': 'bulk-plan-button', 'index': f'{subject}-{category}'},
+                            color='primary',
+                            className='me-2 mb-2'
+                        )
                     )
-                )
-            bulk_buttons.append(html.Div(buttons, className="mb-3"))
+                bulk_buttons.append(html.Div(buttons, className="mb-3"))
 
     return [
-        # 一括登録モーダル
+        # --- 一括登録モーダル ---
         dbc.Modal(
             id="bulk-register-modal",
             is_open=False,
@@ -46,7 +47,44 @@ def create_all_modals(subjects):
                 dbc.ModalFooter(dbc.Button("閉じる", id="close-bulk-modal", className="ms-auto")),
             ],
         ),
-        # 管理者向けユーザー一覧モーダル
+
+        # --- 【新規追加】宿題追加モーダル ---
+        dbc.Modal(
+            id="homework-modal",
+            is_open=False,
+            children=[
+                dbc.ModalHeader(dbc.ModalTitle(id="homework-modal-title")),
+                dbc.ModalBody([
+                    dbc.Alert(id="homework-alert", is_open=False),
+                    dbc.Form([
+                        dbc.Row([
+                            dbc.Label("科目", width=3),
+                            dbc.Col(dcc.Dropdown(
+                                id='homework-subject',
+                                options=[{'label': s, 'value': s} for s in (subjects or [])]
+                            ), width=9),
+                        ], className="mb-3"),
+                        dbc.Row([
+                            dbc.Label("課題内容", width=3),
+                            dbc.Col(dbc.Textarea(id="homework-task", placeholder="例: 基礎問題精講 P.10-15"), width=9),
+                        ], className="mb-3"),
+                        dbc.Row([
+                            dbc.Label("提出期限", width=3),
+                            dbc.Col(dcc.DatePickerSingle(
+                                id='homework-due-date',
+                                display_format='YYYY-MM-DD',
+                            ), width=9),
+                        ]),
+                    ])
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("保存", id="save-homework-button", color="primary"),
+                    dbc.Button("キャンセル", id="close-homework-modal", className="ms-auto"),
+                ]),
+            ]
+        ),
+
+        # --- 管理者向けユーザー一覧モーダル ---
         dbc.Modal(
             id="user-list-modal",
             is_open=False,
@@ -54,10 +92,11 @@ def create_all_modals(subjects):
             children=[
                 dbc.ModalHeader(dbc.ModalTitle("ユーザー一覧")),
                 dbc.ModalBody(id="user-list-table"),
-                dbc.ModalFooter(dbc.Button("閉じる", "close-user-list-modal", className="ms-auto"))
+                dbc.ModalFooter(dbc.Button("閉じる", id="close-user-list-modal", className="ms-auto"))
             ]
         ),
-        # 管理者向け新規ユーザー作成モーダル
+
+        # --- 管理者向け新規ユーザー作成モーダル ---
         dbc.Modal(
             id="new-user-modal",
             is_open=False,
@@ -97,6 +136,7 @@ def create_all_modals(subjects):
                 ]),
             ]
         ),
-        # データダウンロード用コンポーネント
+        
+        # --- データダウンロード用コンポーネント ---
         dcc.Download(id="download-backup"),
     ]

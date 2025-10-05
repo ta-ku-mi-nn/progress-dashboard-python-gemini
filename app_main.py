@@ -26,6 +26,7 @@ from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.student_callbacks import register_student_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
 from callbacks.auth_callbacks import register_auth_callbacks
+from callbacks.homework_callbacks import register_homework_callbacks
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -155,6 +156,7 @@ register_main_callbacks(app, None)
 register_progress_callbacks(app, None)
 register_student_callbacks(app, None)
 register_admin_callbacks(app, None)
+register_homework_callbacks(app)
 
 # --- ブラウザ自動起動 ---
 def open_browser():

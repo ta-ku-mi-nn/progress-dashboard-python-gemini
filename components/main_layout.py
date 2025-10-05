@@ -45,12 +45,12 @@ def create_navbar(user_info=None):
     )
 
 def create_main_layout(user_info):
-    """メインアプリケーションのレイアウトを生成する（新データ構造対応）"""
+    """メインアプリケーションのレイアウトを生成する（宿題機能追加）"""
     return html.Div([
         create_navbar(user_info),
         dbc.Container([
             dbc.Row([
-                # 左側のフィルターパネル（2段階に変更）
+                # 左側のフィルターパネル
                 dbc.Col([
                     html.H4("フィルター", className="mt-4"),
                     dbc.Card(dbc.CardBody([
@@ -64,10 +64,30 @@ def create_main_layout(user_info):
 
                 # 右側のコンテンツエリア
                 dbc.Col([
+                    # --- 進捗テーブル ---
                     html.Div(id='student-progress-table'),
                     html.Hr(),
+                    
+                    # --- 科目別進捗グラフ ---
                     html.H4("科目別進捗グラフ"),
                     html.Div(id='progress-graph-container'),
+                    html.Hr(),
+
+                    # --- 【新規追加】宿題管理セクション ---
+                    dbc.Row([
+                        dbc.Col(html.H4("宿題管理"), width='auto'),
+                        dbc.Col(
+                            dbc.Button(
+                                [html.I(className="fas fa-plus me-2"), "宿題を追加"],
+                                id="add-homework-btn",
+                                color="success",
+                                size="sm"
+                            ),
+                            className="text-end"
+                        )
+                    ], align="center", className="mb-3"),
+                    html.Div(id='homework-list-container')
+
                 ], width=12, lg=9)
             ])
         ], fluid=True),

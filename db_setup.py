@@ -1,22 +1,17 @@
 import sqlite3
-from config.settings import APP_CONFIG
 
-# --- データベースファイル名を設定 ---
-# settings.py に 'db_file' を追加するのが望ましいですが、簡単のため直接記述します。
 DATABASE_FILE = 'progress.db'
 
 def create_tables():
     """
-    データベースファイルと、必要なテーブル（students, progress）を作成します。
+    データベースファイルと、必要なテーブル（students, progress, homework）を作成します。
     """
     try:
-        # データベースに接続（ファイルがなければ自動的に作成される）
         conn = sqlite3.connect(DATABASE_FILE)
         cursor = conn.cursor()
         print(f"データベース '{DATABASE_FILE}' に接続しました。")
 
         # --- 生徒テーブル (students) ---
-        # 生徒の基本情報を格納します。
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,10 +23,9 @@ def create_tables():
             UNIQUE(school, name)
         )
         ''')
-        print("テーブル 'students' を作成しました（または既に存在します）。")
+        print("テーブル 'students' を確認しました。")
 
         # --- 進捗テーブル (progress) ---
-        # 各生徒の参考書の進捗を格納します。
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS progress (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,9 +39,22 @@ def create_tables():
             FOREIGN KEY (student_id) REFERENCES students (id)
         )
         ''')
-        print("テーブル 'progress' を作成しました（または既に存在します）。")
+        print("テーブル 'progress' を確認しました。")
 
-        # 変更をデータベースに保存
+        # --- 【新規追加】宿題テーブル (homework) ---
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS homework (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            task TEXT NOT NULL,
+            due_date TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT '未着手',  -- (未着手, 進行中, 完了)
+            FOREIGN KEY (student_id) REFERENCES students (id)
+        )
+        ''')
+        print("✅ 新しいテーブル 'homework' を作成しました（または既に存在します）。")
+
         conn.commit()
 
     except sqlite3.Error as e:
