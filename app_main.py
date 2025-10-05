@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-学習進捗ダッシュボード - JSON版認証機能付きメインアプリケーション
+学習進捗ダッシュボード - データベース版 認証機能付きメインアプリケーション
 """
 import threading
 import time
 import webbrowser
+import sqlite3
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
@@ -12,7 +13,7 @@ from dash import dcc, html, Input, Output
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
-from data.nested_json_processor import load_json_data, initialize_user_data, get_all_subjects
+from data.nested_json_processor import initialize_user_data, get_all_subjects
 from components.main_layout import create_main_layout, create_navbar
 from components.modals import create_all_modals
 from components.login_components import (
@@ -36,13 +37,8 @@ app = dash.Dash(
 app.index_string = APP_INDEX_STRING
 app.server.secret_key = APP_CONFIG['server']['secret_key']
 
-# --- データ読み込み ---
-print("📊 全学習データを読み込んでいます...")
-ALL_DATA = load_json_data()
-if not ALL_DATA:
-    print("⚠️ 警告: データファイルが見つからないか、内容が空です。")
-else:
-    print("✅ データ読み込み完了。")
+# データベースファイル名
+DATABASE_FILE = 'progress.db'
 
 # --- メインレイアウト ---
 app.layout = html.Div([
@@ -74,14 +70,11 @@ def display_page(pathname, auth_store_data):
     if pathname == '/login':
         return create_login_layout()
 
-    # ログインしていない場合はログインページにリダイレクト
     if not user_info:
         return create_login_layout()
 
-    # 新規ユーザー向けのデータ初期化（現在はプレースホルダー）
     initialize_user_data(user_info['username'])
-
-    subjects = get_all_subjects(ALL_DATA)
+    subjects = get_all_subjects()
 
     if pathname in ['/', None]:
         return html.Div([
@@ -105,37 +98,23 @@ def display_page(pathname, auth_store_data):
             create_navbar(user_info),
             dbc.Container([
                 html.H1("🔧 管理者メニュー", className="mt-4"),
-                dbc.Alert([
-                    html.H5("📊 システム情報"),
-                    html.P(f"データファイル: {APP_CONFIG['data']['json_file']}"),
-                ], color="info", className="mb-4"),
                 dbc.Row([
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("👥 ユーザー管理"),
                         dbc.CardBody([
-                            html.P("システム内のユーザーを管理します。"),
-                            dbc.Button(
-                                "ユーザー一覧", color="primary",
-                                className="me-2", id="user-list-btn"
-                            ),
-                            dbc.Button(
-                                "新規ユーザー作成", color="success", id="new-user-btn"
-                            )
+                            dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
+                            dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
                         ])
                     ]), width=6),
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("💾 データ管理"),
-                        dbc.CardBody([
-                            html.P("現在の学習データをバックアップします。"),
-                            dbc.Button("JSONバックアップ", color="warning", id="backup-btn")
-                        ])
+                        dbc.CardBody(dbc.Button("JSONバックアップ", id="backup-btn", color="warning"))
                     ]), width=6)
                 ], className="mb-4"),
                 html.Div(id="admin-statistics")
             ])
         ])
 
-    # 該当するパスがない場合はメインページへ
     return create_main_layout(user_info)
 
 # --- 管理者向け統計情報コールバック ---
@@ -144,57 +123,38 @@ def display_page(pathname, auth_store_data):
     Input('url', 'pathname')
 )
 def update_admin_statistics(pathname):
-    """管理者ページの統計情報を更新"""
-    if pathname != '/admin' or not ALL_DATA:
+    """管理者ページの統計情報をデータベースから取得して更新"""
+    if pathname != '/admin':
         return ""
 
     try:
-        total_students = 0
-        total_subjects = set()
-        total_books = 0
-        completed_books = 0
-
-        for students in ALL_DATA.values():
-            total_students += len(students)
-            for student_data in students.values():
-                if 'progress' in student_data:
-                    total_subjects.update(student_data['progress'].keys())
-                    for subject_data in student_data['progress'].values():
-                        for level_data in subject_data.values():
-                            total_books += len(level_data)
-                            completed_books += sum(
-                                1 for book in level_data.values() if book.get('達成済')
-                            )
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        total_students = cursor.execute('SELECT COUNT(id) FROM students').fetchone()[0]
+        total_subjects = cursor.execute('SELECT COUNT(DISTINCT subject) FROM progress').fetchone()[0]
+        total_books = cursor.execute('SELECT COUNT(id) FROM progress').fetchone()[0]
+        completed_books = cursor.execute('SELECT COUNT(id) FROM progress WHERE is_done = TRUE').fetchone()[0]
+        conn.close()
 
         return dbc.Card([
             dbc.CardHeader("📊 システム統計情報"),
             dbc.CardBody(dbc.Row([
-                dbc.Col([html.H4(total_students, className="text-info"), html.P("総生徒数")], width=3),
-                dbc.Col([
-                    html.H4(len(total_subjects), className="text-success"), html.P("総科目数")
-                ], width=3),
-                dbc.Col([
-                    html.H4(total_books, className="text-primary"), html.P("総参考書数")
-                ], width=3),
-                dbc.Col([
-                    html.H4(completed_books, className="text-warning"), html.P("完了参考書数")
-                ], width=3)
+                dbc.Col([html.H4(total_students), html.P("総生徒数")], width=3),
+                dbc.Col([html.H4(total_subjects), html.P("総科目数")], width=3),
+                dbc.Col([html.H4(total_books), html.P("総参考書数")], width=3),
+                dbc.Col([html.H4(completed_books), html.P("完了参考書数")], width=3)
             ]))
         ])
-
-    # 多くのエラーが発生する可能性があるため、汎用的なExceptionを捕捉し、
-    # アプリケーション全体のクラッシュを防ぎます。
-    except Exception as e:
-        return dbc.Alert(f"統計情報の取得に失敗しました: {str(e)}", color="danger")
+    except sqlite3.Error as e:
+        return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
 
 # --- コールバック登録 ---
+# データベース移行に伴い、_data引数は不要になったため削除
 register_auth_callbacks(app)
-register_main_callbacks(app, ALL_DATA)
-register_progress_callbacks(app, ALL_DATA)
-register_student_callbacks(app, ALL_DATA)
-# 'data'引数を渡すように修正
-register_admin_callbacks(app, ALL_DATA)
-
+register_main_callbacks(app, None)
+register_progress_callbacks(app, None)
+register_student_callbacks(app, None)
+register_admin_callbacks(app, None)
 
 # --- ブラウザ自動起動 ---
 def open_browser():
@@ -202,13 +162,11 @@ def open_browser():
     time.sleep(2)
     webbrowser.open(f"http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}")
 
-
 # --- アプリケーション実行 ---
 if __name__ == '__main__':
     print(
         f"🚀 アプリケーションを起動中... http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}"
     )
-
     if APP_CONFIG['browser']['auto_open']:
         threading.Thread(target=open_browser, daemon=True).start()
 

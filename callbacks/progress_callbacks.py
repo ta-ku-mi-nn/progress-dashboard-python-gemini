@@ -6,16 +6,15 @@ import pandas as pd
 
 # データ処理とグラフ生成の関数をインポート
 from data.nested_json_processor import get_student_progress
-# 修正後の正しい関数名をインポート
 from charts.chart_generator import create_progress_bar_chart
 
-def register_progress_callbacks(app, data):
+def register_progress_callbacks(app, _data):
     """
     進捗グラフの表示に関連するコールバックを登録します。
 
     Args:
         app (dash.Dash): Dashアプリケーションインスタンス。
-        data (dict): アプリケーション起動時に読み込まれた全データ。
+        _data: データベース移行に伴い、この引数は直接は使用しません。
     """
 
     @app.callback(
@@ -30,14 +29,14 @@ def register_progress_callbacks(app, data):
         if not selected_student or not selected_school:
             return html.Div("生徒を選択してください。", className="text-center mt-4")
 
-        # 選択された生徒の進捗データを取得
-        student_progress = get_student_progress(data, selected_school, selected_student)
+        # データベースから選択された生徒の進捗データを取得
+        student_progress = get_student_progress(selected_school, selected_student)
 
         if not student_progress:
             return html.Div(f"「{selected_student}」さんの進捗データが見つかりません。",
                             className="text-center mt-4")
 
-        # ネストした辞書データをPandas DataFrameに変換
+        # データベースから取得したデータをPandas DataFrameに変換
         records = []
         for subject, levels in student_progress.items():
             for level, books in levels.items():
