@@ -12,7 +12,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 
-# --- 【修正点】プロジェクトのルートディレクトリをPythonのパスに追加 ---
+# --- プロジェクトのルートディレクトリをPythonのパスに追加 ---
 # これにより、どのファイルからでも 'components' や 'data' などを正しくインポートできるようになります。
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -33,6 +33,7 @@ from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.student_callbacks import register_student_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
 from callbacks.auth_callbacks import register_auth_callbacks
+from callbacks.homework_callbacks import register_homework_callbacks
 from callbacks.report_callbacks import register_report_callbacks
 
 
@@ -167,6 +168,7 @@ register_progress_callbacks(app, None)
 register_student_callbacks(app, None)
 register_admin_callbacks(app, None)
 register_report_callbacks(app)
+register_homework_callbacks(app)
 
 
 # --- ブラウザ自動起動 ---
