@@ -2,17 +2,14 @@
 SQLiteデータベースとの接続とデータ操作を行う関数群を定義します。
 """
 import sqlite3
-from datetime import datetime
 
 DATABASE_FILE = 'progress.db'
 
 def get_db_connection():
     """データベース接続を取得します。"""
     conn = sqlite3.connect(DATABASE_FILE)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row  # 辞書形式で結果を取得できるように設定
     return conn
-
-# --- 生徒・進捗関連の関数 (変更なし) ---
 
 def get_all_schools():
     """データベースからすべてのユニークな校舎名を取得します。"""
@@ -70,6 +67,15 @@ def get_student_progress(school, student_name):
         }
     return progress_data
 
+def get_student_info(school, student_name):
+    """特定の生徒の個人情報（偏差値、講師など）を取得します。"""
+    conn = get_db_connection()
+    student_info = conn.execute(
+        'SELECT * FROM students WHERE name = ? AND school = ?', (student_name, school)
+    ).fetchone()
+    conn.close()
+    return dict(student_info) if student_info else {}
+
 def update_progress_status(school, student_name, subject, level, book_name, column, value):
     """特定の参考書の進捗ステータス（予定 or 達成済）を更新します。"""
     conn = get_db_connection()
@@ -102,8 +108,6 @@ def get_all_subjects():
 def initialize_user_data(username):
     pass
 
-# --- 【新規追加】宿題管理関連の関数 ---
-
 def get_student_homework(school, student_name):
     """特定の生徒の宿題リストをデータベースから取得します。"""
     conn = get_db_connection()
@@ -113,15 +117,12 @@ def get_student_homework(school, student_name):
     if student is None:
         conn.close()
         return []
-    
     student_id = student['id']
     homework_list = conn.execute(
         'SELECT id, subject, task, due_date, status FROM homework WHERE student_id = ? ORDER BY due_date',
         (student_id,)
     ).fetchall()
     conn.close()
-    
-    # フロントエンドで扱いやすいように辞書のリストに変換
     return [dict(row) for row in homework_list]
 
 def add_homework(school, student_name, subject, task, due_date):
@@ -132,7 +133,6 @@ def add_homework(school, student_name, subject, task, due_date):
         student_id = cursor.execute(
             'SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)
         ).fetchone()['id']
-        
         cursor.execute(
             'INSERT INTO homework (student_id, subject, task, due_date) VALUES (?, ?, ?, ?)',
             (student_id, subject, task, due_date)

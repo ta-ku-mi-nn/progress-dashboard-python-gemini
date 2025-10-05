@@ -45,7 +45,7 @@ def create_navbar(user_info=None):
     )
 
 def create_main_layout(user_info):
-    """メインアプリケーションのレイアウトを生成する（宿題機能追加）"""
+    """メインアプリケーションのレイアウトを生成する（レポート機能追加）"""
     return html.Div([
         create_navbar(user_info),
         dbc.Container([
@@ -59,6 +59,18 @@ def create_main_layout(user_info):
                         html.Br(),
                         dbc.Label("生徒選択"),
                         dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
+                        html.Hr(),
+                        # --- 【新規追加】レポート出力ボタン ---
+                        html.Div(
+                            dbc.Button(
+                                [html.I(className="fas fa-file-pdf me-2"), "PDFレポート出力"],
+                                id="create-report-btn",
+                                color="info",
+                                className="w-100",
+                                disabled=True # 生徒が選択されるまで非アクティブ
+                            ),
+                            id="report-button-container"
+                        )
                     ]))
                 ], width=12, lg=3, className="bg-light"),
 
@@ -67,13 +79,13 @@ def create_main_layout(user_info):
                     # --- 進捗テーブル ---
                     html.Div(id='student-progress-table'),
                     html.Hr(),
-                    
+
                     # --- 科目別進捗グラフ ---
                     html.H4("科目別進捗グラフ"),
                     html.Div(id='progress-graph-container'),
                     html.Hr(),
 
-                    # --- 【新規追加】宿題管理セクション ---
+                    # --- 宿題管理セクション ---
                     dbc.Row([
                         dbc.Col(html.H4("宿題管理"), width='auto'),
                         dbc.Col(
@@ -91,4 +103,6 @@ def create_main_layout(user_info):
                 ], width=12, lg=9)
             ])
         ], fluid=True),
+        # dcc.Downloadコンポーネントをレイアウトのどこかに追加
+        dcc.Download(id="download-pdf-report")
     ])

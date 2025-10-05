@@ -2,6 +2,8 @@
 """
 学習進捗ダッシュボード - データベース版 認証機能付きメインアプリケーション
 """
+import sys
+import os
 import threading
 import time
 import webbrowser
@@ -9,6 +11,11 @@ import sqlite3
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
+
+# --- 【修正点】プロジェクトのルートディレクトリをPythonのパスに追加 ---
+# これにより、どのファイルからでも 'components' や 'data' などを正しくインポートできるようになります。
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
@@ -26,7 +33,8 @@ from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.student_callbacks import register_student_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
 from callbacks.auth_callbacks import register_auth_callbacks
-from callbacks.homework_callbacks import register_homework_callbacks
+from callbacks.report_callbacks import register_report_callbacks
+
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -51,6 +59,8 @@ app.layout = html.Div([
     # 認証関連のモーダル
     create_user_profile_modal(),
     create_password_change_modal(),
+    # PDFダウンロード用のコンポーネント
+    dcc.Download(id="download-pdf-report")
 ])
 
 # --- ヘルパー関数 ---
@@ -134,7 +144,7 @@ def update_admin_statistics(pathname):
         total_students = cursor.execute('SELECT COUNT(id) FROM students').fetchone()[0]
         total_subjects = cursor.execute('SELECT COUNT(DISTINCT subject) FROM progress').fetchone()[0]
         total_books = cursor.execute('SELECT COUNT(id) FROM progress').fetchone()[0]
-        completed_books = cursor.execute('SELECT COUNT(id) FROM progress WHERE is_done = TRUE').fetchone()[0]
+        completed_books = cursor.execute('SELECT COUNT(id) FROM progress WHERE is_done = 1').fetchone()[0]
         conn.close()
 
         return dbc.Card([
@@ -149,20 +159,22 @@ def update_admin_statistics(pathname):
     except sqlite3.Error as e:
         return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
 
+
 # --- コールバック登録 ---
-# データベース移行に伴い、_data引数は不要になったため削除
 register_auth_callbacks(app)
 register_main_callbacks(app, None)
 register_progress_callbacks(app, None)
 register_student_callbacks(app, None)
 register_admin_callbacks(app, None)
-register_homework_callbacks(app)
+register_report_callbacks(app)
+
 
 # --- ブラウザ自動起動 ---
 def open_browser():
     """開発用にブラウザを自動で開く"""
     time.sleep(2)
     webbrowser.open(f"http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}")
+
 
 # --- アプリケーション実行 ---
 if __name__ == '__main__':
