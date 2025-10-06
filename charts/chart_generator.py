@@ -1,69 +1,71 @@
-"""
-グラフ生成関数
-"""
+# charts/chart_generator.py
+
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
+from dash import dcc
 
-def create_progress_bar_chart(df, subject):
+def create_progress_stacked_bar_chart(df, title):
     """
-    指定された科目の進捗データ（DataFrame）から、ルートレベル別の達成率を示す棒グラフを生成します。
-
-    Args:
-        df (pd.DataFrame): '科目', 'ルートレベル', '参考書名', '達成済' を含むDataFrame。
-        subject (str): グラフを生成する対象の科目名。
-
-    Returns:
-        go.Figure: Plotlyグラフオブジェクト。
+    与えられたDataFrameから、参考書ごとの所要時間を積み上げた横棒グラフを生成する。
+    Y軸は「達成済」と「予定」の2項目。
     """
-    # 対象科目のデータが存在しない場合の処理
-    if df.empty or subject not in df['科目'].unique():
-        fig = go.Figure()
-        fig.update_layout(
-            title_text=f"{subject}: 表示できるデータがありません",
-            xaxis={'visible': False},
-            yaxis={'visible': False},
-            annotations=[{
-                "text": "データなし",
-                "xref": "paper",
-                "yref": "paper",
-                "showarrow": False,
-                "font": {"size": 16}
-            }],
-            margin=dict(t=50, b=10, l=10, r=10),
-            height=300
-        )
-        return fig
+    if df.empty:
+        return None
 
-    # 対象科目のデータを抽出し、達成状況を数値化（True -> 1, False -> 0）
-    subject_df = df[df['科目'] == subject].copy()
-    subject_df['達成済'] = subject_df['達成済'].apply(lambda x: 1 if x else 0)
+    fig = go.Figure()
+    
+    # データを達成済と予定に分ける
+    done_df = df[df['achieved_duration'] > 0]
+    planned_df = df[df['planned_duration'] > 0]
 
-    # ルートレベルごとに参考書の総数と達成数を集計
-    progress_by_level = subject_df.groupby('ルートレベル').agg(
-        総数=('参考書名', 'count'),
-        達成数=('達成済', 'sum')
-    ).reset_index()
+    # 達成済のバーを参考書ごとに積み上げ
+    for index, row in done_df.iterrows():
+        fig.add_trace(go.Bar(
+            y=['達成済'], x=[row['achieved_duration']], name=row['book_name'],
+            orientation='h', marker=dict(color='mediumseagreen'),
+            hovertemplate=f"{row['book_name']}: {row['achieved_duration']:.1f}h<extra></extra>"
+        ))
+        
+    # 予定のバーを参考書ごとに積み上げ
+    for index, row in planned_df.iterrows():
+        fig.add_trace(go.Bar(
+            y=['予定'], x=[row['planned_duration']], name=row['book_name'],
+            orientation='h', marker=dict(color='cornflowerblue'),
+            hovertemplate=f"{row['book_name']}: {row['planned_duration']:.1f}h<extra></extra>"
+        ))
 
-    # 達成率を計算（0除算を避けるため .fillna(0) を使用）
-    progress_by_level['達成率'] = \
-        (progress_by_level['達成数'] / progress_by_level['総数'] * 100).fillna(0)
-
-    # 棒グラフを生成
-    fig = px.bar(
-        progress_by_level,
-        x='ルートレベル',
-        y='達成率',
-        title=f'{subject}のルートレベル別達成率',
-        labels={'達成率': '達成率 (%)', 'ルートレベル': 'ルートレベル'},
-        text=progress_by_level['達成率'].apply(lambda x: f'{x:.1f}%')
-    )
-
-    # グラフの見た目を調整
-    fig.update_traces(textposition='outside')
-    fig.update_yaxes(range=[0, 110])
     fig.update_layout(
-        margin=dict(t=50, b=10, l=10, r=10),
-        height=300
+        barmode='stack', title_text=title, xaxis_title="真所要時間 (h)",
+        showlegend=False, # 凡例は多すぎるので非表示
+        margin=dict(t=80, b=40, l=10, r=10), height=250
     )
     return fig
+
+def create_subject_progress_pie_chart(df, subject):
+    """
+    指定された科目の達成度を示す半円パイチャート（ゲージメーター）を生成する。
+    真所要時間と達成割合を基に計算する。
+    """
+    subject_df = df[df['科目'] == subject].copy()
+    
+    subject_df['achieved_duration'] = subject_df['true_duration'] * (subject_df['completed_units'] / subject_df['total_units'])
+
+    total_hours = subject_df['true_duration'].sum()
+    done_hours = subject_df['achieved_duration'].sum()
+    
+    achievement_rate = (done_hours / total_hours * 100) if total_hours > 0 else 0
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number", value=achievement_rate,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': subject, 'font': {'size': 20}},
+        number={'suffix': "%", 'font': {'size': 28}},
+        gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "mediumseagreen"}}
+    ))
+    fig.update_layout(margin=dict(t=50, b=10, l=30, r=30), height=250)
+    
+    return dcc.Graph(
+        figure=fig, 
+        config={'displayModeBar': False},
+        id={'type': 'subject-pie-chart', 'subject': subject}
+    )

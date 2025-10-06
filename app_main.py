@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
-from data.nested_json_processor import initialize_user_data, get_all_subjects
+from data.nested_json_processor import get_all_subjects
 from components.main_layout import create_main_layout, create_navbar
 from components.modals import create_all_modals
 from components.login_components import (
@@ -30,7 +30,6 @@ from components.login_components import (
 )
 from callbacks.main_callbacks import register_main_callbacks
 from callbacks.progress_callbacks import register_progress_callbacks
-from callbacks.student_callbacks import register_student_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
 from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.homework_callbacks import register_homework_callbacks
@@ -91,7 +90,6 @@ def display_page(pathname, auth_store_data):
     if not user_info:
         return create_login_layout()
 
-    initialize_user_data(user_info['username'])
     subjects = get_all_subjects()
 
     if pathname in ['/', None]:
@@ -169,10 +167,9 @@ def update_admin_statistics(pathname):
 
 # --- コールバック登録 ---
 register_auth_callbacks(app)
-register_main_callbacks(app, None)
-register_progress_callbacks(app, None)
-register_student_callbacks(app, None)
-register_admin_callbacks(app, None)
+register_main_callbacks(app)
+register_progress_callbacks(app)
+register_admin_callbacks(app)
 register_report_callbacks(app)
 register_homework_callbacks(app)
 register_plan_callbacks(app)

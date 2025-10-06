@@ -52,7 +52,7 @@ def create_main_layout(user_info):
         create_navbar(user_info),
         dbc.Container([
             dbc.Row([
-                # 左側のフィルターパネル
+                # 左側のフィルターパネル (変更なし)
                 dbc.Col([
                     html.H4("フィルター", className="mt-4"),
                     dbc.Card(dbc.CardBody([
@@ -62,57 +62,44 @@ def create_main_layout(user_info):
                         dbc.Label("生徒選択"),
                         dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
                         html.Hr(),
-                        # --- 学習計画更新ボタンを追加 ---
                         html.Div(
                             dbc.Button(
                                 [html.I(className="fas fa-edit me-2"), "学習計画を更新"],
-                                id="update-plan-btn",
-                                color="primary",
-                                className="w-100",
-                                disabled=True # 生徒が選択されるまで非アクティブ
-                            ),
-                            className="d-grid gap-2"
+                                id="update-plan-btn", color="primary", className="w-100", disabled=True
+                            ), className="d-grid gap-2"
                         ),
-                        # --- PDFレポート出力ボタン ---
                         html.Div(
                             dbc.Button(
                                 [html.I(className="fas fa-file-pdf me-2"), "PDFレポート出力"],
-                                id="create-report-btn",
-                                color="info",
-                                className="w-100",
-                                disabled=True
-                            ),
-                            className="d-grid gap-2 mt-2"
+                                id="create-report-btn", color="info", className="w-100", disabled=True
+                            ), className="d-grid gap-2 mt-2"
                         )
                     ]))
                 ], width=12, lg=3, className="bg-light"),
 
-                # 右側のコンテンツエリア
+                # --- ★★★ 右側のコンテンツエリアを全面的に更新 ★★★ ---
                 dbc.Col([
-                    # --- 進捗テーブル ---
-                    html.Div(id='student-progress-table'),
+                    # --- 全科目累計グラフエリア ---
+                    html.H4("学習状況サマリー", className="mt-4"),
+                    html.Div(id='cumulative-progress-container'),
+                    html.Hr(),
+                    
+                    # --- 科目別円グラフエリア ---
+                    html.H4("科目別 達成度"),
+                    dbc.Alert("円グラフをクリックすると詳細が表示されます。", color="info", className="small"),
+                    html.Div(id='subject-pie-charts-container'),
                     html.Hr(),
 
-                    # --- 科目別進捗グラフ ---
-                    html.H4("科目別進捗グラフ"),
-                    html.Div(id='progress-graph-container'),
+                    # --- 詳細表示エリア ---
+                    html.Div(id='detailed-progress-view-container'),
                     html.Hr(),
 
-                    # --- 宿題管理セクション ---
+                    # --- 宿題管理セクション (変更なし) ---
                     dbc.Row([
                         dbc.Col(html.H4("宿題管理"), width='auto'),
-                        dbc.Col(
-                            dbc.Button(
-                                [html.I(className="fas fa-plus me-2"), "宿題を追加"],
-                                id="add-homework-btn",
-                                color="success",
-                                size="sm"
-                            ),
-                            className="text-end"
-                        )
+                        dbc.Col(dbc.Button([html.I(className="fas fa-plus me-2"), "宿題を追加"], id="add-homework-btn", color="success", size="sm"), className="text-end")
                     ], align="center", className="mb-3"),
                     html.Div(id='homework-list-container')
-
                 ], width=12, lg=9)
             ])
         ], fluid=True),

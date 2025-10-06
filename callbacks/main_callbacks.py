@@ -4,7 +4,7 @@ from dash import Input, Output, State, no_update
 
 from data.nested_json_processor import get_all_schools, get_students_for_user
 
-def register_main_callbacks(app, _data):
+def register_main_callbacks(app):
     """
     メインレイアウトの基本的なUI動作に関連するコールバックを登録します。
     """
