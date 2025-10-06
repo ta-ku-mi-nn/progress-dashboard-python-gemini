@@ -1,3 +1,5 @@
+# components/main_layout.py
+
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
@@ -45,7 +47,7 @@ def create_navbar(user_info=None):
     )
 
 def create_main_layout(user_info):
-    """メインアプリケーションのレイアウトを生成する（レポート機能追加）"""
+    """メインアプリケーションのレイアウトを生成する"""
     return html.Div([
         create_navbar(user_info),
         dbc.Container([
@@ -60,16 +62,27 @@ def create_main_layout(user_info):
                         dbc.Label("生徒選択"),
                         dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
                         html.Hr(),
-                        # --- 【新規追加】レポート出力ボタン ---
+                        # --- 学習計画更新ボタンを追加 ---
+                        html.Div(
+                            dbc.Button(
+                                [html.I(className="fas fa-edit me-2"), "学習計画を更新"],
+                                id="update-plan-btn",
+                                color="primary",
+                                className="w-100",
+                                disabled=True # 生徒が選択されるまで非アクティブ
+                            ),
+                            className="d-grid gap-2"
+                        ),
+                        # --- PDFレポート出力ボタン ---
                         html.Div(
                             dbc.Button(
                                 [html.I(className="fas fa-file-pdf me-2"), "PDFレポート出力"],
                                 id="create-report-btn",
                                 color="info",
                                 className="w-100",
-                                disabled=True # 生徒が選択されるまで非アクティブ
+                                disabled=True
                             ),
-                            id="report-button-container"
+                            className="d-grid gap-2 mt-2"
                         )
                     ]))
                 ], width=12, lg=3, className="bg-light"),
@@ -103,6 +116,4 @@ def create_main_layout(user_info):
                 ], width=12, lg=9)
             ])
         ], fluid=True),
-        # dcc.Downloadコンポーネントをレイアウトのどこかに追加
-        dcc.Download(id="download-pdf-report")
     ])

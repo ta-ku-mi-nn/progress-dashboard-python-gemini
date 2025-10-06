@@ -3,6 +3,67 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 from config.settings import APP_CONFIG
 
+def create_plan_update_modal(subjects):
+    """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
+    
+    # ステップ1: 参考書選択
+    step1_content = html.Div([
+        dbc.Row([
+            dbc.Col(dbc.Label("科目選択"), width=3),
+            dbc.Col(dcc.Dropdown(
+                id='plan-subject-dropdown',
+                options=[{'label': s, 'value': s} for s in (subjects or [])],
+                placeholder="科目を選択..."
+            ), width=9),
+        ], className="mb-3"),
+        # --- ★ 検索窓を追加 ---
+        dbc.Input(
+            id="plan-search-input",
+            placeholder="参考書名で検索...",
+            type="search",
+            className="mb-3"
+        ),
+        # --------------------
+        dcc.Loading(
+            id="loading-textbooks",
+            type="default",
+            children=html.Div(id='plan-textbook-list-container', style={'maxHeight': '400px', 'overflowY': 'auto'})
+        )
+    ])
+
+    # ステップ2: 進捗入力
+    step2_content = html.Div([
+        html.P("選択した参考書の進捗を入力してください。"),
+        dcc.Loading(
+            id="loading-progress-inputs",
+            type="default",
+            children=html.Div(id='plan-progress-input-container', style={'maxHeight': '400px', 'overflowY': 'auto'})
+        )
+    ])
+    
+    return dbc.Modal(
+        id="plan-update-modal",
+        is_open=False,
+        size="lg",
+        backdrop="static", # 背景をクリックしても閉じないようにする
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle(id="plan-modal-title")),
+            dbc.ModalBody([
+                dbc.Alert(id="plan-modal-alert", is_open=False),
+                dcc.Store(id='plan-step-store', data=1), # 現在のステップを管理 (1 or 2)
+                dcc.Store(id='plan-selected-books-store'), # ステップ間で選択された参考書を保持
+                html.Div(step1_content, id='plan-step-1'),
+                html.Div(step2_content, id='plan-step-2', style={'display': 'none'}),
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("戻る", id="plan-back-btn", color="secondary", style={'display': 'none'}),
+                dbc.Button("次へ", id="plan-next-btn", color="primary"),
+                dbc.Button("保存", id="plan-save-btn", color="success", style={'display': 'none'}),
+                dbc.Button("キャンセル", id="plan-cancel-btn", color="light"),
+            ]),
+        ]
+    )
+
 def create_all_modals(subjects):
     """
     アプリケーションで使用するすべてのモーダルを生成して返す。
@@ -32,6 +93,7 @@ def create_all_modals(subjects):
                 bulk_buttons.append(html.Div(buttons, className="mb-3"))
 
     return [
+        create_plan_update_modal(subjects),
         # --- 一括登録モーダル ---
         dbc.Modal(
             id="bulk-register-modal",

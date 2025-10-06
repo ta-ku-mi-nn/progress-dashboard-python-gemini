@@ -122,9 +122,10 @@ def update_progress_status(school, student_name, subject, level, book_name, colu
         conn.close()
 
 def get_all_subjects():
-    """データベースからすべてのユニークな科目名を取得します。"""
+    """マスターテーブルからすべてのユニークな科目名を取得します。"""
     conn = get_db_connection()
-    subjects = conn.execute('SELECT DISTINCT subject FROM progress ORDER BY subject').fetchall()
+    # 参照先を master_textbooks に変更
+    subjects = conn.execute('SELECT DISTINCT subject FROM master_textbooks ORDER BY subject').fetchall()
     conn.close()
     return [subject['subject'] for subject in subjects]
 
@@ -198,5 +199,103 @@ def delete_homework(homework_id):
         print(f"宿題削除エラー: {e}")
         conn.rollback()
         return False, "宿題の削除に失敗しました。"
+    finally:
+        conn.close()
+
+def get_master_textbook_list(subject, search_term=""):
+    """
+    指定された科目に属する参考書をマスターから取得する。
+    ルートレベルの順序を指定し、検索キーワードで絞り込む機能を追加。
+    """
+    conn = get_db_connection()
+    
+    # 基本クエリ
+    query = """
+        SELECT level, book_name
+        FROM master_textbooks
+        WHERE subject = ?
+    """
+    params = [subject]
+
+    # 検索キーワードがあれば、絞り込み条件を追加
+    if search_term:
+        query += " AND book_name LIKE ?"
+        params.append(f"%{search_term}%")
+
+    records = conn.execute(query, tuple(params)).fetchall()
+    conn.close()
+    
+    # ルートレベルの表示順を定義
+    level_order = ['基礎徹底', '日大', 'MARCH', '早慶']
+    
+    # レベルごとにグループ化
+    textbooks_by_level = {}
+    for row in records:
+        level, book_name = row['level'], row['book_name']
+        if level not in textbooks_by_level:
+            textbooks_by_level[level] = []
+        textbooks_by_level[level].append(book_name)
+        
+    # 定義した順序でレベルをソート
+    sorted_textbooks = {level: textbooks_by_level[level] for level in level_order if level in textbooks_by_level}
+    
+    # 定義外のレベルがあれば末尾に追加
+    for level in textbooks_by_level:
+        if level not in sorted_textbooks:
+            sorted_textbooks[level] = textbooks_by_level[level]
+            
+    return sorted_textbooks
+
+def add_or_update_student_progress(school, student_name, progress_updates):
+    """
+    生徒の学習進捗を一括で追加または更新する。
+    progress_updates: [{'subject': ..., 'level': ..., 'book_name': ..., 'is_planned': ..., 'is_done': ...}, ...]
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 生徒IDを取得
+        student_id_row = cursor.execute(
+            'SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)
+        ).fetchone()
+        if not student_id_row:
+            raise ValueError(f"生徒が見つかりません: {school} - {student_name}")
+        student_id = student_id_row['id']
+
+        for update in progress_updates:
+            # 既存のレコードがあるか確認
+            existing = cursor.execute(
+                """
+                SELECT id FROM progress
+                WHERE student_id = ? AND subject = ? AND level = ? AND book_name = ?
+                """,
+                (student_id, update['subject'], update['level'], update['book_name'])
+            ).fetchone()
+            
+            if existing:
+                # 既存レコードを更新
+                cursor.execute(
+                    """
+                    UPDATE progress SET is_planned = ?, is_done = ?
+                    WHERE id = ?
+                    """,
+                    (update['is_planned'], update['is_done'], existing['id'])
+                )
+            else:
+                # 新規レコードを挿入
+                cursor.execute(
+                    """
+                    INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, duration)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], update['is_done'], 0) # durationはデフォルトで0
+                )
+        conn.commit()
+        return True, f"{len(progress_updates)}件の進捗を更新しました。"
+    except (sqlite3.Error, ValueError) as e:
+        print(f"進捗の一括更新エラー: {e}")
+        conn.rollback()
+        return False, "進捗の更新に失敗しました。"
     finally:
         conn.close()

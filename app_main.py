@@ -35,6 +35,8 @@ from callbacks.admin_callbacks import register_admin_callbacks
 from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.homework_callbacks import register_homework_callbacks
 from callbacks.report_callbacks import register_report_callbacks
+from callbacks.plan_callbacks import register_plan_callbacks
+
 
 
 # --- アプリケーションの初期化 ---
@@ -52,9 +54,13 @@ DATABASE_FILE = 'progress.db'
 
 # --- メインレイアウト ---
 app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
+    dcc.Location(id='url', refresh=True), # refreshをTrueに変更
     dcc.Store(id='auth-store', storage_type='session'),
-    dcc.Store(id='update-trigger-store'),  # データ更新のトリガー用
+    
+    # ★ 不要になったupdate-trigger-storeを削除し、以下2行を追加
+    dcc.Store(id='school-selection-store', storage_type='session'),
+    dcc.Store(id='student-selection-store', storage_type='session'),
+    
     html.Div(id='page-content'),
 
     # 認証関連のモーダル
@@ -169,7 +175,7 @@ register_student_callbacks(app, None)
 register_admin_callbacks(app, None)
 register_report_callbacks(app)
 register_homework_callbacks(app)
-
+register_plan_callbacks(app)
 
 # --- ブラウザ自動起動 ---
 def open_browser():
