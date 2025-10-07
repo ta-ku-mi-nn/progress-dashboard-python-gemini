@@ -12,7 +12,8 @@ from auth.user_manager import load_users, add_user
 from data.nested_json_processor import (
     get_all_master_textbooks, add_master_textbook, 
     update_master_textbook, delete_master_textbook, get_all_subjects,
-    get_all_students_with_details, add_student, update_student, delete_student
+    get_all_students_with_details, add_student, update_student, delete_student,
+    get_all_instructors_for_school
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,9 +21,8 @@ DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 
 def register_admin_callbacks(app):
     """管理者ページの機能に関連するコールバックを登録します。"""
-    # (...既存のユーザー管理、データバックアップ、参考書管理のコールバックは変更なし...)
-    # (user management, backup, and textbook master callbacks remain unchanged)
     
+    # (...(user management and backup callbacks remain unchanged)...)
     @app.callback(
         [Output('user-list-modal', 'is_open'), Output('user-list-table', 'children')],
         [Input('user-list-btn', 'n_clicks'), Input('close-user-list-modal', 'n_clicks')],
@@ -57,7 +57,7 @@ def register_admin_callbacks(app):
         if not n_clicks: return no_update
         try:
             conn = sqlite3.connect(DATABASE_FILE)
-            tables = ["users", "students", "progress", "homework", "master_textbooks", "bulk_presets", "bulk_preset_books"]
+            tables = ["users", "students", "progress", "homework", "master_textbooks", "bulk_presets", "bulk_preset_books", "student_instructors"]
             backup_data = {"export_date": datetime.datetime.now().isoformat()}
             for table in tables:
                 df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
@@ -71,143 +71,210 @@ def register_admin_callbacks(app):
             print(f"バックアップ作成中にエラーが発生しました: {e}")
             return no_update
 
-    @app.callback(Output('master-textbook-modal', 'is_open'),[Input('open-master-textbook-modal-btn', 'n_clicks'),Input('close-master-textbook-modal', 'n_clicks')],State('master-textbook-modal', 'is_open'),prevent_initial_call=True)
+    # --- ★★★ ここから修正 ★★★ ---
+
+    # --- 参考書マスター管理 ---
+    @app.callback(
+        Output('master-textbook-modal', 'is_open'),
+        [Input('open-master-textbook-modal-btn', 'n_clicks'),
+         Input('close-master-textbook-modal', 'n_clicks')],
+        State('master-textbook-modal', 'is_open'),
+        prevent_initial_call=True
+    )
     def toggle_master_textbook_modal(open_clicks, close_clicks, is_open):
-        if open_clicks or close_clicks: return not is_open
+        if open_clicks or close_clicks:
+            return not is_open
         return is_open
 
-    @app.callback(Output('master-textbook-subject-filter', 'options'),Input('master-textbook-modal', 'is_open'))
-    def update_subject_filter_options(is_open):
-        if not is_open: return []
-        subjects = get_all_subjects()
-        return [{'label': s, 'value': s} for s in subjects]
+    @app.callback(
+        [Output('master-textbook-list-container', 'children'),
+         Output('master-textbook-alert', 'children'),
+         Output('master-textbook-alert', 'is_open')],
+        [Input('master-textbook-modal', 'is_open'),
+         Input('admin-update-trigger', 'data'),
+         Input({'type': 'delete-textbook-btn', 'index': ALL}, 'n_clicks'),
+         Input('master-textbook-subject-filter', 'value'),
+         Input('master-textbook-level-filter', 'value'),
+         Input('master-textbook-name-filter', 'value')],
+        prevent_initial_call=True
+    )
+    def update_master_textbook_list(is_open, update_signal, delete_clicks, subject, level, name):
+        ctx = callback_context
+        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
+        
+        alert_msg, alert_is_open = "", False
 
-    @app.callback(Output('master-textbook-level-filter', 'options'),Input('master-textbook-modal', 'is_open'))
-    def update_level_filter_options(is_open):
-        if not is_open: return []
-        levels = ['基礎徹底', '日大', 'MARCH', '早慶']
-        return [{'label': l, 'value': l} for l in levels]
+        if 'delete-textbook-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
+            book_id = json.loads(triggered_prop_id.split('.')[0])['index']
+            success, message = delete_master_textbook(book_id)
+            alert_msg = dbc.Alert(message, color="success" if success else "danger")
+            alert_is_open = True
 
-    @app.callback(Output('master-textbook-list-container', 'children'),[Input('master-textbook-subject-filter', 'value'),Input('master-textbook-level-filter', 'value'),Input('master-textbook-name-filter', 'value'),Input('textbook-edit-modal', 'is_open')])
-    def update_master_textbook_list(subject, level, name, edit_modal_is_open):
         textbooks = get_all_master_textbooks()
         df = pd.DataFrame(textbooks)
         if subject: df = df[df['subject'] == subject]
         if level: df = df[df['level'] == level]
         if name: df = df[df['book_name'].str.contains(name, na=False)]
-        if df.empty: return dbc.Alert("該当する参考書がありません。", color="info")
+        
+        if df.empty: 
+            return dbc.Alert("該当する参考書がありません。", color="info"), alert_msg, alert_is_open
+        
         table_header = [html.Thead(html.Tr([html.Th("科目"), html.Th("レベル"), html.Th("参考書名"), html.Th("所要時間(h)"), html.Th("操作")]))]
         table_body = [html.Tbody([html.Tr([html.Td(row['subject']),html.Td(row['level']),html.Td(row['book_name']),html.Td(row['duration']),html.Td([dbc.Button("編集", id={'type': 'edit-textbook-btn', 'index': row['id']}, size="sm", className="me-1"),dbc.Button("削除", id={'type': 'delete-textbook-btn', 'index': row['id']}, color="danger", size="sm")])]) for _, row in df.iterrows()])]
-        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
+        
+        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True), alert_msg, alert_is_open
 
-    @app.callback([Output('textbook-edit-modal', 'is_open'),Output('textbook-edit-modal-title', 'children'),Output('editing-textbook-id-store', 'data'),Output('textbook-subject-input', 'value'),Output('textbook-level-input', 'value'),Output('textbook-name-input', 'value'),Output('textbook-duration-input', 'value')],[Input('add-textbook-btn', 'n_clicks'),Input({'type': 'edit-textbook-btn', 'index': ALL}, 'n_clicks'),Input('cancel-textbook-edit-btn', 'n_clicks')],prevent_initial_call=True)
-    def handle_edit_modal_open(add_clicks, edit_clicks, cancel_clicks):
+
+    @app.callback(
+        [Output('textbook-edit-modal', 'is_open'),
+         Output('textbook-edit-modal-title', 'children'),
+         Output('editing-textbook-id-store', 'data'),
+         Output('textbook-subject-input', 'value'),
+         Output('textbook-level-input', 'value'),
+         Output('textbook-name-input', 'value'),
+         Output('textbook-duration-input', 'value'),
+         Output('textbook-edit-alert', 'is_open', allow_duplicate=True)],
+        [Input('add-textbook-btn', 'n_clicks'),
+         Input({'type': 'edit-textbook-btn', 'index': ALL}, 'n_clicks'),
+         Input('cancel-textbook-edit-btn', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def handle_textbook_edit_modal_open(add_clicks, edit_clicks, cancel_clicks):
         ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0].get('value'): return [no_update] * 7
-        trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
-        if 'cancel-textbook-edit-btn' in trigger_id_str: return False, "", None, "", "", "", ""
-        if 'add-textbook-btn' in trigger_id_str: return True, "新規参考書の追加", None, "", "", "", ""
-        if 'edit-textbook-btn' in trigger_id_str:
-            book_id = json.loads(trigger_id_str)['index']
+        trigger_id = ctx.triggered_id
+
+        if not trigger_id or (isinstance(trigger_id, dict) and not ctx.triggered[0]['value']):
+            return [no_update] * 8
+            
+        if trigger_id == 'cancel-textbook-edit-btn':
+            return False, "", None, "", "", "", None, False
+        
+        if trigger_id == 'add-textbook-btn':
+            return True, "新規参考書の追加", None, "", "", "", None, False
+
+        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-textbook-btn':
+            book_id = trigger_id['index']
             all_books = get_all_master_textbooks()
             book_to_edit = next((book for book in all_books if book['id'] == book_id), None)
-            if book_to_edit: return (True, f"編集: {book_to_edit['book_name']}", book_id, book_to_edit['subject'], book_to_edit['level'], book_to_edit['book_name'], book_to_edit['duration'])
-        return [no_update] * 7
+            if book_to_edit: 
+                return (True, f"編集: {book_to_edit['book_name']}", book_id, book_to_edit['subject'], book_to_edit['level'], book_to_edit['book_name'], book_to_edit['duration'], False)
+        
+        return [no_update] * 8
 
-    @app.callback([Output('textbook-edit-alert', 'children'),Output('textbook-edit-alert', 'is_open'),Output('textbook-edit-modal', 'is_open', allow_duplicate=True)],Input('save-textbook-btn', 'n_clicks'),[State('editing-textbook-id-store', 'data'),State('textbook-subject-input', 'value'),State('textbook-level-input', 'value'),State('textbook-name-input', 'value'),State('textbook-duration-input', 'value')],prevent_initial_call=True)
+    @app.callback(
+        [Output('textbook-edit-alert', 'children'),
+         Output('textbook-edit-alert', 'is_open'),
+         Output('admin-update-trigger', 'data', allow_duplicate=True)],
+        Input('save-textbook-btn', 'n_clicks'),
+        [State('editing-textbook-id-store', 'data'),
+         State('textbook-subject-input', 'value'),
+         State('textbook-level-input', 'value'),
+         State('textbook-name-input', 'value'),
+         State('textbook-duration-input', 'value')],
+        prevent_initial_call=True
+    )
     def save_textbook(n_clicks, book_id, subject, level, name, duration):
-        if not n_clicks: return "", False, no_update
-        if not all([subject, level, name, duration is not None]): return dbc.Alert("すべての項目を入力してください。", color="warning"), True, no_update
-        if book_id is None: success, message = add_master_textbook(subject, level, name, float(duration))
-        else: success, message = update_master_textbook(book_id, subject, level, name, float(duration))
-        if success: return "", False, False
-        else: return dbc.Alert(message, color="danger"), True, no_update
+        if not n_clicks: 
+            return "", False, no_update
+        if not all([subject, level, name, duration is not None]): 
+            return dbc.Alert("すべての項目を入力してください。", color="warning"), True, no_update
+        
+        if book_id is None: 
+            success, message = add_master_textbook(subject, level, name, float(duration))
+        else: 
+            success, message = update_master_textbook(book_id, subject, level, name, float(duration))
+        
+        if success: 
+            return "", False, datetime.datetime.now().timestamp()
+        else: 
+            return dbc.Alert(message, color="danger"), True, no_update
 
-    @app.callback([Output('master-textbook-alert', 'children'),Output('master-textbook-alert', 'is_open'),Output('master-textbook-modal', 'is_open', allow_duplicate=True)],Input({'type': 'delete-textbook-btn', 'index': ALL}, 'n_clicks'),prevent_initial_call=True)
-    def delete_textbook(n_clicks):
-        ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0].get('value'): return "", False, no_update
-        trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
-        book_id = json.loads(trigger_id_str)['index']
-        success, message = delete_master_textbook(book_id)
-        if success: return dbc.Alert(message, color="success"), True, True
-        else: return dbc.Alert(message, color="danger"), True, no_update
+    @app.callback(
+        Output('textbook-edit-modal', 'is_open', allow_duplicate=True),
+        Input('admin-update-trigger', 'data'),
+        State('save-textbook-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def close_textbook_edit_modal_on_success(ts, n_clicks):
+        if n_clicks:
+             # どのボタンが押されたかを判定。save-textbook-btnでなければ何もしない
+            ctx = callback_context
+            if ctx.triggered_id == 'admin-update-trigger':
+                 return False
+        return no_update
 
-    # --- ★★★ ここからが生徒管理のコールバック（全体を修正） ★★★
-    
+    # --- 生徒管理 ---
     @app.callback(
         Output('student-management-modal', 'is_open'),
         [Input('open-student-management-modal-btn', 'n_clicks'),
-         Input('close-student-management-modal', 'n_clicks'),
-         Input('save-student-btn', 'n_clicks')], # 保存成功時にも閉じるためInputに追加
-        [State('student-management-modal', 'is_open'),
-         State('student-edit-alert', 'is_open')],
+         Input('close-student-management-modal', 'n_clicks')],
+        [State('student-management-modal', 'is_open')],
         prevent_initial_call=True
     )
-    def toggle_student_management_modal(open_clicks, close_clicks, save_clicks, is_open, edit_alert_is_open):
-        ctx = callback_context
-        trigger_id = ctx.triggered_id
-        
-        # 保存ボタンが押され、かつエラーアラートが表示されていない（＝成功した）場合に閉じる
-        if trigger_id == 'save-student-btn' and not edit_alert_is_open:
-            return False
-        
-        if trigger_id == 'open-student-management-modal-btn' or trigger_id == 'close-student-management-modal':
+    def toggle_student_management_modal(open_clicks, close_clicks, is_open):
+        if open_clicks or close_clicks:
             return not is_open
-        
         return no_update
 
     @app.callback(
-        Output('student-list-container', 'children'),
-        # is_openだけでなく、save_student_btnのクリックもトリガーにする
+        [Output('student-list-container', 'children'),
+         Output('student-management-alert', 'children'),
+         Output('student-management-alert', 'is_open')],
         [Input('student-management-modal', 'is_open'),
-         Input('save-student-btn', 'n_clicks'),
+         Input('admin-update-trigger', 'data'),
          Input({'type': 'delete-student-btn', 'index': ALL}, 'n_clicks')],
         State('auth-store', 'data'),
         prevent_initial_call=True
     )
-    def update_student_list(is_open, save_clicks, delete_clicks, user_info):
+    def update_student_list_and_handle_delete(is_open, update_signal, delete_clicks, user_info):
         ctx = callback_context
-        # モーダルが開いていない、かつ、削除ボタンも押されていない場合は更新しない
-        if not is_open and not any(delete_clicks):
-            return no_update
-
-        if not user_info:
-            return []
+        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
         
+        alert_msg, alert_is_open = "", False
+
+        if 'delete-student-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
+            student_id = json.loads(triggered_prop_id.split('.')[0])['index']
+            success, message = delete_student(student_id)
+            alert_msg = dbc.Alert(message, color="success" if success else "danger")
+            alert_is_open = True
+        
+        if not user_info:
+            return [], alert_msg, alert_is_open
+
         all_students = get_all_students_with_details()
         admin_school = user_info.get('school')
         students = [s for s in all_students if s['school'] == admin_school]
 
         if not students:
-            return dbc.Alert("この校舎には生徒が登録されていません。", color="info")
+            return dbc.Alert("この校舎には生徒が登録されていません。", color="info"), alert_msg, alert_is_open
 
         table_header = [html.Thead(html.Tr([
             html.Th("生徒名"), html.Th("偏差値"), html.Th("メイン講師"), html.Th("サブ講師"), html.Th("操作")
         ]))]
-        
         table_body = [html.Tbody([
             html.Tr([
                 html.Td(s['name']),
                 html.Td(s.get('deviation_value', 'N/A')),
-                html.Td(s.get('main_instructor', 'N/A')),
-                html.Td(s.get('sub_instructor', '')),
+                html.Td(", ".join(s.get('main_instructors', []))),
+                html.Td(", ".join(s.get('sub_instructors', []))),
                 html.Td([
                     dbc.Button("編集", id={'type': 'edit-student-btn', 'index': s['id']}, size="sm", className="me-1"),
                     dbc.Button("削除", id={'type': 'delete-student-btn', 'index': s['id']}, color="danger", size="sm")
                 ])
             ]) for s in students
         ])]
-        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
+        
+        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True), alert_msg, alert_is_open
         
     @app.callback(
         [Output('student-edit-modal', 'is_open'),
          Output('student-edit-modal-title', 'children'),
          Output('editing-student-id-store', 'data'),
          Output('student-school-input', 'value'),
-         Output('student-main-instructor-input', 'value'),
          Output('student-name-input', 'value'),
          Output('student-deviation-input', 'value'),
+         Output('student-main-instructor-input', 'value'),
+         Output('student-sub-instructor-input', 'options'),
          Output('student-sub-instructor-input', 'value'),
          Output('student-edit-alert', 'is_open', allow_duplicate=True)],
         [Input('add-student-btn', 'n_clicks'),
@@ -218,73 +285,85 @@ def register_admin_callbacks(app):
     )
     def handle_student_edit_modal(add_clicks, edit_clicks, cancel_clicks, user_info):
         ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0].get('value'):
-            return [no_update] * 9
+        trigger_id = ctx.triggered_id
 
-        trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
+        if not trigger_id or (isinstance(trigger_id, dict) and not ctx.triggered[0]['value']):
+            return [no_update] * 10
+            
         admin_school = user_info.get('school', '')
-        admin_username = user_info.get('username', '')
         
-        if 'cancel-student-edit-btn' in trigger_id_str:
-            return False, "", None, "", "", "", None, "", False
+        if trigger_id == 'cancel-student-edit-btn':
+            return False, "", None, "", "", None, "", [], [], False
 
-        if 'add-student-btn' in trigger_id_str:
-            return True, "新規生徒の追加", None, admin_school, admin_username, "", None, "", False
+        sub_instructors = get_all_instructors_for_school(admin_school, role='user')
+        sub_instructor_options = [{'label': i['username'], 'value': i['id']} for i in sub_instructors]
         
-        if 'edit-student-btn' in trigger_id_str:
-            student_id = json.loads(trigger_id_str)['index']
+        main_instructors = get_all_instructors_for_school(admin_school, role='admin')
+        main_instructor_username = main_instructors[0]['username'] if main_instructors else ""
+
+        if trigger_id == 'add-student-btn':
+            return True, "新規生徒の追加", None, admin_school, "", None, main_instructor_username, sub_instructor_options, [], False
+        
+        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-student-btn':
+            student_id = trigger_id['index']
             all_students = get_all_students_with_details()
             student_to_edit = next((s for s in all_students if s['id'] == student_id), None)
+            
             if student_to_edit:
-                return (True, f"編集: {student_to_edit['name']}", student_id,
-                        student_to_edit['school'], student_to_edit.get('main_instructor', ''),
-                        student_to_edit['name'], student_to_edit.get('deviation_value'),
-                        student_to_edit.get('sub_instructor', ''), False)
+                sub_instructor_users = [i for i in sub_instructors if i['username'] in student_to_edit.get('sub_instructors', [])]
+                sub_instructor_ids = [i['id'] for i in sub_instructor_users]
 
-        return [no_update] * 9
+                return (True, f"編集: {student_to_edit['name']}", student_id,
+                        student_to_edit['school'], student_to_edit['name'], student_to_edit.get('deviation_value'),
+                        main_instructor_username, sub_instructor_options, sub_instructor_ids, False)
+
+        return [no_update] * 10
 
     @app.callback(
         [Output('student-edit-alert', 'children'),
          Output('student-edit-alert', 'is_open'),
-         Output('student-edit-modal', 'is_open', allow_duplicate=True)],
+         Output('admin-update-trigger', 'data')],
         Input('save-student-btn', 'n_clicks'),
         [State('editing-student-id-store', 'data'),
          State('student-name-input', 'value'),
          State('student-school-input', 'value'),
          State('student-deviation-input', 'value'),
+         State('student-main-instructor-input', 'value'),
          State('student-sub-instructor-input', 'value')],
         prevent_initial_call=True
     )
-    def save_student(n_clicks, student_id, name, school, deviation, sub_instructor):
+    def save_student(n_clicks, student_id, name, school, deviation, main_instructor_username, sub_instructor_ids):
         if not n_clicks:
             return "", False, no_update
 
         if not name or not school:
             return dbc.Alert("生徒名と校舎は必須です。", color="warning"), True, no_update
+        
+        main_instructors = get_all_instructors_for_school(school, role='admin')
+        main_instructor_user = next((i for i in main_instructors if i['username'] == main_instructor_username), None)
+        main_instructor_id = main_instructor_user['id'] if main_instructor_user else None
 
         if student_id is None:
-            success, message = add_student(name, school, deviation, sub_instructor)
+            success, message = add_student(name, school, deviation, main_instructor_id, sub_instructor_ids)
         else:
-            success, message = update_student(student_id, name, deviation, sub_instructor)
+            success, message = update_student(student_id, name, deviation, main_instructor_id, sub_instructor_ids)
 
         if success:
-            return "", False, False # 成功したらアラートを消し、編集モーダルを閉じる
+            return "", False, datetime.datetime.now().timestamp()
         else:
             return dbc.Alert(message, color="danger"), True, no_update
-
+            
     @app.callback(
-        [Output('student-management-alert', 'children'),
-         Output('student-management-alert', 'is_open')],
-        Input({'type': 'delete-student-btn', 'index': ALL}, 'n_clicks'),
+        Output('student-edit-modal', 'is_open', allow_duplicate=True),
+        Input('admin-update-trigger', 'data'),
+        State('save-student-btn', 'n_clicks'),
         prevent_initial_call=True
     )
-    def handle_delete_student(n_clicks):
-        ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0].get('value'):
-            return "", False
-        
-        # ★★★ 修正：ctx.triggered_id は辞書なので、直接アクセスする ★★★
-        student_id = ctx.triggered_id['index']
-        success, message = delete_student(student_id)
-        
-        return dbc.Alert(message, color="success" if success else "danger"), True
+    def close_student_edit_modal_on_success(ts, n_clicks):
+        if n_clicks:
+            ctx = callback_context
+            if ctx.triggered_id == 'admin-update-trigger':
+                return False
+        return no_update
+
+    # --- ★★★ ここまで修正 ★★★ ---

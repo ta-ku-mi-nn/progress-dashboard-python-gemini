@@ -1,6 +1,9 @@
+# components/admin_components.py
+
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+# (create_master_textbook_modal, create_textbook_edit_modal は変更なし)
 def create_master_textbook_modal():
     """参考書マスター管理用のメインモーダルを生成する"""
     return dbc.Modal(
@@ -72,7 +75,6 @@ def create_textbook_edit_modal():
         ],
     )
 
-# ★★★ ここから新規追加 ★★★
 def create_student_management_modal():
     """生徒管理用のメインモーダルを生成する"""
     return dbc.Modal(
@@ -91,6 +93,7 @@ def create_student_management_modal():
         ],
     )
 
+# --- ★★★ ここから修正 ★★★ ---
 def create_student_edit_modal():
     """生徒の新規追加・編集用のモーダルを生成する"""
     return dbc.Modal(
@@ -107,10 +110,6 @@ def create_student_edit_modal():
                         dbc.Col(dbc.Input(id="student-school-input", type="text", disabled=True), width=9),
                     ], className="mb-3"),
                     dbc.Row([
-                        dbc.Label("メイン講師", width=3),
-                        dbc.Col(dbc.Input(id="student-main-instructor-input", type="text", disabled=True), width=9),
-                    ], className="mb-3"),
-                    dbc.Row([
                         dbc.Label("生徒名", width=3),
                         dbc.Col(dbc.Input(id="student-name-input", type="text", required=True), width=9),
                     ], className="mb-3"),
@@ -119,8 +118,12 @@ def create_student_edit_modal():
                         dbc.Col(dbc.Input(id="student-deviation-input", type="number"), width=9),
                     ], className="mb-3"),
                     dbc.Row([
+                        dbc.Label("メイン講師", width=3),
+                        dbc.Col(dbc.Input(id="student-main-instructor-input", type="text", disabled=True), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
                         dbc.Label("サブ講師", width=3),
-                        dbc.Col(dbc.Input(id="student-sub-instructor-input", type="text"), width=9),
+                        dbc.Col(dcc.Dropdown(id="student-sub-instructor-input", multi=True), width=9),
                     ]),
                 ])
             ]),
@@ -130,4 +133,4 @@ def create_student_edit_modal():
             ]),
         ],
     )
-# ★★★ ここまで新規追加 ★★★
+# --- ★★★ ここまで修正 ★★★ ---

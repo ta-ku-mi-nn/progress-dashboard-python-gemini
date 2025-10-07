@@ -54,12 +54,11 @@ DATABASE_FILE = 'progress.db'
 
 # --- メインレイアウト ---
 app.layout = html.Div([
-    dcc.Location(id='url', refresh=True), # refreshをTrueに変更
+    dcc.Location(id='url', refresh=True),
     dcc.Store(id='auth-store', storage_type='session'),
-    
-    # ★ 不要になったupdate-trigger-storeを削除し、以下2行を追加
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
+    dcc.Store(id='admin-update-trigger', storage_type='memory'), # 管理者ページの更新トリガー
     
     html.Div(id='page-content'),
 
@@ -75,6 +74,7 @@ def get_current_user_from_store(auth_store_data):
     """auth-storeからユーザー情報を取得する"""
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
 
+# --- ★★★ ここから修正 ★★★ ---
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(
     Output('page-content', 'children'),
@@ -85,10 +85,18 @@ def display_page(pathname, auth_store_data):
     """URLのパスに応じてページコンテンツを切り替え"""
     user_info = get_current_user_from_store(auth_store_data)
 
+    # --- 修正点：認証チェック ---
+    # ユーザー情報がない（未ログイン）場合は、常にログイン画面を表示する
+    if not user_info:
+        return create_login_layout()
+
+    # --- 以下はログイン済みのユーザー向けの処理 ---
     if pathname == '/admin':
+        # 管理者でなければアクセス拒否ページを表示
         if user_info.get('role') != 'admin':
             return html.Div([create_navbar(user_info), create_access_denied_layout()])
 
+        # 管理者であれば管理者ページを表示
         return html.Div([
             create_navbar(user_info),
             dbc.Container([
@@ -100,9 +108,9 @@ def display_page(pathname, auth_store_data):
                             dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
                             dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
                         ])
-                    ]), width=12, md=3, className="mb-3"), # ★ レイアウト調整
+                    ]), width=12, md=3, className="mb-3"),
                     dbc.Col(dbc.Card([
-                        dbc.CardHeader("🧑‍🎓 生徒管理"), # ★ 新規カード
+                        dbc.CardHeader("🧑‍🎓 生徒管理"),
                         dbc.CardBody(
                             dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info", className="w-100")
                         )
@@ -123,13 +131,15 @@ def display_page(pathname, auth_store_data):
                 # --- 管理者ページにモーダルを配置 ---
                 create_master_textbook_modal(),
                 create_textbook_edit_modal(),
-                create_student_management_modal(), # ★ 追加
-                create_student_edit_modal(),       # ★ 追加
+                create_student_management_modal(),
+                create_student_edit_modal(),
             ])
         ])
-        # ★★★ ここまで修正 ★★★
-
+    
+    # 管理者ページ以外、または一般ユーザーの場合はメインレイアウトを表示
+    # ログイン済みのユーザーが/loginにアクセスした場合もメインページが表示される
     return create_main_layout(user_info)
+# --- ★★★ ここまで修正 ★★★ ---
 
 # --- 管理者向け統計情報コールバック ---
 @app.callback(

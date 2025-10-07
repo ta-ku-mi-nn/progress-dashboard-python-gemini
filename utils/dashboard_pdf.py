@@ -1,7 +1,4 @@
-"""
-データベースから取得したデータに基づき、
-PDFレポートの元となるHTMLを生成する関数を定義します。
-"""
+# utils/dashboard_pdf.py
 from jinja2 import Template
 import pandas as pd
 from datetime import datetime
@@ -9,15 +6,8 @@ from datetime import datetime
 def render_dashboard_to_html(student_info, student_progress, student_homework, student_name):
     """
     生徒の各種データからPDFの元となるHTML文字列を生成します。
-
-    Args:
-        student_info (dict): 生徒の個人情報（講師名など）。
-        student_progress (dict): 生徒の参考書進捗データ。
-        student_homework (list): 生徒の宿題リスト。
-        student_name (str): 生徒の名前。
     """
     
-    # HTMLテンプレートファイルを読み込む
     try:
         with open('utils/pdf_template.html', 'r', encoding='utf-8') as f:
             template_str = f.read()
@@ -29,9 +19,8 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     # --- 宿題データをHTMLテーブルに変換 ---
     if student_homework:
         homework_df = pd.DataFrame(student_homework)
-        # 不要な 'id' と 'student_id' 列を削除し、表示する列の順番を定義
         homework_df = homework_df[['subject', 'task', 'due_date', 'status']]
-        homework_df.columns = ['科目', '課題内容', '提出期限', 'ステータス'] # 列名を日本語に
+        homework_df.columns = ['科目', '課題内容', '提出期限', 'ステータス']
         homework_table_html = homework_df.to_html(index=False, classes='table table-striped table-sm')
     else:
         homework_table_html = "<p>登録されている宿題はありません。</p>"
@@ -55,14 +44,21 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     else:
         progress_table_html = "<p>予定されている参考書はありません。</p>"
 
-    # テンプレートに渡すためのデータコンテキストを作成
+    # --- ★★★ ここから修正 ★★★ ---
+    main_instructors = student_info.get('main_instructors', [])
+    main_instructor_str = ", ".join(main_instructors) if main_instructors else '未設定'
+    
+    sub_instructors = student_info.get('sub_instructors', [])
+    sub_instructor_str = ", ".join(sub_instructors) if sub_instructors else 'なし'
+
     context = {
         "student_name": student_name,
-        # ★★★ 修正: 'メイン講師' -> 'main_instructor' ★★★
-        "main_instructor": student_info.get('main_instructor', '未設定'),
+        "main_instructor": main_instructor_str,
+        "sub_instructors": sub_instructor_str, # サブ講師を追加
         "generation_date": datetime.now().strftime("%Y年%m月%d日"),
         "homework_table": homework_table_html,
         "progress_table": progress_table_html
     }
+    # --- ★★★ ここまで修正 ★★★ ---
 
     return template.render(context)
