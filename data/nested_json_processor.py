@@ -51,13 +51,12 @@ def get_student_progress(school, student_name):
         conn.close()
         return {}
     student_id = student['id']
-    # master_textbooks と LEFT JOIN して、生徒に進捗がない参考書も取得できるようにする
-    # さらに、completed_units と total_units も取得
+    
     progress_records = conn.execute(
         """
         SELECT 
             p.subject, p.level, p.book_name, 
-            COALESCE(p.duration, m.duration, 0) as duration,
+            COALESCE(m.duration, 0) as duration, -- ★★★ ここを修正 ★★★
             p.is_planned, p.is_done,
             COALESCE(p.completed_units, 0) as completed_units,
             COALESCE(p.total_units, 1) as total_units
@@ -74,6 +73,7 @@ def get_student_progress(school, student_name):
             progress_data[subject] = {}
         if level not in progress_data[subject]:
             progress_data[subject][level] = {}
+        # '所要時間' キーの値を 'duration' から取得するように修正
         progress_data[subject][level][book_name] = {
             '所要時間': row['duration'],
             '予定': bool(row['is_planned']),
@@ -83,11 +83,20 @@ def get_student_progress(school, student_name):
         }
     return progress_data
 
+
+# ★★★ get_student_info 関数を修正 ★★★
 def get_student_info(school, student_name):
     conn = get_db_connection()
-    student_info = conn.execute('SELECT * FROM students WHERE name = ? AND school = ?', (student_name, school)).fetchone()
+    # メイン講師を users テーブルから動的に取得する
+    student_info_raw = conn.execute('''
+        SELECT 
+            s.*,
+            (SELECT u.username FROM users u WHERE u.school = s.school AND u.role = 'admin' LIMIT 1) as main_instructor
+        FROM students s
+        WHERE s.name = ? AND s.school = ?
+    ''', (student_name, school)).fetchone()
     conn.close()
-    return dict(student_info) if student_info else {}
+    return dict(student_info_raw) if student_info_raw else {}
 
 def get_master_textbook_list(subject, search_term=""):
     conn = get_db_connection()
@@ -134,16 +143,13 @@ def add_or_update_student_progress(school, student_name, progress_updates):
                     (update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), existing['id'])
                 )
             else:
-                master_book = cursor.execute(
-                    "SELECT duration FROM master_textbooks WHERE subject = ? AND level = ? AND book_name = ?",
-                    (update['subject'], update['level'], update['book_name'])
-                ).fetchone()
-                duration = master_book['duration'] if master_book else 0
-
+                # ★★★ ここから修正 ★★★
+                # durationをmaster_textbooksから取得してprogressに保存するロジックを削除
                 cursor.execute(
-                    "INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, duration, completed_units, total_units) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], is_done, duration, update.get('completed_units', 0), update.get('total_units', 1))
+                    "INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, completed_units, total_units) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1))
                 )
+                # ★★★ ここまで修正 ★★★
         conn.commit()
         return True, f"{len(progress_updates)}件の進捗を更新しました。"
     except (sqlite3.Error, ValueError) as e:
@@ -212,5 +218,144 @@ def delete_homework(homework_id):
         print(f"宿題削除エラー: {e}")
         conn.rollback()
         return False, "宿題の削除に失敗しました。"
+    finally:
+        conn.close()
+
+def get_bulk_presets():
+    """一括登録のプリセットをデータベースから取得する"""
+    conn = get_db_connection()
+    presets_raw = conn.execute("""
+        SELECT 
+            p.id, p.subject, p.preset_name, pb.book_name
+        FROM bulk_presets p
+        JOIN bulk_preset_books pb ON p.id = pb.preset_id
+        ORDER BY p.subject, p.preset_name
+    """).fetchall()
+    conn.close()
+
+    # データを整形
+    presets = {}
+    for row in presets_raw:
+        subject = row['subject']
+        preset_name = row['preset_name']
+        book_name = row['book_name']
+        
+        if subject not in presets:
+            presets[subject] = {}
+        if preset_name not in presets[subject]:
+            presets[subject][preset_name] = []
+        
+        presets[subject][preset_name].append(book_name)
+        
+    return presets
+
+def get_all_master_textbooks():
+    """マスターからすべての参考書データを取得する"""
+    conn = get_db_connection()
+    # データを取得しやすいように辞書のリストで返す
+    textbooks = conn.execute('SELECT id, subject, level, book_name, duration FROM master_textbooks ORDER BY subject, level, book_name').fetchall()
+    conn.close()
+    return [dict(row) for row in textbooks]
+
+def add_master_textbook(subject, level, book_name, duration):
+    """新しい参考書をマスターに追加する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO master_textbooks (subject, level, book_name, duration) VALUES (?, ?, ?, ?)",
+            (subject, level, book_name, duration)
+        )
+        conn.commit()
+        return True, "参考書が正常に追加されました。"
+    except sqlite3.IntegrityError:
+        return False, "同じ参考書が既に存在します。"
+    finally:
+        conn.close()
+
+def update_master_textbook(book_id, subject, level, book_name, duration):
+    """既存の参考書情報を更新する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE master_textbooks SET subject = ?, level = ?, book_name = ?, duration = ? WHERE id = ?",
+            (subject, level, book_name, duration, book_id)
+        )
+        conn.commit()
+        return True, "参考書が正常に更新されました。"
+    except sqlite3.IntegrityError:
+        return False, "更新後の参考書名が他のものと重複しています。"
+    finally:
+        conn.close()
+
+def delete_master_textbook(book_id):
+    """参考書をマスターから削除する"""
+    conn = get_db_connection()
+    try:
+        # 関連する生徒の進捗データも削除するかどうかは仕様によるが、
+        # ここではマスターからの削除のみ行う
+        conn.execute("DELETE FROM master_textbooks WHERE id = ?", (book_id,))
+        conn.commit()
+        return True, "参考書が正常に削除されました。閉じるボタンを押してください。"
+    except sqlite3.Error as e:
+        return False, f"削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def get_all_students_with_details():
+    """全生徒の情報を、メイン講師情報を含めて取得する"""
+    conn = get_db_connection()
+    students_raw = conn.execute('''
+        SELECT 
+            s.id, s.name, s.school, s.deviation_value, s.sub_instructor,
+            (SELECT u.username FROM users u WHERE u.school = s.school AND u.role = 'admin' LIMIT 1) as main_instructor
+        FROM students s
+        ORDER BY s.school, s.name
+    ''').fetchall()
+    conn.close()
+    return [dict(row) for row in students_raw]
+
+def add_student(name, school, deviation_value, sub_instructor):
+    """新しい生徒を追加する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO students (name, school, deviation_value, sub_instructor) VALUES (?, ?, ?, ?)",
+            (name, school, deviation_value, sub_instructor)
+        )
+        conn.commit()
+        return True, "生徒が正常に追加されました。"
+    except sqlite3.IntegrityError:
+        return False, "同じ校舎に同名の生徒が既に存在します。"
+    finally:
+        conn.close()
+
+def update_student(student_id, name, deviation_value, sub_instructor):
+    """生徒情報を更新する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE students SET name = ?, deviation_value = ?, sub_instructor = ? WHERE id = ?",
+            (name, deviation_value, sub_instructor, student_id)
+        )
+        conn.commit()
+        return True, "生徒情報が正常に更新されました。"
+    except sqlite3.IntegrityError:
+        return False, "更新後の生徒名が、校舎内で他の生徒と重複しています。"
+    finally:
+        conn.close()
+
+def delete_student(student_id):
+    """生徒情報を削除する（関連する進捗や宿題も削除）"""
+    conn = get_db_connection()
+    try:
+        # 整合性を保つため、関連データを先に削除
+        conn.execute("DELETE FROM homework WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM progress WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
+        conn.commit()
+        return True, "生徒および関連データが正常に削除されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"削除中にエラーが発生しました: {e}"
     finally:
         conn.close()

@@ -54,6 +54,7 @@ def register_progress_callbacks(app):
                         '科目': subject, 'ルートレベル': level, 'book_name': book_name,
                         '所要時間': details.get('所要時間', 0),
                         '予定': details.get('予定', False),
+                        '達成済': details.get('達成済', False), # ★★★ 修正点：'達成済'の情報を追加 ★★★
                         'completed_units': details.get('completed_units', 0),
                         'total_units': details.get('total_units', 1)
                     })
@@ -68,8 +69,9 @@ def register_progress_callbacks(app):
         if planned_df.empty:
             return dbc.Alert("予定されている学習はありません。", color="info"), html.Div()
 
-        planned_df['achieved_duration'] = planned_df.apply(lambda row: row['true_duration'] * (row['completed_units'] / row['total_units']) if row['total_units'] > 0 else 0, axis=1)
-        planned_df['planned_duration'] = planned_df['true_duration'] - planned_df['achieved_duration']
+        # ★★★ 修正点：時間計算のロジックをグラフ生成関数に移動するため、以下の2行を削除 ★★★
+        # planned_df['achieved_duration'] = planned_df.apply(lambda row: row['true_duration'] * (row['completed_units'] / row['total_units']) if row['total_units'] > 0 else 0, axis=1)
+        # planned_df['planned_duration'] = planned_df['true_duration'] - planned_df['achieved_duration']
         
         cumulative_chart = create_progress_stacked_bar_chart(planned_df, "全科目累計")
         cumulative_graph_div = dcc.Graph(figure=cumulative_chart) if cumulative_chart else dbc.Alert("予定されている学習はありません。", color="info")
@@ -95,13 +97,12 @@ def register_progress_callbacks(app):
         student_progress = get_student_progress(school, student)
         student_info = get_student_info(school, student)
 
-        # ★★★ ここが修正点です ★★★
-        # 複雑な一行のリスト内包表記を、より安全な複数行のforループに書き換え
         records = []
         for s, lvls in student_progress.items():
             for l, bks in lvls.items():
                 for b, d in bks.items():
                     record = {'科目': s, 'ルートレベル': l, 'book_name': b}
+                    # ★★★ 修正点：'達成済'の情報を追加 ★★★
                     record.update(d)
                     records.append(record)
         
@@ -112,14 +113,20 @@ def register_progress_callbacks(app):
         if subject_df.empty:
             return html.Div(f"{subject_clicked}には予定された学習がありません。")
 
-        subject_df['total_units'] = subject_df['total_units'].replace(0, 1)
-        subject_df['achieved_duration'] = subject_df['true_duration'] * (subject_df['completed_units'] / subject_df['total_units'])
-        subject_df['planned_duration'] = subject_df['true_duration'] - subject_df['achieved_duration']
+        # ★★★ 修正点：時間計算のロジックをグラフ生成関数に移動するため、以下の3行を削除 ★★★
+        # subject_df['total_units'] = subject_df['total_units'].replace(0, 1)
+        # subject_df['achieved_duration'] = subject_df['true_duration'] * (subject_df['completed_units'] / subject_df['total_units'])
+        # subject_df['planned_duration'] = subject_df['true_duration'] - subject_df['achieved_duration']
         
         detailed_chart = create_progress_stacked_bar_chart(subject_df, f"詳細: {subject_clicked}")
         
+        # 集計カードのための計算（ここは残す）
+        subject_df['achieved_duration_for_card'] = subject_df.apply(
+            lambda row: row['true_duration'] * (row['completed_units'] / (row['total_units'] if row['total_units'] > 0 else 1)),
+            axis=1
+        )
         total_hours = subject_df['true_duration'].sum()
-        done_hours = subject_df['achieved_duration'].sum()
+        done_hours = subject_df['achieved_duration_for_card'].sum()
         achievement_rate = (done_hours / total_hours * 100) if total_hours > 0 else 0
         
         summary_cards = dbc.Row([

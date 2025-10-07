@@ -23,6 +23,7 @@ from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
 from data.nested_json_processor import get_all_subjects
 from components.main_layout import create_main_layout, create_navbar
 from components.modals import create_all_modals
+from components.admin_components import create_master_textbook_modal, create_textbook_edit_modal, create_student_edit_modal, create_student_management_modal
 from components.login_components import (
     create_login_layout,
     create_access_denied_layout,
@@ -84,28 +85,6 @@ def display_page(pathname, auth_store_data):
     """URLのパスに応じてページコンテンツを切り替え"""
     user_info = get_current_user_from_store(auth_store_data)
 
-    if pathname == '/login':
-        return create_login_layout()
-
-    if not user_info:
-        return create_login_layout()
-
-    subjects = get_all_subjects()
-
-    if pathname in ['/', None]:
-        return html.Div([
-            create_main_layout(user_info),
-            *create_all_modals(subjects),
-            dbc.Toast(
-                id="success-toast", header="成功", is_open=False, dismissable=True,
-                duration=3000, icon="success",
-                style={
-                    "position": "fixed", "top": 66, "right": 10,
-                    "width": 350, "zIndex": 1050
-                },
-            ),
-        ])
-
     if pathname == '/admin':
         if user_info.get('role') != 'admin':
             return html.Div([create_navbar(user_info), create_access_denied_layout()])
@@ -121,15 +100,34 @@ def display_page(pathname, auth_store_data):
                             dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
                             dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
                         ])
-                    ]), width=6),
+                    ]), width=12, md=3, className="mb-3"), # ★ レイアウト調整
+                    dbc.Col(dbc.Card([
+                        dbc.CardHeader("🧑‍🎓 生徒管理"), # ★ 新規カード
+                        dbc.CardBody(
+                            dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info", className="w-100")
+                        )
+                    ]), width=12, md=3, className="mb-3"),
+                    dbc.Col(dbc.Card([
+                        dbc.CardHeader("📚 参考書マスター管理"),
+                        dbc.CardBody(
+                            dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="primary", className="w-100")
+                        )
+                    ]), width=12, md=3, className="mb-3"),
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("💾 データ管理"),
-                        dbc.CardBody(dbc.Button("JSONバックアップ", id="backup-btn", color="warning"))
-                    ]), width=6)
+                        dbc.CardBody(dbc.Button("JSONバックアップ", id="backup-btn", color="warning", className="w-100"))
+                    ]), width=12, md=3, className="mb-3")
                 ], className="mb-4"),
-                html.Div(id="admin-statistics")
+                html.Div(id="admin-statistics"),
+                
+                # --- 管理者ページにモーダルを配置 ---
+                create_master_textbook_modal(),
+                create_textbook_edit_modal(),
+                create_student_management_modal(), # ★ 追加
+                create_student_edit_modal(),       # ★ 追加
             ])
         ])
+        # ★★★ ここまで修正 ★★★
 
     return create_main_layout(user_info)
 

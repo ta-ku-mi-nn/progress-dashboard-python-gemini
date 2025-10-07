@@ -58,7 +58,8 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     # テンプレートに渡すためのデータコンテキストを作成
     context = {
         "student_name": student_name,
-        "main_instructor": student_info.get('メイン講師', '未設定'),
+        # ★★★ 修正: 'メイン講師' -> 'main_instructor' ★★★
+        "main_instructor": student_info.get('main_instructor', '未設定'),
         "generation_date": datetime.now().strftime("%Y年%m月%d日"),
         "homework_table": homework_table_html,
         "progress_table": progress_table_html

@@ -15,7 +15,6 @@ APP_CONFIG = {
     },
     'data': {
         'json_file': 'route-subject-text-time_new.json',
-        'bulk_buttons_file': 'bulk_buttons.json',
         'users_file': 'users.json'
     }
 }
