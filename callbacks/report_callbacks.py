@@ -1,63 +1,54 @@
-"""
-レポート作成機能に関連するコールバックを定義します。
-"""
-from dash import Input, Output, State, no_update
+# callbacks/report_callbacks.py
 
-# データベース操作用のヘルパー関数をインポート
-from data.nested_json_processor import (
-    get_student_info,
-    get_student_progress,
-    get_student_homework
-)
-# PDF生成関連の関数をインポート
-from utils.dashboard_pdf import render_dashboard_to_html
-from utils.pdf_export import generate_pdf_from_html, create_download_data
+from dash import Input, Output, State, dcc
+import dash_bootstrap_components as dbc
+import datetime
+
+# 必要な関数を正しくインポート
+from data.nested_json_processor import get_student_info_by_id, get_student_progress_by_id
+from utils.dashboard_pdf import create_dashboard_pdf
+
 
 def register_report_callbacks(app):
-    """
-    レポート作成に関連するコールバックを登録します。
+    """PDFレポート生成に関連するコールバックを登録します。"""
 
-    Args:
-        app (dash.Dash): Dashアプリケーションインスタンス。
-    """
-
-    # --- 生徒選択に応じてPDF出力ボタンを有効/無効にする ---
     @app.callback(
-        Output('create-report-btn', 'disabled'),
-        Input('student-dropdown', 'value')
-    )
-    def toggle_report_button(selected_student):
-        """生徒が選択されていなければボタンを無効化する。"""
-        return not selected_student
-
-    # --- PDFレポートを生成してダウンロードを開始させる ---
-    @app.callback(
-        Output('download-pdf-report', 'data'),
-        Input('create-report-btn', 'n_clicks'),
-        [State('school-dropdown', 'value'),
-         State('student-dropdown', 'value')],
+        Output("download-pdf-report", "data"),
+        # ↓↓↓ このコールバックは "download-report-btn" というIDのボタンで起動します
+        Input("download-report-btn", "n_clicks"),
+        [
+            # --- ★★★ ここからが修正箇所 ★★★ ---
+            # 'school-dropdown' への依存を完全に削除し、
+            # 代わりにセッションに保存された生徒IDを直接参照します。
+            State("student-selection-store", "data"),
+            State("auth-store", "data")
+            # --- ★★★ 修正箇所ここまで ★★★ ---
+        ],
         prevent_initial_call=True
     )
-    def generate_report(n_clicks, school, student_name):
-        if not n_clicks or not school or not student_name:
-            return no_update
+    def generate_pdf_report(n_clicks, student_id, user_info):
+        """
+        選択された生徒の学習進捗レポートをPDFとして生成し、ダウンロードを開始する
+        """
+        if not n_clicks or not student_id or not user_info:
+            return None
 
-        # 1. データベースから必要なデータをすべて取得
-        student_info = get_student_info(school, student_name)
-        student_progress = get_student_progress(school, student_name)
-        student_homework = get_student_homework(school, student_name)
+        # --- ★★★ ここからが修正箇所 ★★★ ---
+        # 生徒IDだけを使って、必要な情報をすべて取得します。
+        student_info = get_student_info_by_id(student_id)
+        progress_data = get_student_progress_by_id(student_id)
+        # --- ★★★ 修正箇所ここまで ★★★ ---
 
-        # 2. 取得したデータを使ってHTMLを生成
-        report_html = render_dashboard_to_html(
-            student_info,
-            student_progress,
-            student_homework,
-            student_name
-        )
-
-        # 3. HTMLからPDFコンテンツを生成
-        pdf_content = generate_pdf_from_html(report_html)
-
-        # 4. ダウンロード用のデータを作成して返す
-        filename = f"{student_name}_学習進捗レポート.pdf"
-        return create_download_data(pdf_content, filename)
+        if not student_info or not progress_data:
+            print("PDF生成エラー: 生徒情報または進捗データが見つかりません。")
+            return None
+        
+        # PDFをメモリ上で生成
+        pdf_bytes = create_dashboard_pdf(student_info, progress_data)
+        
+        # ダウンロード用のファイル名を設定
+        timestamp = datetime.datetime.now().strftime("%Y%m%d")
+        filename = f"学習進捗レポート_{student_info.get('name', '')}_{timestamp}.pdf"
+        
+        # dcc.Downloadコンポーネントにデータを渡してダウンロードを実行
+        return dcc.send_bytes(pdf_bytes, filename)

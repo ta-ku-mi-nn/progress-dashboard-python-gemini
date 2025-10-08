@@ -2,99 +2,217 @@
 
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px # ★★★ Plotly Express をインポート ★★★
+import plotly.express as px
 from dash import dcc
+
+def create_progress_chart(progress_data, subject):
+    """
+    特定の科目の進捗データから積み上げ棒グラフを生成する。
+    """
+    if not progress_data or subject not in progress_data:
+        return go.Figure()
+
+    subject_data = progress_data[subject]
+    
+    records = []
+    for level, books in subject_data.items():
+        for book_name, details in books.items():
+            records.append({
+                'level': level,
+                'book_name': book_name,
+                'duration': details.get('所要時間', 0),
+                'is_planned': details.get('予定', False),
+                'is_done': details.get('達成済', False),
+                'completed_units': details.get('completed_units', 0),
+                'total_units': details.get('total_units', 1),
+            })
+    
+    if not records:
+        return go.Figure()
+
+    df = pd.DataFrame(records)
+    
+    df_planned = df[df['is_planned']].copy()
+
+    if df_planned.empty:
+        return go.Figure()
+
+    df_planned['achieved_duration'] = df_planned.apply(
+        lambda row: row['duration'] * (row['completed_units'] / row['total_units']) if row['total_units'] > 0 else 0,
+        axis=1
+    )
+    df_planned['remaining_duration'] = df_planned['duration'] - df_planned['achieved_duration']
+
+    fig = go.Figure()
+    colors = px.colors.qualitative.Plotly
+
+    for i, book in enumerate(df_planned['book_name'].unique()):
+        book_df = df_planned[df_planned['book_name'] == book]
+        color = colors[i % len(colors)]
+        
+        fig.add_trace(go.Bar(
+            y=['進捗'],
+            x=book_df['achieved_duration'],
+            name=book,
+            orientation='h',
+            marker=dict(color=color),
+            customdata=book_df[['duration']],
+            hovertemplate=(
+                f"<b>{book}</b><br>"
+                "達成済: %{x:.1f}h<br>"
+                "全体: %{customdata[0]:.1f}h<extra></extra>"
+            )
+        ))
+        
+        fig.add_trace(go.Bar(
+            y=['進捗'],
+            x=book_df['remaining_duration'],
+            name=book,
+            orientation='h',
+            marker=dict(color=color, opacity=0.3),
+            customdata=book_df[['duration']],
+            hovertemplate=(
+                f"<b>{book}</b><br>"
+                "残り: %{x:.1f}h<br>"
+                "全体: %{customdata[0]:.1f}h<extra></extra>"
+            ),
+            showlegend=False
+        ))
+
+    fig.update_layout(
+        barmode='stack',
+        title_text=f'<b>{subject}</b> の学習進捗',
+        xaxis_title="学習時間 (h)",
+        yaxis_title="",
+        legend_title_text='参考書',
+        height=300,
+        margin=dict(t=50, l=10, r=10, b=30),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    return fig
+
 
 def create_progress_stacked_bar_chart(df, title):
     """
-    与えられたDataFrameから、積み上げ棒グラフを生成する。
-    - 「達成済」バー：現在までに完了した総学習時間
-    - 「予定」バー：計画されている総学習時間（完了分＋未達成分）
-    - 参考書ごとにカラーパレットで色分けする
+    与えられたDataFrameから、「予定」と「達成済」の2段積み上げ棒グラフを生成する。
     """
     if df.empty:
         return None
+    
+    df_planned = df[df['is_planned']].copy()
+    if df_planned.empty:
+        return None
 
-    # 関数内で時間の計算を行う
-    df['achieved_duration'] = df.apply(
-        lambda row: row['true_duration'] * (row['completed_units'] / row['total_units']) if row.get('total_units', 1) > 0 else 0,
+    df_planned['achieved_duration'] = df_planned.apply(
+        lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
         axis=1
     )
     
     fig = go.Figure()
-    
-    # ★★★ カラーパレットを定義 ★★★
     colors = px.colors.qualitative.Plotly
     
-    # ★★★ 新しいロジックでグラフを構築 ★★★
-    for i, row in df.iterrows():
-        color = colors[i % len(colors)] # カラーパレットを順番に使用
+    group_key = 'subject' if 'subject' in df_planned.columns else 'book_name'
 
-        # 1. 「達成済」バーに、各参考書の達成済み時間を追加
-        if row['achieved_duration'] > 0.1:
-            fig.add_trace(go.Bar(
-                y=['達成済'],
-                x=[row['achieved_duration']],
-                name=row['book_name'],
-                orientation='h',
-                marker=dict(color=color),
-                hovertemplate=f"<b>{row['book_name']}</b><br>達成済: {row['achieved_duration']:.1f}h<extra></extra>",
-                legendgroup=row['book_name'], # 凡例のグループ化
-                showlegend=False # 凡例は非表示
-            ))
-            
-        # 2. 「予定」バーに、各参考書の総時間を追加
-        if row['true_duration'] > 0.1:
-            fig.add_trace(go.Bar(
-                y=['予定'],
-                x=[row['true_duration']],
-                name=row['book_name'],
-                orientation='h',
-                marker=dict(color=color, opacity=0.6), # 予定バーは少し薄くする
-                hovertemplate=f"<b>{row['book_name']}</b><br>総時間: {row['true_duration']:.1f}h<extra></extra>",
-                legendgroup=row['book_name'], # 凡例のグループ化
-                showlegend=False # 凡例は非表示
-            ))
+    for i, group_name in enumerate(df_planned[group_key].unique()):
+        group_df = df_planned[df_planned[group_key] == group_name]
+        color = colors[i % len(colors)]
+        total_duration = group_df['duration'].sum()
+        achieved_duration = group_df['achieved_duration'].sum()
+
+        fig.add_trace(go.Bar(
+            y=['達成済'], x=[achieved_duration], name=group_name,
+            orientation='h', marker=dict(color=color),
+            legendgroup=group_name,
+            hovertemplate=f"<b>{group_name}</b><br>達成済: {achieved_duration:.1f}h<extra></extra>"
+        ))
+        
+        fig.add_trace(go.Bar(
+            y=['予定'], x=[total_duration], name=group_name,
+            orientation='h', marker=dict(color=color, opacity=0.6),
+            legendgroup=group_name, showlegend=False,
+            hovertemplate=f"<b>{group_name}</b><br>総時間: {total_duration:.1f}h<extra></extra>"
+        ))
 
     fig.update_layout(
         barmode='stack',
         title_text=title,
-        xaxis_title="真所要時間 (h)",
-        margin=dict(t=80, b=40, l=60, r=10),
+        xaxis_title="学習時間 (h)",
+        yaxis={'categoryorder':'array', 'categoryarray':['予定', '達成済']},
+        showlegend=False,
         height=250,
-        yaxis={'categoryorder':'array', 'categoryarray':['予定', '達成済']}
+        margin=dict(t=50, l=60, r=20, b=40),
     )
     return fig
 
-
-def create_subject_progress_pie_chart(df, subject):
+# --- ★★★ ここから修正 ★★★ ---
+# 関数名を create_subject_progress_pie_chart から create_subject_achievement_bar に変更
+def create_subject_achievement_bar(df, subject):
     """
-    指定された科目の達成度を示す半円パイチャート（ゲージメーター）を生成する。
-    真所要時間と達成割合を基に計算する。
+    指定された科目の達成度を示す液体タンク風の縦棒グラフを生成する。
     """
-    subject_df = df[df['科目'] == subject].copy()
+    subject_df = df[df['subject'] == subject].copy()
     
     subject_df['achieved_duration'] = subject_df.apply(
-        lambda row: row['true_duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
+        lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
         axis=1
     )
 
-    total_hours = subject_df['true_duration'].sum()
+    total_hours = subject_df[subject_df['is_planned']]['duration'].sum()
     done_hours = subject_df['achieved_duration'].sum()
     
     achievement_rate = (done_hours / total_hours * 100) if total_hours > 0 else 0
-    
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=achievement_rate,
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': subject, 'font': {'size': 20}},
-        number={'suffix': "%", 'font': {'size': 28}},
-        gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "mediumseagreen"}}
+
+    liquid_color = "rgba(40, 167, 69, 0.7)"
+    if achievement_rate < 20:
+        liquid_color = "rgba(220, 53, 69, 0.7)"
+    elif achievement_rate < 40:
+        liquid_color = "rgba(255, 165, 0, 0.7)"
+    elif achievement_rate < 60:
+        liquid_color = "rgba(255, 193, 7, 0.7)"
+    elif achievement_rate < 80:
+        liquid_color = "rgba(177, 255, 47, 0.7)"
+    # 80%以上は緑色のまま
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=[subject], y=[100],
+        marker_color='rgba(0,0,0,0.05)',
+        hoverinfo='none',
+        showlegend=False
     ))
-    fig.update_layout(margin=dict(t=50, b=10, l=30, r=30), height=250)
+
+    fig.add_trace(go.Bar(
+        x=[subject], y=[achievement_rate],
+        marker_color=liquid_color,
+        text=f"{achievement_rate:.1f}%",
+        textposition='auto',
+        textfont=dict(color='white', size=16),
+        hoverinfo='none',
+        showlegend=False
+    ))
+
+    fig.update_layout(
+        title={
+            'text': subject,
+            'y':0.95, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top',
+            'font': {'size': 20}
+        },
+        barmode='overlay',
+        xaxis=dict(showticklabels=False),
+        yaxis=dict(range=[0, 100], showticklabels=False, showgrid=False),
+        margin=dict(t=50, b=20, l=10, r=10),
+        height=220,
+        transition={'duration': 500, 'easing': 'cubic-in-out'},
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
     
     return dcc.Graph(
         figure=fig, 
         config={'displayModeBar': False},
-        id={'type': 'subject-pie-chart', 'subject': subject}
+        # IDの 'type' も関数名に合わせて変更
+        id={'type': 'subject-achievement-bar', 'subject': subject}
     )
+# --- ★★★ ここまで修正 ★★★ ---

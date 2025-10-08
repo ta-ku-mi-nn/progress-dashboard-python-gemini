@@ -1,46 +1,109 @@
 # components/homework_layout.py
 
-from dash import html, dcc
+from dash import dcc, html
 import dash_bootstrap_components as dbc
+from datetime import date, timedelta
+
+def create_homework_modal():
+    """宿題の追加・編集を行うモーダルを生成する"""
+    
+    # 7日分の宿題入力欄を生成
+    homework_days_container = html.Div(
+        [
+            dbc.Row([
+                dbc.Col(
+                    (date.today() + timedelta(days=i)).strftime('%Y-%m-%d (%a)'),
+                    width=12, md=3, className="fw-bold small text-muted"
+                ),
+                dbc.Col(
+                    dcc.Input(
+                        id={'type': 'homework-modal-range-input', 'index': i},
+                        type='text', placeholder='例: p.10-15', className="w-100 form-control-sm"
+                    ), width=12, md=9
+                )
+            ], className="mb-2 align-items-center") for i in range(7)
+        ]
+    )
+
+    assignment_controls = dbc.Card(
+        dbc.CardBody([
+            html.H6("宿題自動割り振り", className="card-title"),
+            dbc.Row([
+                dbc.Col(dbc.Input(id="modal-start-page-input", type="number", placeholder="開始P", min=1, size="sm")),
+                dbc.Col(dbc.Input(id="modal-interval-input", type="number", placeholder="間隔", min=1, size="sm")),
+            ], className="mb-2"),
+            dbc.ButtonGroup([
+                dbc.Button("4進2復", id="modal-btn-4-2", color="primary", outline=True, size="sm"),
+                dbc.Button("2進1復", id="modal-btn-2-1", color="primary", outline=True, size="sm"),
+                dbc.Button("6進", id="modal-btn-6-0", color="primary", outline=True, size="sm"),
+            ], size="sm", className="w-100")
+        ])
+    )
+
+    other_inputs = dbc.Card(
+        dbc.CardBody([
+            html.H6("補足情報", className="card-title"),
+            dbc.Textarea(id="modal-remarks-input", placeholder="備考...", className="mb-2", rows=1),
+            dbc.Input(id="modal-test-result-input", placeholder="テスト結果...", className="mb-2"),
+            dcc.Dropdown(id="modal-achievement-input", placeholder="宿題達成度...", options=[
+                {'label': '100%', 'value': 100}, {'label': '80-99%', 'value': 80},
+                {'label': '60-79%', 'value': 60}, {'label': '40-59%', 'value': 40},
+                {'label': '20-39%', 'value': 20}, {'label': '0-19%', 'value': 0},
+            ]),
+        ])
+    )
+    
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle(id="homework-modal-title")),
+            dbc.ModalBody([
+                dbc.Alert(id="homework-modal-alert", is_open=False),
+                dcc.Store(id='editing-homework-store'), # 編集対象のIDや名前を保持
+
+                # --- 参考書選択 ---
+                html.Div(id='homework-modal-subject-selector-container', className="mb-2"),
+                html.Div(id='homework-modal-textbook-selector-container', className="mb-2"),
+                dbc.Input(id='homework-modal-custom-textbook-input', placeholder="リストにない参考書はこちらに入力...", className="mb-3"),
+                html.Hr(),
+                
+                # --- メインコンテンツ ---
+                dbc.Row([
+                    dbc.Col([
+                        homework_days_container,
+                    ], md=7),
+                    dbc.Col([
+                        assignment_controls,
+                        other_inputs,
+                    ], md=5),
+                ]),
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("削除", id="delete-homework-btn", color="danger", className="me-auto"),
+                dbc.Button("キャンセル", id="cancel-homework-btn", color="secondary"),
+                dbc.Button("保存", id="save-homework-modal-btn", color="primary"),
+            ]),
+        ],
+        id="homework-modal",
+        size="lg",
+        is_open=False,
+    )
+
 
 def create_homework_layout(user_info):
-    """宿題管理ページのレイアウトを生成する"""
-    return dbc.Container([
+    """宿題管理ページのメインレイアウト（リスト表示）を生成します。"""
+    
+    return html.Div([
         dbc.Row([
-            # 左側のフィルターパネル (メインレイアウトと共通)
-            dbc.Col([
-                html.H4("フィルター", className="mt-4"),
-                dbc.Card(dbc.CardBody([
-                    dbc.Label("校舎選択"),
-                    dcc.Dropdown(id='school-dropdown', placeholder="校舎を選択..."),
-                    html.Br(),
-                    dbc.Label("生徒選択"),
-                    dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
-                ]))
-            ], width=12, lg=3, className="bg-light sticky-top"),
+            dbc.Col(html.H1("宿題管理")),
+            dbc.Col(
+                dbc.Button("新しい宿題を追加", id="add-homework-btn", color="success"),
+                className="text-end"
+            )
+        ], align="center", className="my-4"),
 
-            # 右側の宿題コンテンツエリア
-            dbc.Col([
-                dbc.Row([
-                    dbc.Col(html.H4("宿題管理", className="mt-4"), width='auto'),
-                    dbc.Col(
-                        dbc.Button(
-                            [html.I(className="fas fa-plus me-2"), "宿題を追加"], 
-                            id="add-homework-btn", 
-                            color="success", 
-                            size="sm",
-                            disabled=True # 生徒が選択されるまで無効
-                        ), 
-                        className="text-end"
-                    )
-                ], align="center", className="mb-3"),
-                
-                # 宿題リストが表示されるコンテナ
-                dcc.Loading(
-                    id="loading-homework-list",
-                    type="default",
-                    children=html.Div(id='homework-list-container')
-                )
-            ], width=12, lg=9)
-        ])
-    ], fluid=True)
+        # 宿題リストを表示するコンテナ
+        dcc.Loading(html.Div(id="homework-list-container")),
+        
+        # 宿題編集用のモーダルをレイアウトに追加
+        create_homework_modal(),
+    ])

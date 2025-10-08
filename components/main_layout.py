@@ -1,104 +1,65 @@
 # components/main_layout.py
 
-from dash import html, dcc
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-# ★★★ ここから修正 ★★★
-def create_navbar(user_info=None):
-    """ナビゲーションバーを生成する"""
-    username = user_info.get('username', 'Guest') if user_info else 'Guest'
-    is_admin = user_info and user_info.get('role') == 'admin'
+def create_main_layout(user_info):
+    """
+    アプリケーションのメインレイアウト（学習進捗表示ページ）を生成します。
+    """
+    if not user_info:
+        return html.Div()
 
-    nav_items = [
-        dbc.NavItem(dbc.NavLink("ホーム", href="/")),
-        dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")), # 宿題管理タブを追加
+    # --- ★★★ ここから修正 ★★★ ---
+    main_content = [
+        # タブとボタンを横並びにするためのコンテナ
+        html.Div(
+            [
+                html.Div(id='subject-tabs-container', style={'flexGrow': 1}), # タブが幅を占める
+                html.Div(id='dashboard-actions-container', className="ms-3"), # ボタン用のコンテナ
+            ],
+            className="d-flex align-items-center"
+        ),
+        html.Div(id='dashboard-content-container', className="mt-4"),
     ]
-    if is_admin:
-        nav_items.append(dbc.NavItem(dbc.NavLink("管理者メニュー", href="/admin")))
+    return html.Div(main_content)
+    # --- ★★★ ここまで修正 ★★★ ---
 
-    user_dropdown = dbc.DropdownMenu(
+# ( ... create_navbar 関数は変更なし ... )
+def create_navbar(user_info):
+    """
+    ユーザー情報に基づいてナビゲーションバーを生成します。
+    """
+    if not user_info:
+        return None
+
+    username = user_info.get('username', 'ゲスト')
+    
+    user_menu = dbc.DropdownMenu(
         [
-            dbc.DropdownMenuItem("プロフィール", id="user-menu"),
+            dbc.DropdownMenuItem("プロフィール", id="user-profile-btn", n_clicks=0),
             dbc.DropdownMenuItem(divider=True),
-            dbc.DropdownMenuItem("ログアウト", id="logout-button"),
+            dbc.DropdownMenuItem("ログアウト", id="logout-button", n_clicks=0, href="/login"),
         ],
+        label=username,
         nav=True,
         in_navbar=True,
-        label=username,
     )
 
-    return dbc.Navbar(
-        dbc.Container([
-            html.A(
-                dbc.Row([
-                    dbc.Col(html.I(className="fas fa-chart-line me-2")),
-                    dbc.Col(dbc.NavbarBrand("学習進捗ダッシュボード")),
-                ], align="center", className="g-0"),
-                href="/",
-                style={"textDecoration": "none"},
-            ),
-            dbc.NavbarToggler(id="navbar-toggler"),
-            dbc.Collapse(
-                dbc.Nav(nav_items + [user_dropdown], className="ms-auto", navbar=True),
-                id="navbar-collapse",
-                navbar=True,
-            ),
-        ]),
-        color="dark",
+    admin_link = []
+    if user_info.get('role') == 'admin':
+        admin_link = [dbc.NavItem(dbc.NavLink("管理者メニュー", href="/admin"))]
+        
+    return dbc.NavbarSimple(
+        children=[
+            dbc.NavItem(dbc.NavLink("ホーム", href="/")),
+            dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")),
+            *admin_link,
+            user_menu,
+        ],
+        brand="学習進捗ダッシュボード",
+        brand_href="/",
+        color="primary",
         dark=True,
+        className="mb-4",
     )
-
-
-def create_main_layout(user_info):
-    """メインアプリケーションのレイアウトを生成する"""
-    return html.Div([
-        create_navbar(user_info),
-        dbc.Container([
-            dbc.Row([
-                # 左側のフィルターパネル
-                dbc.Col([
-                    html.H4("フィルター", className="mt-4"),
-                    dbc.Card(dbc.CardBody([
-                        dbc.Label("校舎選択"),
-                        dcc.Dropdown(id='school-dropdown', placeholder="校舎を選択..."),
-                        html.Br(),
-                        dbc.Label("生徒選択"),
-                        dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
-                        html.Hr(),
-                        html.Div([
-                            dbc.Button(
-                                [html.I(className="fas fa-edit me-2"), "個別更新"],
-                                id="update-plan-btn", color="primary", className="flex-grow-1 me-2", disabled=True
-                            ),
-                            dbc.Button(
-                                [html.I(className="fas fa-layer-group me-2"), "一括登録"],
-                                id="open-bulk-modal-btn", color="secondary", className="flex-grow-1", disabled=True
-                            ),
-                        ], className="d-flex"),
-                        html.Div(
-                            dbc.Button(
-                                [html.I(className="fas fa-file-pdf me-2"), "PDFレポート出力"],
-                                id="create-report-btn", color="info", className="w-100", disabled=True
-                            ), className="d-grid gap-2 mt-2"
-                        )
-                    ]))
-                ], width=12, lg=3, className="bg-light sticky-top"),
-
-                # --- 右側のコンテンツエリア ---
-                dbc.Col([
-                    html.H4("学習状況サマリー", className="mt-4"),
-                    html.Div(id='cumulative-progress-container'),
-                    html.Hr(),
-                    
-                    html.H4("科目別 達成度"),
-                    dbc.Alert("円グラフをクリックすると詳細が表示されます。", color="info", className="small"),
-                    html.Div(id='subject-pie-charts-container'),
-                    html.Hr(),
-
-                    html.Div(id='detailed-progress-view-container'),
-                    # ★★★ 宿題管理セクションをここから削除 ★★★
-                ], width=12, lg=9)
-            ])
-        ], fluid=True),
-    ])
-# ★★★ ここまで修正 ★★★

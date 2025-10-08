@@ -1,138 +1,170 @@
 # callbacks/progress_callbacks.py
 
-import json
-import pandas as pd
-from dash import Input, Output, State, html, dcc, callback_context, no_update, ALL
+from dash import Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
+import pandas as pd
 
-from data.nested_json_processor import get_student_progress, get_student_info
-from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_progress_pie_chart
-
-def calculate_true_duration(df, student_info):
-    """真所要時間を計算してDataFrameに新しい列として追加する"""
-    student_deviation = student_info.get('deviation_value')
-    if not student_deviation:
-        df['true_duration'] = df['所要時間']
-        return df
-
-    standard_hensachi = {'基礎徹底': 50, '日大': 60, 'MARCH': 70, '早慶': 75}
-    
-    def calc_row(row):
-        level = row['ルートレベル']
-        base_duration = row['所要時間']
-        standard_dev = standard_hensachi.get(level, student_deviation)
-        
-        adjustment_factor = 1 + 0.025 * (standard_dev - student_deviation)
-        return max(0, base_duration * adjustment_factor)
-
-    df['true_duration'] = df.apply(calc_row, axis=1)
-    return df
+from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id
+# --- ★★★ ここから修正 ★★★ ---
+# インポートする関数名を変更
+from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
+# --- ★★★ ここまで修正 ★★★ ---
 
 def register_progress_callbacks(app):
-    """進捗グラフの表示に関連するコールバックを登録します。"""
+    """進捗表示に関連するコールバックを登録します。"""
 
     @app.callback(
-        [Output('cumulative-progress-container', 'children'),
-         Output('subject-pie-charts-container', 'children')],
-        Input('student-dropdown', 'value'),
-        State('school-dropdown', 'value')
+        Output('dashboard-content-container', 'children'),
+        Input('subject-tabs', 'active_tab'),
+        State('student-selection-store', 'data')
     )
-    def update_main_dashboard(selected_student, selected_school):
-        if not selected_student or not selected_school:
-            return html.Div("生徒を選択してください。"), html.Div()
+    def update_dashboard_layout(active_tab, student_id):
+        """
+        選択されたタブに応じて、グラフやテーブルの2カラムレイアウトを生成する。
+        """
+        if not student_id or not active_tab:
+            return None
 
-        student_progress = get_student_progress(selected_school, selected_student)
-        student_info = get_student_info(selected_school, selected_student)
-        if not student_progress:
-            return html.Div(f"「{selected_student}」さんの進捗データが見つかりません。"), html.Div()
+        progress_data = get_student_progress_by_id(student_id)
+        if not progress_data:
+            return dbc.Alert("進捗データがありません。", color="info")
 
-        records = []
-        for subject, levels in student_progress.items():
-            for level, books in levels.items():
+        if active_tab == '総合':
+            all_records = []
+            for subject, levels in progress_data.items():
+                for level, books in levels.items():
+                    for book_name, details in books.items():
+                        all_records.append({
+                            'subject': subject, 'book_name': book_name,
+                            'duration': details.get('所要時間', 0),
+                            'is_planned': details.get('予定', False),
+                            'is_done': details.get('達成済', False),
+                            'completed_units': details.get('completed_units', 0),
+                            'total_units': details.get('total_units', 1),
+                        })
+            
+            if not all_records:
+                return dbc.Alert("予定されている学習がありません。", color="info")
+
+            df_all = pd.DataFrame(all_records)
+            
+            stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
+            summary_cards = create_summary_cards(df_all)
+            
+            left_col = html.Div([
+                dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
+                summary_cards
+            ])
+
+            bar_charts = []
+            for subject in sorted(df_all['subject'].unique()):
+                # --- ★★★ ここから修正 ★★★ ---
+                # 呼び出す関数名を変更
+                bar_chart = create_subject_achievement_bar(df_all, subject)
+                bar_charts.append(dbc.Col(bar_chart, width=12, md=6, lg=4, className="mb-3"))
+                # --- ★★★ ここまで修正 ★★★ ---
+            right_col = dbc.Row(bar_charts)
+            
+            return dbc.Row([
+                dbc.Col(left_col, md=8),
+                dbc.Col(right_col, md=4),
+            ])
+        else:
+            if active_tab not in progress_data:
+                return dbc.Alert(f"「{active_tab}」の進捗データがありません。", color="info")
+
+            subject_records = []
+            for level, books in progress_data[active_tab].items():
                 for book_name, details in books.items():
-                    records.append({
-                        '科目': subject, 'ルートレベル': level, 'book_name': book_name,
-                        '所要時間': details.get('所要時間', 0),
-                        '予定': details.get('予定', False),
-                        '達成済': details.get('達成済', False), # ★★★ 修正点：'達成済'の情報を追加 ★★★
+                    subject_records.append({
+                        'book_name': book_name,
+                        'duration': details.get('所要時間', 0),
+                        'is_planned': details.get('予定', False),
+                        'is_done': details.get('達成済', False),
                         'completed_units': details.get('completed_units', 0),
-                        'total_units': details.get('total_units', 1)
+                        'total_units': details.get('total_units', 1),
                     })
-        
-        if not records:
-            return html.Div("この生徒には登録されている参考書がありません。"), html.Div()
+            
+            df_subject = pd.DataFrame(subject_records)
+            fig = create_progress_stacked_bar_chart(df_subject, f'<b>{active_tab}</b> の学習進捗')
+            summary_cards = create_summary_cards(df_subject)
 
-        df = pd.DataFrame(records)
-        df = calculate_true_duration(df, student_info)
-        planned_df = df[df['予定'] == True].copy()
-        
-        if planned_df.empty:
-            return dbc.Alert("予定されている学習はありません。", color="info"), html.Div()
+            left_col = html.Div([
+                dcc.Graph(figure=fig, style={'height': '250px'}) if fig else dbc.Alert("予定されている学習がありません。", color="info"),
+                summary_cards
+            ])
 
-        # ★★★ 修正点：時間計算のロジックをグラフ生成関数に移動するため、以下の2行を削除 ★★★
-        # planned_df['achieved_duration'] = planned_df.apply(lambda row: row['true_duration'] * (row['completed_units'] / row['total_units']) if row['total_units'] > 0 else 0, axis=1)
-        # planned_df['planned_duration'] = planned_df['true_duration'] - planned_df['achieved_duration']
-        
-        cumulative_chart = create_progress_stacked_bar_chart(planned_df, "全科目累計")
-        cumulative_graph_div = dcc.Graph(figure=cumulative_chart) if cumulative_chart else dbc.Alert("予定されている学習はありません。", color="info")
+            student_info = get_student_info_by_id(student_id)
+            right_col = create_progress_table(progress_data, student_info, active_tab)
+            
+            return dbc.Row([
+                dbc.Col(left_col, md=8),
+                dbc.Col(right_col, md=4),
+            ])
 
-        subjects = sorted(planned_df['科目'].unique())
-        pie_charts = [dbc.Col(create_subject_progress_pie_chart(planned_df, subject), width=6, md=4, lg=3) for subject in subjects]
-        
-        return cumulative_graph_div, dbc.Row(pie_charts)
+def create_summary_cards(df):
+    """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
+    df_planned = df[df['is_planned']].copy()
+    if df_planned.empty:
+        return None
 
-    @app.callback(
-        Output('detailed-progress-view-container', 'children'),
-        Input({'type': 'subject-pie-chart', 'subject': ALL}, 'clickData'),
-        [State('school-dropdown', 'value'), State('student-dropdown', 'value')],
-        prevent_initial_call=True
+    df_planned['achieved_duration'] = df_planned.apply(
+        lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
+        axis=1
     )
-    def display_detailed_chart(click_data, school, student):
-        if not any(click_data) or not school or not student:
-            return html.Div()
+    
+    planned_hours = df_planned['duration'].sum()
+    achieved_hours = df_planned['achieved_duration'].sum()
+    achievement_rate = (achieved_hours / planned_hours * 100) if planned_hours > 0 else 0
+    completed_books = df_planned[df_planned['is_done']].shape[0]
+    
+    cards = dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{achieved_hours:.1f} h", className="card-title"), html.P("達成済時間", className="card-text small text-muted")])), width=6, className="mb-3"),
+        dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{planned_hours:.1f} h", className="card-title"), html.P("予定総時間", className="card-text small text-muted")])), width=6, className="mb-3"),
+        dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{achievement_rate:.1f} %", className="card-title"), html.P("達成率", className="card-text small text-muted")])), width=6, className="mb-3"),
+        dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{completed_books} 冊", className="card-title"), html.P("完了参考書", className="card-text small text-muted")])), width=6, className="mb-3"),
+    ], className="mt-4")
+    
+    return cards
 
-        ctx = callback_context
-        subject_clicked = json.loads(ctx.triggered[0]['prop_id'].split('.')[0])['subject']
-        
-        student_progress = get_student_progress(school, student)
-        student_info = get_student_info(school, student)
+def create_progress_table(progress_data, student_info, active_tab):
+    """進捗詳細テーブルのコンポーネントを生成するヘルパー関数"""
+    subject_data = progress_data.get(active_tab, {})
+    if not subject_data:
+        return None
 
-        records = []
-        for s, lvls in student_progress.items():
-            for l, bks in lvls.items():
-                for b, d in bks.items():
-                    record = {'科目': s, 'ルートレベル': l, 'book_name': b}
-                    # ★★★ 修正点：'達成済'の情報を追加 ★★★
-                    record.update(d)
-                    records.append(record)
-        
-        df = pd.DataFrame(records)
-        df = calculate_true_duration(df, student_info)
-        subject_df = df[(df['科目'] == subject_clicked) & (df['予定'] == True)].copy()
+    table_header = [html.Thead(html.Tr([
+        html.Th("レベル"), html.Th("参考書名"), html.Th("ステータス")
+    ]))]
 
-        if subject_df.empty:
-            return html.Div(f"{subject_clicked}には予定された学習がありません。")
+    table_rows = []
+    for level, books in sorted(subject_data.items()):
+        for book_name, details in books.items():
+            if not details.get('予定'):
+                continue
 
-        # ★★★ 修正点：時間計算のロジックをグラフ生成関数に移動するため、以下の3行を削除 ★★★
-        # subject_df['total_units'] = subject_df['total_units'].replace(0, 1)
-        # subject_df['achieved_duration'] = subject_df['true_duration'] * (subject_df['completed_units'] / subject_df['total_units'])
-        # subject_df['planned_duration'] = subject_df['true_duration'] - subject_df['achieved_duration']
+            status_badge = dbc.Badge(
+                "完了", color="success") if details.get('達成済') else (
+                dbc.Badge("学習中", color="primary") if details.get('予定') else 
+                dbc.Badge("未着手", color="secondary")
+            )
+            
+            table_rows.append(html.Tr([
+                html.Td(level),
+                html.Td(book_name),
+                html.Td(status_badge)
+            ]))
+    
+    if not table_rows:
+        return dbc.Alert("予定されている学習はありません。", color="info", className="mt-4")
         
-        detailed_chart = create_progress_stacked_bar_chart(subject_df, f"詳細: {subject_clicked}")
-        
-        # 集計カードのための計算（ここは残す）
-        subject_df['achieved_duration_for_card'] = subject_df.apply(
-            lambda row: row['true_duration'] * (row['completed_units'] / (row['total_units'] if row['total_units'] > 0 else 1)),
-            axis=1
-        )
-        total_hours = subject_df['true_duration'].sum()
-        done_hours = subject_df['achieved_duration_for_card'].sum()
-        achievement_rate = (done_hours / total_hours * 100) if total_hours > 0 else 0
-        
-        summary_cards = dbc.Row([
-            dbc.Col(dbc.Card([dbc.CardHeader("予定時間"), dbc.CardBody(f"{total_hours:.1f} h")], color="primary", inverse=True)),
-            dbc.Col(dbc.Card([dbc.CardHeader("達成時間"), dbc.CardBody(f"{done_hours:.1f} h")], color="success", inverse=True)),
-            dbc.Col(dbc.Card([dbc.CardHeader("達成度"), dbc.CardBody(f"{achievement_rate:.1f} %")], color="info", inverse=True)),
-        ], className="mt-3")
-
-        return html.Div([dcc.Graph(figure=detailed_chart), summary_cards])
+    table_body = [html.Tbody(table_rows)]
+    
+    student_name = student_info.get('name', 'N/A')
+    main_instructors = ", ".join(student_info.get('main_instructors', []))
+    
+    return html.Div([
+        html.H4(f"{active_tab} の進捗詳細"),
+        html.P(f"（{student_name}さん / メイン講師: {main_instructors}）", className="text-muted small"),
+        dbc.Table(table_header + table_body, bordered=False, striped=True, hover=True, responsive=True, className="mt-3")
+    ])
