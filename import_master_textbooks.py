@@ -20,25 +20,22 @@ def import_textbooks_from_csv():
     print("="*50)
 
     try:
-        # CSVファイルをPandasで読み込み
-        df = pd.read_csv(CSV_FILE)
+        # --- ★★★ ここから修正 ★★★ ---
+        # CSVファイルをPandasで読み込み、UTF-8エンコーディングを指定
+        df = pd.read_csv(CSV_FILE, encoding='utf-8')
+        # --- ★★★ ここまで修正 ★★★
         df.columns = ['level', 'subject', 'book_name', 'duration']
         print(f"1. '{CSV_FILE}' から {len(df)} 件のデータを読み込みました。")
 
-        # --- ★ 修正点：重複行を削除 ---
-        # subject, level, book_name の組み合わせで重複している行を削除する
-        # keep='first' は、重複があった場合に最初の行を残す設定
         original_rows = len(df)
         df.drop_duplicates(subset=['subject', 'level', 'book_name'], keep='first', inplace=True)
         dropped_rows = original_rows - len(df)
         if dropped_rows > 0:
             print(f"   - {dropped_rows} 件の重複データを発見し、除去しました。")
-        # --------------------------------
 
         conn = sqlite3.connect(DATABASE_FILE)
         cursor = conn.cursor()
 
-        # 2. master_textbooks テーブルを作成（存在しない場合）
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS master_textbooks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,11 +48,9 @@ def import_textbooks_from_csv():
         ''')
         print("2. 'master_textbooks' テーブルを準備しました。")
 
-        # 3. 既存のマスターデータをクリア
         cursor.execute("DELETE FROM master_textbooks;")
         print("3. 既存のマスターデータをクリアしました。")
 
-        # 4. DataFrameからデータベースにデータを挿入
         df.to_sql('master_textbooks', conn, if_exists='append', index=False)
         
         conn.commit()

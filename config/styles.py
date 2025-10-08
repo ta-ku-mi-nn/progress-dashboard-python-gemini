@@ -400,6 +400,10 @@ APP_INDEX_STRING = '''
                 padding: 0.5rem !important;
             }
         }
+
+        .modal-body .Select-menu-outer {
+            z-index: 1060 !important;
+        }
         </style>
     </head>
     <body>

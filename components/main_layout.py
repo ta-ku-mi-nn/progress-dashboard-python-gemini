@@ -3,7 +3,7 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-# ... (create_navbar 関数は変更なし) ...
+# ★★★ ここから修正 ★★★
 def create_navbar(user_info=None):
     """ナビゲーションバーを生成する"""
     username = user_info.get('username', 'Guest') if user_info else 'Guest'
@@ -11,6 +11,7 @@ def create_navbar(user_info=None):
 
     nav_items = [
         dbc.NavItem(dbc.NavLink("ホーム", href="/")),
+        dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")), # 宿題管理タブを追加
     ]
     if is_admin:
         nav_items.append(dbc.NavItem(dbc.NavLink("管理者メニュー", href="/admin")))
@@ -64,7 +65,6 @@ def create_main_layout(user_info):
                         dbc.Label("生徒選択"),
                         dcc.Dropdown(id='student-dropdown', placeholder="生徒を選択..."),
                         html.Hr(),
-                        # ★★★ ここから修正 ★★★
                         html.Div([
                             dbc.Button(
                                 [html.I(className="fas fa-edit me-2"), "個別更新"],
@@ -81,11 +81,10 @@ def create_main_layout(user_info):
                                 id="create-report-btn", color="info", className="w-100", disabled=True
                             ), className="d-grid gap-2 mt-2"
                         )
-                        # ★★★ ここまで修正 ★★★
                     ]))
-                ], width=12, lg=3, className="bg-light"),
+                ], width=12, lg=3, className="bg-light sticky-top"),
 
-                # --- 右側のコンテンツエリア (変更なし) ---
+                # --- 右側のコンテンツエリア ---
                 dbc.Col([
                     html.H4("学習状況サマリー", className="mt-4"),
                     html.Div(id='cumulative-progress-container'),
@@ -97,14 +96,9 @@ def create_main_layout(user_info):
                     html.Hr(),
 
                     html.Div(id='detailed-progress-view-container'),
-                    html.Hr(),
-
-                    dbc.Row([
-                        dbc.Col(html.H4("宿題管理"), width='auto'),
-                        dbc.Col(dbc.Button([html.I(className="fas fa-plus me-2"), "宿題を追加"], id="add-homework-btn", color="success", size="sm"), className="text-end")
-                    ], align="center", className="mb-3"),
-                    html.Div(id='homework-list-container')
+                    # ★★★ 宿題管理セクションをここから削除 ★★★
                 ], width=12, lg=9)
             ])
         ], fluid=True),
     ])
+# ★★★ ここまで修正 ★★★

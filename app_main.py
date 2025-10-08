@@ -22,8 +22,13 @@ from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
 from data.nested_json_processor import get_all_subjects
 from components.main_layout import create_main_layout, create_navbar
+from components.homework_layout import create_homework_layout # 新規インポート
 from components.modals import create_all_modals
-from components.admin_components import create_master_textbook_modal, create_textbook_edit_modal, create_student_edit_modal, create_student_management_modal
+from components.admin_components import (
+    create_master_textbook_modal, create_textbook_edit_modal,
+    create_student_edit_modal, create_student_management_modal,
+    create_bulk_preset_management_modal, create_bulk_preset_edit_modal
+)
 from components.login_components import (
     create_login_layout,
     create_access_denied_layout,
@@ -58,9 +63,21 @@ app.layout = html.Div([
     dcc.Store(id='auth-store', storage_type='session'),
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
-    dcc.Store(id='admin-update-trigger', storage_type='memory'), # 管理者ページの更新トリガー
-    
+    dcc.Store(id='admin-update-trigger', storage_type='memory'),
+
     html.Div(id='page-content'),
+
+    # --- 通知用トーストをレイアウトに追加 ---
+    dbc.Toast(
+        id="success-toast",
+        header="成功",
+        is_open=False,
+        dismissable=True,
+        icon="success",
+        duration=4000,
+        style={"position": "fixed", "top": 66, "right": 10, "width": 350, "zIndex": 9999},
+    ),
+    # --- ここまで ---
 
     # 認証関連のモーダル
     create_user_profile_modal(),
@@ -89,42 +106,57 @@ def display_page(pathname, auth_store_data):
     # ユーザー情報がない（未ログイン）場合は、常にログイン画面を表示する
     if not user_info:
         return create_login_layout()
+    
+    subjects = get_all_subjects() # モーダルで使う科目リストを取得
+
+    if pathname == '/homework':
+        return html.Div([
+            create_navbar(user_info),
+            create_homework_layout(user_info),
+            *create_all_modals(subjects) # モーダル群をレイアウトに追加
+        ])
 
     # --- 以下はログイン済みのユーザー向けの処理 ---
     if pathname == '/admin':
-        # 管理者でなければアクセス拒否ページを表示
         if user_info.get('role') != 'admin':
             return html.Div([create_navbar(user_info), create_access_denied_layout()])
 
-        # 管理者であれば管理者ページを表示
         return html.Div([
             create_navbar(user_info),
             dbc.Container([
                 html.H1("🔧 管理者メニュー", className="mt-4"),
                 dbc.Row([
+                    # (...ユーザー管理、生徒管理カードは変更なし...)
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("👥 ユーザー管理"),
                         dbc.CardBody([
                             dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
                             dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
                         ])
-                    ]), width=12, md=3, className="mb-3"),
+                    ]), width=12, md=4, lg=3, className="mb-3"),
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("🧑‍🎓 生徒管理"),
                         dbc.CardBody(
                             dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info", className="w-100")
                         )
-                    ]), width=12, md=3, className="mb-3"),
+                    ]), width=12, md=4, lg=3, className="mb-3"),
+                    # ★★★ ここから修正 ★★★
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("📚 参考書マスター管理"),
                         dbc.CardBody(
                             dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="primary", className="w-100")
                         )
-                    ]), width=12, md=3, className="mb-3"),
+                    ]), width=12, md=4, lg=3, className="mb-3"),
+                    dbc.Col(dbc.Card([
+                        dbc.CardHeader("📦 一括登録設定"),
+                        dbc.CardBody(
+                            dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary", className="w-100")
+                        )
+                    ]), width=12, md=4, lg=3, className="mb-3"),
                     dbc.Col(dbc.Card([
                         dbc.CardHeader("💾 データ管理"),
                         dbc.CardBody(dbc.Button("JSONバックアップ", id="backup-btn", color="warning", className="w-100"))
-                    ]), width=12, md=3, className="mb-3")
+                    ]), width=12, md=4, lg=3, className="mb-3")
                 ], className="mb-4"),
                 html.Div(id="admin-statistics"),
                 
@@ -133,12 +165,15 @@ def display_page(pathname, auth_store_data):
                 create_textbook_edit_modal(),
                 create_student_management_modal(),
                 create_student_edit_modal(),
+                create_bulk_preset_management_modal(), # 新規追加
+                create_bulk_preset_edit_modal(),       # 新規追加
             ])
         ])
-    
-    # 管理者ページ以外、または一般ユーザーの場合はメインレイアウトを表示
-    # ログイン済みのユーザーが/loginにアクセスした場合もメインページが表示される
-    return create_main_layout(user_info)
+        # 上記のどのパスにも当てはまらない場合は、ホーム画面を表示
+    return html.Div([
+        create_main_layout(user_info),
+        *create_all_modals(subjects) # モーダル群をレイアウトに追加
+    ])
 # --- ★★★ ここまで修正 ★★★ ---
 
 # --- 管理者向け統計情報コールバック ---

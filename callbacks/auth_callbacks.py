@@ -1,22 +1,15 @@
-"""
-認証（ログイン、ログアウト、プロファイル管理）に関連するコールバックを定義します。
-"""
+# callbacks/auth_callbacks.py
+
 import dash
 from dash import Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 
-# ユーザー認証とパスワード更新の関数を user_manager からインポート
 from auth.user_manager import authenticate_user, update_password
 
 def register_auth_callbacks(app):
-    """
-    認証関連のコールバックを登録します。
+    """認証関連のコールバックを登録します。"""
 
-    Args:
-        app (dash.Dash): Dashアプリケーションインスタンス。
-    """
-
-    # --- ログイン処理 ---
+    # --- ログイン処理 (変更なし) ---
     @app.callback(
         [Output('url', 'pathname'),
          Output('auth-store', 'data'),
@@ -35,26 +28,27 @@ def register_auth_callbacks(app):
 
         user = authenticate_user(username, password)
         if user:
-            # パスワードハッシュはセッションに保存しない
             user_data_for_store = {k: v for k, v in user.items() if k != 'password'}
-            return '/', user_data_for_store, ""  # ログイン成功後、メインページにリダイレクト
+            return '/', user_data_for_store, ""
         else:
             return no_update, no_update, dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
 
+    # --- ★★★ ここから修正 ★★★ ---
     # --- ログアウト処理 ---
     @app.callback(
-        Output('url', 'pathname', allow_duplicate=True),
+        [Output('url', 'pathname', allow_duplicate=True),
+         Output('auth-store', 'clear_data')], # clear_data を True にしてセッションをクリア
         Input('logout-button', 'n_clicks'),
         prevent_initial_call=True
     )
     def handle_logout(n_clicks):
         if n_clicks:
-            # ログインページにリダイレクトすることで、display_pageコールバックが
-            # dcc.Storeを空にし、事実上のログアウトとなる
-            return '/login'
-        return no_update
+            return '/login', True
+        return no_update, no_update
+    # --- ★★★ ここまで修正 ★★★ ---
 
-    # --- ユーザープロファイルモーダルの表示 ---
+
+    # --- (以降のプロファイル関連のコールバックは変更なし) ---
     @app.callback(
         Output('user-profile-modal', 'is_open'),
         [Input('user-menu', 'n_clicks'),
@@ -67,7 +61,6 @@ def register_auth_callbacks(app):
             return not is_open
         return is_open
 
-    # --- プロファイルモーダルにユーザー情報を表示 ---
     @app.callback(
         [Output('profile-username', 'children'),
          Output('profile-role', 'children'),
@@ -84,7 +77,6 @@ def register_auth_callbacks(app):
             )
         return no_update, no_update, no_update
 
-    # --- パスワード変更モーダルの表示 ---
     @app.callback(
         Output('password-change-modal', 'is_open'),
         [Input('change-password-button', 'n_clicks'),
@@ -97,7 +89,6 @@ def register_auth_callbacks(app):
             return not is_open
         return is_open
 
-    # --- パスワード変更処理 ---
     @app.callback(
         Output('password-change-alert', 'children'),
         Input('confirm-password-change', 'n_clicks'),

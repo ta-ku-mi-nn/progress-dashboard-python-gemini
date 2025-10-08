@@ -1,21 +1,21 @@
+# components/modals.py
+
 import json
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from data.nested_json_processor import get_bulk_presets
 
+# (create_plan_update_modalは変更なし)
 def create_plan_update_modal(subjects):
     """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
     
-        # (...step0_content は変更なし...)
     step0_content = html.Div(
         [
             html.P("まず、更新したい科目を選択してください。", className="mb-3"),
             html.Div(id='plan-subject-selection-container', className="d-grid gap-2 d-md-flex justify-content-md-center")
         ]
     )
-    # ★★★ step1_content のみ修正 ★★★
     step1_content = html.Div([
-        # 一括チェックボタンと「すべて外す」ボタンのコンテナ
         dbc.Row([
             dbc.Col(html.Div(id='plan-bulk-buttons-container'), width="auto"),
             dbc.Col(
@@ -28,11 +28,10 @@ def create_plan_update_modal(subjects):
                     className='mb-2'
                 ),
                 width="auto",
-                className="ms-auto" # 右寄せにする
+                className="ms-auto"
             )
         ], align="center", className="mb-3"),
         
-        # 検索窓
         dbc.Input(
             id="plan-search-input",
             placeholder="参考書名で検索...",
@@ -40,7 +39,6 @@ def create_plan_update_modal(subjects):
             className="mb-3"
         ),
         
-        # 参考書リスト
         dcc.Loading(
             id="loading-textbooks",
             type="default",
@@ -48,7 +46,6 @@ def create_plan_update_modal(subjects):
         )
     ])
 
-    # ステップ2: 進捗入力
     step2_content = html.Div([
         html.P("選択した参考書の進捗を入力してください。"),
         dcc.Loading(
@@ -78,17 +75,17 @@ def create_plan_update_modal(subjects):
             ]),
             dbc.ModalFooter([
                 dbc.Button("戻る", id="plan-back-btn", color="secondary", style={'display': 'none'}),
-                dbc.Button("次へ", id="plan-next-btn", color="primary", style={'display': 'none'}), # ★★★ 修正：最初は非表示 ★★★
+                dbc.Button("次へ", id="plan-next-btn", color="primary", style={'display': 'none'}),
                 dbc.Button("保存", id="plan-save-btn", color="success", style={'display': 'none'}),
                 dbc.Button("キャンセル", id="plan-cancel-btn", color="light"),
             ]),
         ]
     )
+
 def create_all_modals(subjects):
     """
     アプリケーションで使用するすべてのモーダルを生成して返す。
     """
-    # データベースから一括登録ボタンの構成を読み込む
     bulk_buttons_config = get_bulk_presets()
 
     bulk_buttons_by_subject = []
@@ -107,6 +104,7 @@ def create_all_modals(subjects):
                     )
                 bulk_buttons_by_subject.append(html.Div(buttons))
 
+    # --- ★★★ ここから修正 ★★★ ---
     return [
         create_plan_update_modal(subjects),
         dbc.Modal(
@@ -130,6 +128,7 @@ def create_all_modals(subjects):
             children=[
                 dbc.ModalHeader(dbc.ModalTitle(id="homework-modal-title")),
                 dbc.ModalBody([
+                    dcc.Store(id='editing-homework-id-store'),
                     dbc.Alert(id="homework-alert", is_open=False),
                     dbc.Form([
                         dbc.Row([
@@ -144,10 +143,12 @@ def create_all_modals(subjects):
                             dbc.Col(dbc.Textarea(id="homework-task", placeholder="例: 基礎問題精講 P.10-15"), width=9),
                         ], className="mb-3"),
                         dbc.Row([
-                            dbc.Label("提出期限", width=3),
-                            dbc.Col(dcc.DatePickerSingle(
-                                id='homework-due-date',
+                            dbc.Label("期間", width=3),
+                            dbc.Col(dcc.DatePickerRange(
+                                id='homework-date-picker',
                                 display_format='YYYY-MM-DD',
+                                start_date_placeholder_text="開始日",
+                                end_date_placeholder_text="終了日",
                             ), width=9),
                         ]),
                     ])
@@ -209,3 +210,4 @@ def create_all_modals(subjects):
         ),
         dcc.Download(id="download-backup"),
     ]
+    # --- ★★★ ここまで修正 ★★★ ---

@@ -2,16 +2,18 @@
 
 import sqlite3
 import os
+import uuid
+from datetime import datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 
+# (前半の関数は変更なし)
 def get_db_connection():
     conn = sqlite3.connect(DATABASE_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 
-# (get_all_schools, get_students_for_user, get_student_progress は変更なし)
 def get_all_schools():
     conn = get_db_connection()
     schools = conn.execute('SELECT DISTINCT school FROM students ORDER BY school').fetchall()
@@ -169,6 +171,8 @@ def get_all_subjects():
     conn.close()
     return [subject['subject'] for subject in subjects]
 
+# --- ★★★ ここから修正 ★★★ ---
+
 def get_student_homework(school, student_name):
     conn = get_db_connection()
     student = conn.execute('SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)).fetchone()
@@ -176,25 +180,59 @@ def get_student_homework(school, student_name):
         conn.close()
         return []
     student_id = student['id']
-    homework_list = conn.execute('SELECT id, subject, task, due_date, status FROM homework WHERE student_id = ? ORDER BY due_date', (student_id,)).fetchall()
+    homework_list = conn.execute(
+        'SELECT id, subject, task, task_date, task_group_id, status FROM homework WHERE student_id = ? ORDER BY task_date', 
+        (student_id,)
+    ).fetchall()
     conn.close()
     return [dict(row) for row in homework_list]
 
-def add_homework(school, student_name, subject, task, due_date):
+def add_homework(school, student_name, subject, task, start_date_str, end_date_str):
     conn = get_db_connection()
-    cursor = conn.cursor()
     try:
-        student_id_row = cursor.execute('SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)).fetchone()
+        student_id_row = conn.execute('SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)).fetchone()
         if not student_id_row:
              raise ValueError(f"生徒が見つかりません: {school} - {student_name}")
         student_id = student_id_row['id']
-        cursor.execute('INSERT INTO homework (student_id, subject, task, due_date) VALUES (?, ?, ?, ?)', (student_id, subject, task, due_date))
+        
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        delta = end_date - start_date
+        
+        task_group_id = str(uuid.uuid4())
+        tasks_to_add = []
+        for i in range(delta.days + 1):
+            day = start_date + timedelta(days=i)
+            tasks_to_add.append(
+                (student_id, subject, task, day.strftime('%Y-%m-%d'), task_group_id)
+            )
+
+        conn.executemany(
+            'INSERT INTO homework (student_id, subject, task, task_date, task_group_id) VALUES (?, ?, ?, ?, ?)',
+            tasks_to_add
+        )
         conn.commit()
-        return True, "宿題を追加しました。"
+        return True, f"{len(tasks_to_add)}件の宿題を追加しました。"
     except (sqlite3.Error, TypeError, ValueError) as e:
         print(f"宿題追加エラー: {e}")
         conn.rollback()
         return False, "宿題の追加に失敗しました。"
+    finally:
+        conn.close()
+
+def update_homework(homework_id, subject, task, task_date):
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'UPDATE homework SET subject = ?, task = ?, task_date = ? WHERE id = ?',
+            (subject, task, task_date, homework_id)
+        )
+        conn.commit()
+        return True, "宿題を更新しました。"
+    except sqlite3.Error as e:
+        print(f"宿題更新エラー: {e}")
+        conn.rollback()
+        return False, "宿題の更新に失敗しました。"
     finally:
         conn.close()
 
@@ -211,10 +249,16 @@ def update_homework_status(homework_id, new_status):
     finally:
         conn.close()
 
-def delete_homework(homework_id):
+def delete_homework(homework_id=None, task_group_id=None):
     conn = get_db_connection()
     try:
-        conn.execute('DELETE FROM homework WHERE id = ?', (homework_id,))
+        if task_group_id:
+            conn.execute('DELETE FROM homework WHERE task_group_id = ?', (task_group_id,))
+        elif homework_id:
+            conn.execute('DELETE FROM homework WHERE id = ?', (homework_id,))
+        else:
+            return False, "削除対象が指定されていません。"
+            
         conn.commit()
         return True, "宿題を削除しました。"
     except sqlite3.Error as e:
@@ -224,6 +268,8 @@ def delete_homework(homework_id):
     finally:
         conn.close()
 
+# (以降の関数は変更なし)
+# --- ★★★ ここまで修正 ★★★ ---
 def get_bulk_presets():
     conn = get_db_connection()
     presets_raw = conn.execute("""
@@ -384,7 +430,6 @@ def delete_student(student_id):
     finally:
         conn.close()
 
-# --- ★★★ ここから修正 ★★★ ---
 def get_all_instructors_for_school(school, role=None):
     """指定された校舎の講師（ユーザー）を取得する。roleで絞り込みも可能。"""
     conn = get_db_connection()
@@ -397,4 +442,77 @@ def get_all_instructors_for_school(school, role=None):
     instructors = conn.execute(query, tuple(params)).fetchall()
     conn.close()
     return [dict(row) for row in instructors]
-# --- ★★★ ここまで修正 ★★★ ---
+
+def get_all_presets_with_books():
+    """すべてのプリセットを、関連する参考書リストと共に取得する"""
+    conn = get_db_connection()
+    presets = conn.execute("SELECT id, subject, preset_name FROM bulk_presets ORDER BY subject, preset_name").fetchall()
+    books = conn.execute("SELECT preset_id, book_name FROM bulk_preset_books").fetchall()
+    conn.close()
+
+    presets_dict = {p['id']: dict(p, books=[]) for p in presets}
+    for book in books:
+        if book['preset_id'] in presets_dict:
+            presets_dict[book['preset_id']]['books'].append(book['book_name'])
+    
+    return list(presets_dict.values())
+
+def add_preset(subject, preset_name, book_names):
+    """新しいプリセットを追加する"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO bulk_presets (subject, preset_name) VALUES (?, ?)",
+            (subject, preset_name)
+        )
+        preset_id = cursor.lastrowid
+        if book_names:
+            cursor.executemany(
+                "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES (?, ?)",
+                [(preset_id, book) for book in book_names]
+            )
+        conn.commit()
+        return True, "プリセットが追加されました。"
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, "同じ科目・プリセット名の組み合わせが既に存在します。"
+    finally:
+        conn.close()
+
+def update_preset(preset_id, subject, preset_name, book_names):
+    """既存のプリセットを更新する"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE bulk_presets SET subject = ?, preset_name = ? WHERE id = ?",
+            (subject, preset_name, preset_id)
+        )
+        cursor.execute("DELETE FROM bulk_preset_books WHERE preset_id = ?", (preset_id,))
+        if book_names:
+            cursor.executemany(
+                "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES (?, ?)",
+                [(preset_id, book) for book in book_names]
+            )
+        conn.commit()
+        return True, "プリセットが更新されました。"
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, "更新後のプリセット名が、同じ科目内で重複しています。"
+    finally:
+        conn.close()
+
+def delete_preset(preset_id):
+    """プリセットを削除する"""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM bulk_preset_books WHERE preset_id = ?", (preset_id,))
+        conn.execute("DELETE FROM bulk_presets WHERE id = ?", (preset_id,))
+        conn.commit()
+        return True, "プリセットが削除されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()

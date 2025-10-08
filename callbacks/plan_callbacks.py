@@ -10,7 +10,6 @@ from data.nested_json_processor import get_master_textbook_list, get_student_pro
 def register_plan_callbacks(app):
     """学習計画更新モーダルに関連するコールバックを登録します。"""
 
-    # --- ボタンの有効/無効化 (変更なし) ---
     @app.callback(
         [Output('update-plan-btn', 'disabled'),
          Output('open-bulk-modal-btn', 'disabled')],
@@ -20,7 +19,7 @@ def register_plan_callbacks(app):
         is_disabled = not selected_student
         return is_disabled, is_disabled
 
-    # --- モーダルの開閉 (変更なし) ---
+    # (以降のコールバックは変更なし)
     @app.callback(
         Output('plan-update-modal', 'is_open'),
         [Input('update-plan-btn', 'n_clicks'), Input('plan-cancel-btn', 'n_clicks'), Input('plan-save-btn', 'n_clicks')],
@@ -30,9 +29,8 @@ def register_plan_callbacks(app):
     def toggle_plan_modal(open_clicks, cancel_clicks, save_clicks, is_open):
         if open_clicks or cancel_clicks or save_clicks:
             return not is_open
-        return no_update
+        return is_open
 
-    # --- 科目選択ボタンを生成 (変更なし) ---
     @app.callback(
         Output('plan-subject-selection-container', 'children'),
         Input('plan-update-modal', 'is_open')
@@ -52,7 +50,6 @@ def register_plan_callbacks(app):
         ]
         return buttons
 
-    # --- ★★★ 3ステップ制御のコールバック（不具合修正） ★★★ ---
     @app.callback(
         [Output('plan-step-0', 'style'),
          Output('plan-step-1', 'style'),
@@ -62,7 +59,7 @@ def register_plan_callbacks(app):
          Output('plan-save-btn', 'style'),
          Output('plan-modal-title', 'children'),
          Output('plan-step-store', 'data'),
-         Output('plan-subject-store', 'data', allow_duplicate=True)], # allow_duplicateを追加
+         Output('plan-subject-store', 'data', allow_duplicate=True)],
         [Input({'type': 'plan-subject-btn', 'subject': ALL}, 'n_clicks'),
          Input('plan-next-btn', 'n_clicks'),
          Input('plan-back-btn', 'n_clicks'),
@@ -78,31 +75,24 @@ def register_plan_callbacks(app):
 
         trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
         
-        # モーダルを開いた時 -> ステップ0にリセット
         if 'plan-update-modal' in trigger_id_str and is_open:
             return {}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, "ステップ1/3: 科目を選択", 0, ""
 
-        # 科目ボタンが押された時 (ステップ0 -> 1)
         if 'plan-subject-btn' in trigger_id_str and any(subject_clicks):
             clicked_subject = json.loads(trigger_id_str)['subject']
             return {'display': 'none'}, {}, {'display': 'none'}, {}, {}, {'display': 'none'}, f"ステップ2/3: {clicked_subject}の参考書を選択", 1, clicked_subject
         
-        # 「次へ」ボタンが押された時 (ステップ1 -> 2)
         if 'plan-next-btn' in trigger_id_str and current_step == 1:
             return {'display': 'none'}, {'display': 'none'}, {}, {}, {'display': 'none'}, {}, "ステップ3/3: 進捗を入力", 2, no_update
         
-        # 「戻る」ボタンが押された時
         if 'plan-back-btn' in trigger_id_str:
-            # ステップ1 -> 0
             if current_step == 1:
                 return {}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, "ステップ1/3: 科目を選択", 0, ""
-            # ステップ2 -> 1
             if current_step == 2:
                 return {'display': 'none'}, {}, {'display': 'none'}, {}, {}, {'display': 'none'}, f"ステップ2/3: {stored_subject}の参考書を選択", 1, no_update
 
         return [no_update] * 9
 
-    # --- ★★★ 参考書リストと一括ボタンのコールバック（不具合修正） ★★★ ---
     @app.callback(
         [Output('plan-textbook-list-container', 'children'),
          Output('plan-bulk-buttons-container', 'children'),
@@ -118,20 +108,17 @@ def register_plan_callbacks(app):
         ctx = callback_context
         trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
         
-        # 科目が選択されていない、またはステップ1以外では何もしない
         if not subject:
             return no_update, no_update, no_update
 
         if not all([school, student]):
             return dbc.Alert("生徒が選択されていません。"), [], []
 
-        # --- 一括チェックボタンの処理 ---
         books_to_check = []
         if 'plan-bulk-check-btn' in trigger_id_str and ctx.triggered[0]['value']:
             id_dict = json.loads(trigger_id_str)
             books_to_check = json.loads(id_dict['books'])
 
-        # --- 一括チェックボタン自体の生成 ---
         all_presets = get_bulk_presets()
         subject_presets = all_presets.get(subject, {})
         bulk_buttons = []
@@ -144,7 +131,6 @@ def register_plan_callbacks(app):
                     color='secondary', outline=True, size="sm", className='me-1 mb-2'
                 ))
         
-        # --- 参考書リストの生成 ---
         master_list = get_master_textbook_list(subject, search_term or "")
         student_progress = get_student_progress(school, student)
         
@@ -168,7 +154,6 @@ def register_plan_callbacks(app):
         
         return dbc.Accordion(accordions, start_collapsed=False, always_open=True), bulk_buttons, all_book_ids
 
-    # (...以降のコールバックは変更なし...)
     @app.callback(
         [Output('plan-progress-input-container', 'children'),
          Output('plan-selected-books-store', 'data')],
@@ -252,14 +237,11 @@ def register_plan_callbacks(app):
     )
     def save_plan_updates(n_clicks, school, student, all_books, selected_books, progress_values, progress_ids, pathname):
         if not n_clicks or not school or not student:
-            # ★★★ 修正：all_booksがNoneの場合も考慮 ★★★
             if not all_books:
-                # 何もすることがないので、モーダルを閉じてToastを表示する
                 return no_update, "", False, True 
             
         progress_map = {p_id['index']: value for p_id, value in zip(progress_ids, progress_values)}
         
-        # ★★★ 修正：selected_books が None の場合でも安全に処理する ★★★
         selected_book_names = {f"{b['subject']}-{b['level']}-{b['book']}" for b in selected_books} if selected_books else set()
         
         progress_updates = []

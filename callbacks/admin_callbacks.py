@@ -13,7 +13,8 @@ from data.nested_json_processor import (
     get_all_master_textbooks, add_master_textbook, 
     update_master_textbook, delete_master_textbook, get_all_subjects,
     get_all_students_with_details, add_student, update_student, delete_student,
-    get_all_instructors_for_school
+    get_all_instructors_for_school,
+    get_all_presets_with_books, add_preset, update_preset, delete_preset
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +23,7 @@ DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 def register_admin_callbacks(app):
     """管理者ページの機能に関連するコールバックを登録します。"""
     
-    # (...(user management and backup callbacks remain unchanged)...)
+    # (...(前半のコールバックは変更なし)...)
     @app.callback(
         [Output('user-list-modal', 'is_open'), Output('user-list-table', 'children')],
         [Input('user-list-btn', 'n_clicks'), Input('close-user-list-modal', 'n_clicks')],
@@ -71,19 +72,9 @@ def register_admin_callbacks(app):
             print(f"バックアップ作成中にエラーが発生しました: {e}")
             return no_update
 
-    # --- ★★★ ここから修正 ★★★ ---
-
-    # --- 参考書マスター管理 ---
-    @app.callback(
-        Output('master-textbook-modal', 'is_open'),
-        [Input('open-master-textbook-modal-btn', 'n_clicks'),
-         Input('close-master-textbook-modal', 'n_clicks')],
-        State('master-textbook-modal', 'is_open'),
-        prevent_initial_call=True
-    )
+    @app.callback(Output('master-textbook-modal', 'is_open'),[Input('open-master-textbook-modal-btn', 'n_clicks'),Input('close-master-textbook-modal', 'n_clicks')],State('master-textbook-modal', 'is_open'),prevent_initial_call=True)
     def toggle_master_textbook_modal(open_clicks, close_clicks, is_open):
-        if open_clicks or close_clicks:
-            return not is_open
+        if open_clicks or close_clicks: return not is_open
         return is_open
 
     @app.callback(
@@ -197,13 +188,11 @@ def register_admin_callbacks(app):
     )
     def close_textbook_edit_modal_on_success(ts, n_clicks):
         if n_clicks:
-             # どのボタンが押されたかを判定。save-textbook-btnでなければ何もしない
             ctx = callback_context
             if ctx.triggered_id == 'admin-update-trigger':
                  return False
         return no_update
 
-    # --- 生徒管理 ---
     @app.callback(
         Output('student-management-modal', 'is_open'),
         [Input('open-student-management-modal-btn', 'n_clicks'),
@@ -360,10 +349,223 @@ def register_admin_callbacks(app):
         prevent_initial_call=True
     )
     def close_student_edit_modal_on_success(ts, n_clicks):
-        if n_clicks:
-            ctx = callback_context
-            if ctx.triggered_id == 'admin-update-trigger':
-                return False
+        ctx = callback_context # ctxを定義
+        if n_clicks and ctx.triggered_id == 'admin-update-trigger':
+            return False
         return no_update
 
-    # --- ★★★ ここまで修正 ★★★ ---
+    # --- 一括登録プリセット管理 ---
+
+    @app.callback(
+        Output('bulk-preset-management-modal', 'is_open'),
+        [Input('open-bulk-preset-modal-btn', 'n_clicks'),
+         Input('close-bulk-preset-modal', 'n_clicks')],
+        State('bulk-preset-management-modal', 'is_open'),
+        prevent_initial_call=True
+    )
+    def toggle_bulk_preset_modal(open_clicks, close_clicks, is_open):
+        if open_clicks or close_clicks:
+            return not is_open
+        return no_update
+
+    @app.callback(
+        [Output('bulk-preset-list-container', 'children'),
+         Output('bulk-preset-alert', 'children'),
+         Output('bulk-preset-alert', 'is_open')],
+        [Input('bulk-preset-management-modal', 'is_open'),
+         Input('admin-update-trigger', 'data'),
+         Input({'type': 'delete-bulk-preset-btn', 'index': ALL}, 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def update_bulk_preset_list(is_open, update_signal, delete_clicks):
+        ctx = callback_context
+        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
+        
+        alert_msg, alert_is_open = "", False
+
+        if 'delete-bulk-preset-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
+            preset_id = json.loads(triggered_prop_id.split('.')[0])['index']
+            success, message = delete_preset(preset_id)
+            alert_msg = dbc.Alert(message, color="success" if success else "danger")
+            alert_is_open = True
+        
+        presets = get_all_presets_with_books()
+        if not presets:
+            return dbc.Alert("登録されているプリセットがありません。", color="info"), alert_msg, alert_is_open
+        
+        items = []
+        for preset in presets:
+            items.append(dbc.ListGroupItem([
+                dbc.Row([
+                    dbc.Col([
+                        html.Strong(f"{preset['subject']} - {preset['preset_name']}"),
+                        html.P(", ".join(preset['books']), className="text-muted small")
+                    ]),
+                    dbc.Col([
+                        dbc.Button("編集", id={'type': 'edit-bulk-preset-btn', 'index': preset['id']}, size="sm", className="me-1"),
+                        dbc.Button("削除", id={'type': 'delete-bulk-preset-btn', 'index': preset['id']}, color="danger", size="sm")
+                    ], width="auto")
+                ], align="center")
+            ]))
+        
+        return dbc.ListGroup(items), alert_msg, alert_is_open
+
+    @app.callback(
+        [Output('bulk-preset-edit-modal', 'is_open'),
+         Output('bulk-preset-edit-modal-title', 'children'),
+         Output('editing-preset-id-store', 'data'),
+         Output('preset-subject-input', 'options'),
+         Output('preset-subject-input', 'value'),
+         Output('preset-name-input', 'value'),
+         Output('preset-selected-books-store', 'data'), # valueではなくstoreを更新
+         Output('preset-book-subject-filter', 'options'),
+         Output('preset-book-level-filter', 'options')],
+        [Input('add-bulk-preset-btn', 'n_clicks'),
+         Input({'type': 'edit-bulk-preset-btn', 'index': ALL}, 'n_clicks'),
+         Input('cancel-bulk-preset-edit-btn', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def handle_bulk_preset_edit_modal(add_clicks, edit_clicks, cancel_clicks):
+        ctx = callback_context
+        if not ctx.triggered or (isinstance(ctx.triggered_id, dict) and not ctx.triggered[0]['value']):
+            return [no_update] * 9
+        
+        trigger_id = ctx.triggered_id
+        
+        subjects = get_all_subjects()
+        subject_options = [{'label': s, 'value': s} for s in subjects]
+        levels = ['基礎徹底', '日大', 'MARCH', '早慶']
+        level_options = [{'label': l, 'value': l} for l in levels]
+
+        if trigger_id == 'cancel-bulk-preset-edit-btn':
+            return False, "", None, no_update, None, "", [], no_update, no_update
+        
+        if trigger_id == 'add-bulk-preset-btn':
+            return True, "新規プリセット作成", None, subject_options, None, "", [], subject_options, level_options
+            
+        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-bulk-preset-btn':
+            preset_id = trigger_id['index']
+            presets = get_all_presets_with_books()
+            preset_to_edit = next((p for p in presets if p['id'] == preset_id), None)
+            if preset_to_edit:
+                return True, f"編集: {preset_to_edit['preset_name']}", preset_id, subject_options, preset_to_edit['subject'], preset_to_edit['preset_name'], preset_to_edit['books'], subject_options, level_options
+        
+        return [no_update] * 9
+
+    # --- ★★★ ここから修正 ★★★
+    @app.callback(
+        Output('preset-available-books-list', 'children'),
+        [Input('bulk-preset-edit-modal', 'is_open'),
+         Input('preset-book-subject-filter', 'value'),
+         Input('preset-book-level-filter', 'value'),
+         Input('preset-book-name-filter', 'value')]
+    )
+    def update_available_books_list(is_open, subject, level, name):
+        if not is_open:
+            return []
+        all_books = get_all_master_textbooks()
+        df = pd.DataFrame(all_books)
+        if subject: df = df[df['subject'] == subject]
+        if level: df = df[df['level'] == level]
+        if name: df = df[df['book_name'].str.contains(name, na=False)]
+        
+        items = []
+        for _, b in df.iterrows():
+            item = dbc.ListGroupItem(
+                dbc.Row(
+                    [
+                        dbc.Col(f"[{b['level']}] {b['book_name']}", width="auto", className="me-auto"),
+                        dbc.Col(dbc.Button("追加", id={'type': 'add-preset-book-btn', 'book': b['book_name']}, size="sm", color="primary", outline=True), width="auto")
+                    ],
+                    align="center",
+                    justify="between",
+                )
+            )
+            items.append(item)
+        return dbc.ListGroup(items, flush=True)
+
+    @app.callback(
+        [Output('preset-selected-books-store', 'data', allow_duplicate=True),
+         Output('preset-selected-books-list', 'children')],
+        [Input({'type': 'add-preset-book-btn', 'book': ALL}, 'n_clicks'),
+         Input({'type': 'remove-preset-book-btn', 'book': ALL}, 'n_clicks')],
+        [State('preset-selected-books-store', 'data')],
+        prevent_initial_call=True
+    )
+    def handle_book_selection(add_clicks, remove_clicks, selected_books):
+        ctx = callback_context
+        # どのボタンが押されたかを判定するトリガーIDがなければ何もしない
+        if not ctx.triggered_id:
+            return no_update, no_update
+        
+        # クリックされたボタンのクリック回数がNone（初期状態）または0の場合は何もしない
+        if not ctx.triggered[0]['value']:
+            return no_update, no_update
+        
+        trigger_id = ctx.triggered_id
+        
+        book_set = set(selected_books)
+        
+        # 追加ボタンが押された場合
+        if trigger_id.get('type') == 'add-preset-book-btn':
+            book_to_add = trigger_id['book']
+            book_set.add(book_to_add)
+        
+        # 削除ボタンが押された場合
+        if trigger_id.get('type') == 'remove-preset-book-btn':
+            book_to_remove = trigger_id['book']
+            book_set.discard(book_to_remove)
+            
+        updated_books = sorted(list(book_set))
+        
+        # 右側のリスト表示（選択済みリスト）を生成
+        selected_list_items = [
+            dbc.ListGroupItem(
+                [
+                    book,
+                    dbc.Button("×", id={'type': 'remove-preset-book-btn', 'book': book}, color="danger", size="sm", className="float-end")
+                ]
+            ) for book in updated_books
+        ]
+        
+        return updated_books, selected_list_items
+
+    @app.callback(
+        [Output('bulk-preset-edit-alert', 'children'),
+         Output('bulk-preset-edit-alert', 'is_open'),
+         Output('admin-update-trigger', 'data', allow_duplicate=True)],
+        Input('save-bulk-preset-btn', 'n_clicks'),
+        [State('editing-preset-id-store', 'data'),
+         State('preset-subject-input', 'value'),
+         State('preset-name-input', 'value'),
+         State('preset-selected-books-store', 'data')], # ★ Stateを修正
+        prevent_initial_call=True
+    )
+    def save_bulk_preset(n_clicks, preset_id, subject, name, books):
+        if not n_clicks:
+            return "", False, no_update
+        if not all([subject, name, books]):
+            return dbc.Alert("すべての項目を選択・入力してください。", color="warning"), True, no_update
+        
+        if preset_id is None:
+            success, message = add_preset(subject, name, books)
+        else:
+            success, message = update_preset(preset_id, subject, name, books)
+            
+        if success:
+            return "", False, datetime.datetime.now().timestamp()
+        else:
+            return dbc.Alert(message, color="danger"), True, no_update
+            
+    # (...(close_bulk_preset_edit_modal_on_success は変更なし)...)
+    @app.callback(
+        Output('bulk-preset-edit-modal', 'is_open', allow_duplicate=True),
+        Input('admin-update-trigger', 'data'),
+        State('save-bulk-preset-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def close_bulk_preset_edit_modal_on_success(ts, n_clicks):
+        ctx = callback_context
+        if n_clicks and ctx.triggered_id == 'admin-update-trigger':
+            return False
+        return no_update

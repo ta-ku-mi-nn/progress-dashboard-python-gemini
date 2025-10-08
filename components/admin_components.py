@@ -3,7 +3,7 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-# (create_master_textbook_modal, create_textbook_edit_modal は変更なし)
+# (前半の関数は変更なし)
 def create_master_textbook_modal():
     """参考書マスター管理用のメインモーダルを生成する"""
     return dbc.Modal(
@@ -93,7 +93,6 @@ def create_student_management_modal():
         ],
     )
 
-# --- ★★★ ここから修正 ★★★ ---
 def create_student_edit_modal():
     """生徒の新規追加・編集用のモーダルを生成する"""
     return dbc.Modal(
@@ -133,4 +132,81 @@ def create_student_edit_modal():
             ]),
         ],
     )
-# --- ★★★ ここまで修正 ★★★ ---
+    
+def create_bulk_preset_management_modal():
+    """一括登録プリセット管理用のメインモーダル"""
+    return dbc.Modal(
+        id="bulk-preset-management-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("一括登録プリセット管理")),
+            dbc.ModalBody([
+                dbc.Alert(id="bulk-preset-alert", is_open=False),
+                dbc.Button("新規プリセットを追加", id="add-bulk-preset-btn", color="success", className="mb-3"),
+                dcc.Loading(html.Div(id="bulk-preset-list-container"))
+            ]),
+            dbc.ModalFooter(dbc.Button("閉じる", id="close-bulk-preset-modal")),
+        ],
+    )
+
+# --- ★★★ ここから修正 ★★★
+def create_bulk_preset_edit_modal():
+    """一括登録プリセットの新規追加・編集用モーダル（2カラムレイアウト）"""
+    return dbc.Modal(
+        id="bulk-preset-edit-modal",
+        is_open=False,
+        size="xl",
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle(id="bulk-preset-edit-modal-title")),
+            dbc.ModalBody([
+                dbc.Alert(id="bulk-preset-edit-alert", is_open=False),
+                dcc.Store(id='editing-preset-id-store'),
+                dcc.Store(id='preset-selected-books-store', data=[]),
+                dbc.Form([
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Label("科目"),
+                            dcc.Dropdown(id="preset-subject-input"),
+                        ], width=6),
+                        dbc.Col([
+                            dbc.Label("プリセット名"),
+                            dbc.Input(id="preset-name-input", type="text"),
+                        ], width=6),
+                    ], className="mb-3"),
+                    html.Hr(),
+                    dbc.Row([
+                        dbc.Col([
+                            html.H5("選択可能な参考書"),
+                            dbc.Row([
+                                dbc.Col(dcc.Dropdown(id='preset-book-subject-filter', placeholder="科目で絞り込み..."), width=4),
+                                dbc.Col(dcc.Dropdown(id='preset-book-level-filter', placeholder="レベルで絞り込み..."), width=4),
+                                dbc.Col(dbc.Input(id='preset-book-name-filter', placeholder="参考書名..."), width=4),
+                            ], className="mb-2"),
+                            dcc.Loading(
+                                html.Div(
+                                    id='preset-available-books-list',
+                                    style={'maxHeight': '300px', 'overflowY': 'auto', 'border': '1px solid #ccc', 'borderRadius': '5px', 'padding': '10px'}
+                                )
+                            ),
+                        ], md=6),
+                        dbc.Col([
+                            html.H5("選択済みの参考書"),
+                            dcc.Loading(
+                                html.Div(
+                                    id='preset-selected-books-list',
+                                    style={'maxHeight': '350px', 'overflowY': 'auto', 'border': '1px solid #ccc', 'borderRadius': '5px', 'padding': '10px'}
+                                )
+                            ),
+                        ], md=6),
+                    ]),
+                ])
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("保存", id="save-bulk-preset-btn", color="primary"),
+                dbc.Button("キャンセル", id="cancel-bulk-preset-edit-btn"),
+            ]),
+        ],
+    )
+# --- ★★★ ここまで修正 ★★★
