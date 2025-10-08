@@ -20,14 +20,19 @@ def register_plan_callbacks(app):
         Output('plan-update-modal', 'is_open'),
         [Input('bulk-register-btn', 'n_clicks'),
          Input('plan-cancel-btn', 'n_clicks'),
-         Input('plan-update-toast-trigger', 'data')],
+         Input('toast-trigger', 'data')], # ★★★ IDを変更 ★★★
         State('plan-update-modal', 'is_open'),
         prevent_initial_call=True
     )
     def toggle_plan_modal(open_clicks, cancel_clicks, toast_data, is_open):
         ctx = callback_context
-        if ctx.triggered_id == 'plan-update-toast-trigger':
-            return False
+        # toast-triggerが原因でコールバックが起動した場合、モーダルを閉じる
+        if ctx.triggered_id == 'toast-trigger': # ★★★ IDを変更 ★★★
+            # plan_callbacksからのtoastでなければ何もしない
+            if toast_data and toast_data.get('source') == 'plan':
+                return False
+            return no_update
+        
         if open_clicks or cancel_clicks:
             return not is_open
         return is_open
@@ -147,16 +152,15 @@ def register_plan_callbacks(app):
             return []
         
         if isinstance(tid, dict) and tid.get('type') == 'plan-book-checklist':
-            # 検索などで表示されていない書籍の選択状態を維持するため、現在の選択と結合する
-            current_visible_books = {book for sub in checklist_vals for book in sub}
-            other_selected_books = [book for book in current_selection if book not in current_visible_books]
+            current_visible_books = {book for sub in checklist_vals for book in sub} if checklist_vals else set()
+            other_selected_books = [book for book in (current_selection or []) if book not in current_visible_books]
             
             new_selection = list(current_visible_books) + other_selected_books
             return sorted(list(set(new_selection)))
 
         if isinstance(tid, dict) and tid.get('type') == 'plan-preset-btn':
             new_books = json.loads(tid['books'])
-            return sorted(list(set(current_selection + new_books)))
+            return sorted(list(set((current_selection or []) + new_books)))
 
         return no_update
 
@@ -176,7 +180,7 @@ def register_plan_callbacks(app):
         items = [dbc.AccordionItem(
             dbc.Checklist(
                 options=[{'label': b, 'value': b} for b in books],
-                value=[b for b in selected_books if b in books],
+                value=[b for b in (selected_books or []) if b in books],
                 id={'type': 'plan-book-checklist', 'level': level}
             ), title=f"レベル: {level} ({len(books)}冊)") for level, books in textbooks_by_level.items()]
         return dbc.Accordion(items, start_collapsed=False, always_open=True)
@@ -201,13 +205,13 @@ def register_plan_callbacks(app):
         [State('plan-selected-books-store', 'data'), State('plan-subject-store', 'data'), State('plan-current-progress-store', 'data')]
     )
     def create_progress_inputs(step2_style, selected_books, subject, current_progress):
-        if not selected_books or step2_style.get('display') == 'none': return no_update
+        if not selected_books or (step2_style and step2_style.get('display') == 'none'): return no_update
             
         master_books = get_master_textbook_list(subject)
         inputs = []
         for book in sorted(selected_books):
             level = next((lvl for lvl, b_list in master_books.items() if book in b_list), "N/A")
-            prog = current_progress.get(book, {})
+            prog = (current_progress or {}).get(book, {})
             val = f"{prog.get('completed', '')}/{prog.get('total', '')}".strip('/')
             
             inputs.append(html.Div([
@@ -238,7 +242,7 @@ def register_plan_callbacks(app):
     @app.callback(
         [Output('plan-modal-alert', 'children'),
          Output('plan-modal-alert', 'is_open'),
-         Output('plan-update-toast-trigger', 'data')],
+         Output('toast-trigger', 'data', allow_duplicate=True)], # ★★★ IDを変更 ★★★
         Input('plan-save-btn', 'n_clicks'),
         [State('student-selection-store', 'data'),
          State('plan-subject-store', 'data'),
@@ -257,7 +261,7 @@ def register_plan_callbacks(app):
         updates = []
         all_selected_books = [id_dict['book'] for id_dict in book_ids]
         
-        books_to_unplan = [book for book in current_progress.keys() if book not in all_selected_books]
+        books_to_unplan = [book for book in (current_progress or {}).keys() if book not in all_selected_books]
 
         for book in books_to_unplan:
             level = next((lvl for lvl, b_list in get_master_textbook_list(subject).items() if book in b_list), "N/A")
@@ -265,11 +269,11 @@ def register_plan_callbacks(app):
             
         for i, id_dict in enumerate(book_ids):
             book_name = id_dict['book']
-            val = progress_values[i]
+            val = progress_values[i] if progress_values else ""
             
             completed, total = 0, 1
             if val is None or val.strip() == "":
-                if book_name in current_progress:
+                if current_progress and book_name in current_progress:
                     prog = current_progress[book_name]
                     completed = prog.get('completed', 0)
                     total = prog.get('total', 1)
@@ -288,13 +292,13 @@ def register_plan_callbacks(app):
             })
 
         if not updates:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': '更新する内容がありません。'}
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': '更新する内容がありません。', 'source': 'plan'}
             return None, False, toast_data
 
         success, message = add_or_update_student_progress(student_info['school'], student_info['name'], updates)
 
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': '学習計画を更新しました。'}
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': '学習計画を更新しました。', 'source': 'plan'}
             return None, False, toast_data
         else:
             return dbc.Alert(message, color="danger"), True, no_update

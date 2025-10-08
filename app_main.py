@@ -13,6 +13,7 @@ import sqlite3
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
+import datetime # datetimeをインポート
 
 # --- プロジェクトのルートディレクトリをPythonのパスに追加 ---
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -55,7 +56,6 @@ app.server.secret_key = APP_CONFIG['server']['secret_key']
 
 DATABASE_FILE = 'progress.db'
 
-# --- ★★★ ここから修正 ★★★ ---
 # --- メインレイアウト ---
 app.layout = html.Div([
     dcc.Location(id='url', refresh=True),
@@ -63,7 +63,9 @@ app.layout = html.Div([
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
-    dcc.Store(id='plan-update-toast-trigger', storage_type='memory'), # 保存成功通知用
+    # --- ★★★ ここから修正 ★★★ ---
+    dcc.Store(id='toast-trigger', storage_type='memory'), # IDを 'toast-trigger' に変更
+    # --- ★★★ ここまで修正 ★★★ ---
 
     # --- グローバルなコンポーネント ---
     html.Div(id='navbar-container'), # ナビゲーションバー用のコンテナ
@@ -88,7 +90,6 @@ app.layout = html.Div([
     create_password_change_modal(),
     dcc.Download(id="download-pdf-report")
 ])
-# --- ★★★ ここまで修正 ★★★ ---
 
 # --- ヘルパー関数 ---
 def get_current_user_from_store(auth_store_data):
@@ -114,10 +115,7 @@ def display_page(pathname, auth_store_data):
     subjects = get_all_subjects()
 
     if pathname == '/homework':
-        page_content = html.Div([
-            create_homework_layout(user_info),
-            *create_all_modals(subjects)
-        ])
+        page_content = create_homework_layout(user_info)
         return page_content, navbar
 
     if pathname == '/admin':
@@ -181,11 +179,11 @@ def update_admin_statistics(pathname):
 @app.callback(
     [Output('success-toast', 'is_open'),
      Output('success-toast', 'children')],
-    Input('plan-update-toast-trigger', 'data'),
+    Input('toast-trigger', 'data'), # IDを 'toast-trigger' に変更
     prevent_initial_call=True
 )
 def show_success_toast(toast_data):
-    """学習計画の保存成功時にトーストを表示する"""
+    """成功時にトーストを表示する"""
     if toast_data and 'message' in toast_data:
         return True, toast_data['message']
     return False, ""

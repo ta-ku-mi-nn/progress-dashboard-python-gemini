@@ -5,7 +5,6 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 from data.nested_json_processor import get_bulk_presets
 
-# --- ★★★ ここから修正 ★★★ ---
 def create_plan_update_modal(subjects):
     """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
     
@@ -73,49 +72,15 @@ def create_plan_update_modal(subjects):
         ]
     )
 
+# --- ★★★ ここから修正 ★★★ ---
 def create_all_modals(subjects):
     """
     アプリケーションで使用するすべてのモーダルを生成して返す。
+    （宿題モーダルは homework_layout.py に移動したため、ここからは削除）
     """
     return [
         create_plan_update_modal(subjects),
-        dbc.Modal(
-            id="homework-modal",
-            is_open=False,
-            children=[
-                dbc.ModalHeader(dbc.ModalTitle(id="homework-modal-title")),
-                dbc.ModalBody([
-                    dcc.Store(id='editing-homework-id-store'),
-                    dbc.Alert(id="homework-alert", is_open=False),
-                    dbc.Form([
-                        dbc.Row([
-                            dbc.Label("科目", width=3),
-                            dbc.Col(dcc.Dropdown(
-                                id='homework-subject',
-                                options=[{'label': s, 'value': s} for s in (subjects or [])]
-                            ), width=9),
-                        ], className="mb-3"),
-                        dbc.Row([
-                            dbc.Label("課題内容", width=3),
-                            dbc.Col(dbc.Textarea(id="homework-task", placeholder="例: 基礎問題精講 P.10-15"), width=9),
-                        ], className="mb-3"),
-                        dbc.Row([
-                            dbc.Label("期間", width=3),
-                            dbc.Col(dcc.DatePickerRange(
-                                id='homework-date-picker',
-                                display_format='YYYY-MM-DD',
-                                start_date_placeholder_text="開始日",
-                                end_date_placeholder_text="終了日",
-                            ), width=9),
-                        ]),
-                    ])
-                ]),
-                dbc.ModalFooter([
-                    dbc.Button("保存", id="save-homework-button", color="primary"),
-                    dbc.Button("キャンセル", id="close-homework-modal", className="ms-auto"),
-                ]),
-            ]
-        ),
+        # dbc.Modal(id="homework-modal", ...) のブロックを完全に削除
         dbc.Modal(
             id="user-list-modal",
             is_open=False,

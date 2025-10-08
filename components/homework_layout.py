@@ -7,7 +7,7 @@ from datetime import date, timedelta
 def create_homework_modal():
     """宿題の追加・編集を行うモーダルを生成する"""
     
-    # 7日分の宿題入力欄を生成
+    # (... 中略: homework_days_container, assignment_controls, other_inputs の定義は変更なし ...)
     homework_days_container = html.Div(
         [
             dbc.Row([
@@ -58,23 +58,36 @@ def create_homework_modal():
             dbc.ModalHeader(dbc.ModalTitle(id="homework-modal-title")),
             dbc.ModalBody([
                 dbc.Alert(id="homework-modal-alert", is_open=False),
-                dcc.Store(id='editing-homework-store'), # 編集対象のIDや名前を保持
+                dcc.Store(id='editing-homework-store'), 
 
-                # --- 参考書選択 ---
-                html.Div(id='homework-modal-subject-selector-container', className="mb-2"),
-                html.Div(id='homework-modal-textbook-selector-container', className="mb-2"),
+                # --- ★★★ ここから修正 ★★★ ---
+                # プレースホルダーDivの中に、最初からDropdownを配置する
+                html.Div(
+                    dcc.Dropdown(
+                        id='homework-modal-subject-dropdown',
+                        placeholder="科目を選択...",
+                        disabled=True # 最初は無効化
+                    ),
+                    id='homework-modal-subject-selector-container', 
+                    className="mb-2"
+                ),
+                # --- ★★★ ここまで修正 ★★★ ---
+
+                html.Div(
+                    dcc.Dropdown(
+                        id='homework-modal-textbook-dropdown',
+                        placeholder="先に科目を選択してください",
+                        disabled=True
+                    ),
+                    id='homework-modal-textbook-selector-container',
+                    className="mb-2"
+                ),
                 dbc.Input(id='homework-modal-custom-textbook-input', placeholder="リストにない参考書はこちらに入力...", className="mb-3"),
                 html.Hr(),
                 
-                # --- メインコンテンツ ---
                 dbc.Row([
-                    dbc.Col([
-                        homework_days_container,
-                    ], md=7),
-                    dbc.Col([
-                        assignment_controls,
-                        other_inputs,
-                    ], md=5),
+                    dbc.Col([homework_days_container], md=7),
+                    dbc.Col([assignment_controls, other_inputs], md=5),
                 ]),
             ]),
             dbc.ModalFooter([
@@ -101,9 +114,6 @@ def create_homework_layout(user_info):
             )
         ], align="center", className="my-4"),
 
-        # 宿題リストを表示するコンテナ
         dcc.Loading(html.Div(id="homework-list-container")),
-        
-        # 宿題編集用のモーダルをレイアウトに追加
         create_homework_modal(),
     ])

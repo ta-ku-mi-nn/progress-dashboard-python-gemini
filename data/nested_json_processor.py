@@ -602,3 +602,39 @@ def delete_preset(preset_id):
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def delete_homework_group(student_id, textbook_id, custom_textbook_name):
+    """特定の参考書グループに紐づく宿題をすべて削除する"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # 削除条件を設定
+        query = "DELETE FROM homework WHERE student_id = ? AND "
+        params = [student_id]
+
+        if textbook_id is not None and textbook_id != -1:
+            query += "master_textbook_id = ?"
+            params.append(textbook_id)
+        elif custom_textbook_name:
+            query += "custom_textbook_name = ?"
+            params.append(custom_textbook_name)
+        else:
+            # どちらの識別子もない場合は、何も削除せずにエラーを返す
+            return False, "削除対象の参考書が特定できませんでした。"
+
+        cursor.execute(query, tuple(params))
+        conn.commit()
+
+        # 実際に削除された行数を確認
+        if cursor.rowcount > 0:
+            return True, "宿題が正常に削除されました。"
+        else:
+            return True, "削除対象の宿題はありませんでした。" # エラーではなく成功として扱う
+
+    except sqlite3.Error as e:
+        print(f"宿題の削除エラー: {e}")
+        conn.rollback()
+        return False, f"宿題の削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
