@@ -3,7 +3,7 @@
 from dash import Input, Output, State, dcc, html, no_update, callback_context, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime 
 import json
 import pandas as pd
 
@@ -14,8 +14,8 @@ from data.nested_json_processor import (
 
 def register_homework_callbacks(app):
     """宿題管理ページのコールバックを登録します。"""
-    
-    # ( ... update_homework_list, toggle_homework_modal, load_homework_into_modal の各コールバックは変更なし ...)
+
+    # 宿題リストの更新コールバック（変更なし）
     @app.callback(
         Output('homework-list-container', 'children'),
         [Input('student-selection-store', 'data'),
@@ -60,6 +60,7 @@ def register_homework_callbacks(app):
             )
         return dbc.Row(cards)
 
+    # モーダル開閉コールバック（変更なし）
     @app.callback(
         [Output('homework-modal', 'is_open'),
          Output('homework-modal-title', 'children'),
@@ -84,6 +85,7 @@ def register_homework_callbacks(app):
             return True, "宿題を編集", {'mode': 'edit', **trigger_id}, False
         return not is_open, no_update, {}, False
         
+    # モーダルへのデータ読み込みコールバック（変更なし）
     @app.callback(
         [Output('homework-modal-subject-dropdown', 'value'),
          Output('homework-modal-textbook-dropdown', 'options'),
@@ -126,21 +128,20 @@ def register_homework_callbacks(app):
             other_info.get('achievement', None)
         )
     
-    # --- ★★★ ここから修正 ★★★ ---
+    # 科目ドロップダウンの更新コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-subject-dropdown', 'options'),
          Output('homework-modal-subject-dropdown', 'disabled')],
         Input('student-selection-store', 'data')
     )
     def update_modal_subject_dropdown(student_id):
-        """生徒が選択されたら科目ドロップダウンを更新する"""
         if not student_id: 
-            return [], True # 生徒未選択なら無効化
+            return [], True
         subjects = get_all_subjects() 
         options = [{'label': s, 'value': s} for s in subjects]
-        return options, False # 選択肢をセットして有効化
-    # --- ★★★ ここまで修正 ★★★ ---
-
+        return options, False
+    
+    # 参考書ドロップダウンの更新コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-textbook-dropdown', 'options', allow_duplicate=True),
          Output('homework-modal-textbook-dropdown', 'disabled')],
@@ -155,6 +156,7 @@ def register_homework_callbacks(app):
         options = [{'label': b['book_name'], 'value': b['id']} for b in subject_textbooks]
         return options, False
     
+    # 保存コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-alert', 'children'),
          Output('homework-modal-alert', 'is_open'),
@@ -189,6 +191,7 @@ def register_homework_callbacks(app):
         else:
             return dbc.Alert(message, color="danger"), True, no_update, no_update
 
+    # 自動割り振りコールバック（変更なし）
     @app.callback(
         Output({'type': 'homework-modal-range-input', 'index': ALL}, 'value', allow_duplicate=True),
         [Input('modal-btn-4-2', 'n_clicks'), Input('modal-btn-2-1', 'n_clicks'), Input('modal-btn-6-0', 'n_clicks')],
@@ -214,23 +217,61 @@ def register_homework_callbacks(app):
         for i in range(len(ranges)):
             if i < len(output_values): output_values[i] = ranges[i]
         return output_values
+        
+    # --- ★★★ ここから修正 ★★★ ---
+
+    @app.callback(
+        Output('delete-homework-confirm', 'displayed'),
+        Input('delete-homework-btn', 'n_clicks'),
+        prevent_initial_call=True,
+    )
+    def display_delete_confirmation(n_clicks):
+        if n_clicks:
+            return True
+        return False
 
     @app.callback(
         [Output('homework-modal-alert', 'children', allow_duplicate=True),
-         Output('homework-modal-alert', 'is_open', allow_duplicate=True)],
-        Input('delete-homework-btn', 'n_clicks'),
+         Output('homework-modal-alert', 'is_open', allow_duplicate=True),
+         Output('homework-modal', 'is_open', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('delete-homework-confirm', 'submit_n_clicks'),
         [State('student-selection-store', 'data'),
          State('editing-homework-store', 'data')],
         prevent_initial_call=True
     )
-    def delete_homework_from_modal(n_clicks, student_id, editing_data):
-        if not n_clicks or not student_id or not editing_data or editing_data.get('mode') != 'edit':
+    def delete_homework_after_confirmation(submit_n_clicks, student_id, editing_data):
+        if not submit_n_clicks or not student_id or not editing_data or editing_data.get('mode') != 'edit':
             raise PreventUpdate
+        
         textbook_id = editing_data.get('textbook_id', -1)
         custom_name = editing_data.get('custom_name', '')
+
         success, message = delete_homework_group(
             student_id,
             textbook_id if textbook_id != -1 else None,
             custom_name
         )
-        return dbc.Alert(message, color="success" if success else "danger"), True
+        
+        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+        # 成功・失敗に関わらず、アラートは表示せず、モーダルを閉じてトーストで結果を通知
+        return "", False, False, toast_data
+
+    @app.callback(
+        [Output('homework-modal-custom-textbook-input', 'value', allow_duplicate=True),
+         Output({'type': 'homework-modal-range-input', 'index': ALL}, 'value', allow_duplicate=True),
+         Output('modal-remarks-input', 'value', allow_duplicate=True),
+         Output('modal-test-result-input', 'value', allow_duplicate=True),
+         Output('modal-achievement-input', 'value', allow_duplicate=True)],
+        Input('clear-homework-modal-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def clear_modal_inputs(n_clicks):
+        if not n_clicks:
+            raise PreventUpdate
+        
+        empty_ranges = [''] * 7
+        # 科目と参考書のドロップダウンはクリアしない (no_update を使わない代わりに Output から外す)
+        return "", empty_ranges, "", "", None
+
+    # --- ★★★ ここまで修正 ★★★ ---
