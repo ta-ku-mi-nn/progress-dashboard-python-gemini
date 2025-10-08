@@ -63,6 +63,7 @@ app.layout = html.Div([
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
+    dcc.Store(id='plan-update-toast-trigger', storage_type='memory'), # 保存成功通知用
 
     # --- グローバルなコンポーネント ---
     html.Div(id='navbar-container'), # ナビゲーションバー用のコンテナ
@@ -87,6 +88,7 @@ app.layout = html.Div([
     create_password_change_modal(),
     dcc.Download(id="download-pdf-report")
 ])
+# --- ★★★ ここまで修正 ★★★ ---
 
 # --- ヘルパー関数 ---
 def get_current_user_from_store(auth_store_data):
@@ -144,9 +146,7 @@ def display_page(pathname, auth_store_data):
         *create_all_modals(subjects)
     ])
     return page_content, navbar
-# --- ★★★ ここまで修正 ★★★ ---
 
-# ... (update_admin_statistics 以降のコードは変更なし) ...
 @app.callback(
     Output('admin-statistics', 'children'),
     Input('url', 'pathname')
@@ -177,6 +177,19 @@ def update_admin_statistics(pathname):
     except sqlite3.Error as e:
         return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
 
+# --- ★★★ ここから修正 ★★★ ---
+@app.callback(
+    [Output('success-toast', 'is_open'),
+     Output('success-toast', 'children')],
+    Input('plan-update-toast-trigger', 'data'),
+    prevent_initial_call=True
+)
+def show_success_toast(toast_data):
+    """学習計画の保存成功時にトーストを表示する"""
+    if toast_data and 'message' in toast_data:
+        return True, toast_data['message']
+    return False, ""
+# --- ★★★ ここまで修正 ★★★ ---
 
 # --- コールバック登録 ---
 register_auth_callbacks(app)

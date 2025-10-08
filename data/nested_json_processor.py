@@ -13,7 +13,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# ( ... 既存の get_all_schools から get_subjects_for_student までの関数 ... )
+# ( ... 既存の get_all_schools から get_student_progress までの関数 ... )
 def get_all_schools():
     conn = get_db_connection()
     schools = conn.execute('SELECT DISTINCT school FROM students ORDER BY school').fetchall()
@@ -205,23 +205,49 @@ def add_or_update_student_progress(school, student_name, progress_updates):
     finally:
         conn.close()
 
+# --- ★★★ ここから修正 ★★★ ---
 def get_all_subjects():
+    """データベースからすべての科目を指定された順序で取得する"""
     conn = get_db_connection()
-    subjects = conn.execute('SELECT DISTINCT subject FROM master_textbooks ORDER BY subject').fetchall()
+    subjects_raw = conn.execute('SELECT DISTINCT subject FROM master_textbooks').fetchall()
     conn.close()
-    return [subject['subject'] for subject in subjects]
+    
+    all_subjects = [s['subject'] for s in subjects_raw]
+    
+    # 科目の順序を定義
+    subject_order = [
+        '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
+    ]
+    
+    # 順序リストに基づいてソート
+    sorted_subjects = sorted(
+        all_subjects,
+        key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
+    )
+    
+    return sorted_subjects
+# --- ★★★ ここまで修正 ★★★ ---
 
 def get_subjects_for_student(student_id):
-    # ... (この関数は変更なし) ...
     conn = get_db_connection()
-    subjects = conn.execute(
-        'SELECT DISTINCT subject FROM progress WHERE student_id = ? ORDER BY subject',
+    subjects_raw = conn.execute(
+        'SELECT DISTINCT subject FROM progress WHERE student_id = ?',
         (student_id,)
     ).fetchall()
     conn.close()
-    return [subject['subject'] for subject in subjects]
-
-# --- ★★★ ここから修正・追加 ★★★ ---
+    
+    student_subjects = [s['subject'] for s in subjects_raw]
+    
+    # get_all_subjects と同じ順序でソート
+    subject_order = [
+        '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
+    ]
+    
+    sorted_subjects = sorted(
+        student_subjects,
+        key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
+    )
+    return sorted_subjects
 
 def get_all_homework_for_student(student_id):
     """特定の生徒の宿題をすべて取得する (参考書名も結合)"""
@@ -320,8 +346,6 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
         return False, f"宿題の保存に失敗しました: {e}"
     finally:
         conn.close()
-
-# --- ★★★ ここまで修正・追加 ★★★ ---
 
 def get_bulk_presets():
     conn = get_db_connection()
