@@ -5,38 +5,35 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# --- ★★★ ここから修正 ★★★ ---
 # PDF変換ライブラリをインポート
 try:
     import weasyprint
 except ImportError:
-    # weasyprintがインストールされていない場合は、エラーの代わりにNoneを設定
     weasyprint = None
 
-def create_dashboard_pdf(student_info, student_progress):
+# --- ★★★ ここから修正 ★★★ ---
+def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base64):
     """
-    生徒情報と進捗データを受け取り、PDFのバイナリデータを生成して返す。
+    生徒情報、進捗データ、グラフ画像を受け取り、PDFのバイナリデータを生成して返す。
     """
     if weasyprint is None:
         print("エラー: PDF生成ライブラリ 'weasyprint' がインストールされていません。")
         print("コマンド: pip install weasyprint")
-        # エラーを示す単純なHTMLを返すことで、ライブラリ不足を通知
         error_html = "<h1>PDF Export Error</h1><p>Required library 'weasyprint' is not installed.</p>"
         return error_html.encode('utf-8')
 
-    # PDFの元となるHTMLを生成（宿題データは今回省略し、空のリストを渡す）
     html_content = render_dashboard_to_html(
         student_info,
         student_progress,
         [], # 現状、宿題データはレポートに含めない
-        student_info.get("name", "不明な生徒")
+        student_info.get("name", "不明な生徒"),
+        all_subjects_chart_base64 # グラフ画像データを渡す
     )
+    # --- ★★★ ここまで修正 ★★★ ---
 
     # HTMLをPDFに変換
-    # CSSファイルへのパスを絶対パスで指定
     css_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'pdf_style.css')
     
-    # CSSファイルが存在するか確認
     if os.path.exists(css_path):
         css = weasyprint.CSS(css_path)
         pdf_bytes = weasyprint.HTML(string=html_content).write_pdf(stylesheets=[css])
@@ -45,16 +42,14 @@ def create_dashboard_pdf(student_info, student_progress):
         pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
         
     return pdf_bytes
-# --- ★★★ ここまで修正 ★★★ ---
 
-
-def render_dashboard_to_html(student_info, student_progress, student_homework, student_name):
+# --- ★★★ ここから修正 ★★★ ---
+def render_dashboard_to_html(student_info, student_progress, student_homework, student_name, all_subjects_chart_base64):
     """
     生徒の各種データからPDFの元となるHTML文字列を生成します。
     """
     
     try:
-        # テンプレートファイルのパスを現在のファイルの場所を基準に設定
         template_path = os.path.join(os.path.dirname(__file__), 'pdf_template.html')
         with open(template_path, 'r', encoding='utf-8') as f:
             template_str = f.read()
@@ -62,6 +57,8 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
         return "<h1>エラー: PDFテンプレートファイルが見つかりません。</h1>"
 
     template = Template(template_str)
+    # (中略: 宿題と参考書のテーブル生成ロジックは変更なし)
+# --- ★★★ ここまで修正 ★★★ ---
 
     # --- 宿題データをHTMLテーブルに変換 ---
     if student_homework:
@@ -97,13 +94,16 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     sub_instructors = student_info.get('sub_instructors', [])
     sub_instructor_str = ", ".join(sub_instructors) if sub_instructors else 'なし'
 
+    # --- ★★★ ここから修正 ★★★ ---
     context = {
         "student_name": student_name,
         "main_instructor": main_instructor_str,
         "sub_instructors": sub_instructor_str,
         "generation_date": datetime.now().strftime("%Y年%m月%d日"),
         "homework_table": homework_table_html,
-        "progress_table": progress_table_html
+        "progress_table": progress_table_html,
+        "all_subjects_chart": all_subjects_chart_base64, # コンテキストに画像データを追加
     }
+    # --- ★★★ ここまで修正 ★★★ ---
 
     return template.render(context)

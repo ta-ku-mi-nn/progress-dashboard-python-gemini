@@ -7,6 +7,8 @@ from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from data.nested_json_processor import get_subjects_for_student
+# ★★★ インポートを追加 ★★★
+from callbacks.progress_callbacks import create_welcome_layout, generate_dashboard_content
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
@@ -50,15 +52,18 @@ def register_main_callbacks(app):
     # --- ★★★ ここから修正 ★★★ ---
     @app.callback(
         [Output('subject-tabs-container', 'children'),
-         Output('dashboard-actions-container', 'children')],
+         Output('dashboard-actions-container', 'children'),
+         Output('dashboard-content-container', 'children')],
         Input('student-selection-store', 'data'),
         State('url', 'pathname')
     )
-    def update_subject_tabs_and_actions(student_id, pathname):
-        """生徒が選択されたら、タブとアクションボタンを生成する (ホーム画面のみ)"""
+    def update_dashboard_on_student_select(student_id, pathname):
+        """生徒が選択されたら、タブ、アクションボタン、初期コンテンツを生成する"""
         if not student_id or pathname != '/':
-            return None, None
+            # 生徒が選択されていない場合は「How to use」を表示
+            return None, None, create_welcome_layout()
 
+        # --- 生徒選択時の処理 ---
         subjects = get_subjects_for_student(student_id)
         
         all_tabs = [dbc.Tab(label="総合", tab_id="総合")]
@@ -67,10 +72,15 @@ def register_main_callbacks(app):
 
         tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
         
-        # 進捗管理ボタンを追加
-        actions = dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True)
+        actions = dbc.ButtonGroup([
+            dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True),
+            dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2")
+        ])
 
-        return tabs, actions
+        # 初期表示として「総合」タブの内容を生成
+        initial_content = generate_dashboard_content(student_id, '総合')
+
+        return tabs, actions, initial_content
     # --- ★★★ ここまで修正 ★★★ ---
 
     @app.callback(

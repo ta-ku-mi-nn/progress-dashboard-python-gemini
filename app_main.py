@@ -15,8 +15,9 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 import datetime # datetimeをインポート
-from components.past_exam_layout import create_past_exam_layout
-from callbacks.past_exam_callbacks import register_past_exam_callbacks
+from flask import Response # ★★★ Responseオブジェクトをインポート ★★★
+import base64
+import plotly.io as pio
 
 # --- プロジェクトのルートディレクトリをPythonのパスに追加 ---
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -25,7 +26,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
-from data.nested_json_processor import get_all_subjects
+from data.nested_json_processor import get_all_subjects, get_student_info_by_id, get_student_progress_by_id
 from components.main_layout import create_main_layout, create_navbar
 from components.homework_layout import create_homework_layout
 from components.modals import create_all_modals
@@ -49,6 +50,11 @@ from callbacks.homework_callbacks import register_homework_callbacks
 from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
 from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
+from components.past_exam_layout import create_past_exam_layout
+from callbacks.past_exam_callbacks import register_past_exam_callbacks
+from utils.dashboard_pdf import create_dashboard_pdf
+from charts.chart_generator import create_progress_stacked_bar_chart
+
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -69,37 +75,82 @@ app.layout = html.Div([
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
-    # --- ★★★ ここから修正 ★★★ ---
-    dcc.Store(id='toast-trigger', storage_type='memory'), # IDを 'toast-trigger' に変更
-    # --- ★★★ ここまで修正 ★★★ ---
+    dcc.Store(id='toast-trigger', storage_type='memory'),
 
-    # --- グローバルなコンポーネント ---
-    html.Div(id='navbar-container'), # ナビゲーションバー用のコンテナ
+    html.Div(id='navbar-container'),
 
     dbc.Container([
-        # 校舎と生徒のセレクターをページコンテンツの外（共通部分）に配置
         html.Div(id='school-dropdown-container'),
         html.Div(id='student-dropdown-container', className="mb-3"),
-        
-        # ページ固有のコンテンツがここに表示される
         html.Div(id='page-content'),
     ], fluid=True, className="mt-4"),
 
-    # --- 通知用トースト ---
     dbc.Toast(
         id="success-toast", header="成功", is_open=False, dismissable=True,
         icon="success", duration=4000,
         style={"position": "fixed", "top": 66, "right": 10, "width": 350, "zIndex": 9999},
     ),
-    # 認証関連のモーダル
     create_user_profile_modal(),
     create_password_change_modal(),
+    # dcc.Downloadはクライアントサイドコールバックのダミーの出力先として残します
     dcc.Download(id="download-pdf-report")
 ])
 
 # --- ヘルパー関数 ---
 def get_current_user_from_store(auth_store_data):
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
+
+# --- ★★★ ここから修正 ★★★ ---
+# PDF表示用のFlaskルートを追加
+@app.server.route('/report/pdf/<int:student_id>')
+def serve_pdf_report(student_id):
+    """
+    指定された生徒IDのレポートPDFを生成し、FlaskのResponseとして返す。
+    これにより、ブラウザで直接PDFが表示される。
+    """
+    if not student_id:
+        return "No student selected", 404
+
+    student_info = get_student_info_by_id(student_id)
+    progress_data = get_student_progress_by_id(student_id)
+
+    if not student_info or not progress_data:
+        return "Could not find student data for the report.", 404
+
+    # グラフ生成ロジック
+    all_records = []
+    for subject, levels in progress_data.items():
+        for level, books in levels.items():
+            for book_name, details in books.items():
+                all_records.append({
+                    'subject': subject, 'book_name': book_name,
+                    'duration': details.get('所要時間', 0),
+                    'is_planned': details.get('予定', False),
+                    'is_done': details.get('達成済', False),
+                    'completed_units': details.get('completed_units', 0),
+                    'total_units': details.get('total_units', 1),
+                })
+    
+    all_subjects_chart_base64 = ""
+    if all_records:
+        df_all = pd.DataFrame(all_records)
+        fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
+        if fig:
+            try:
+                # Plotly FigureをPNG画像のバイナリに変換
+                fig_png = pio.to_image(fig, format='png', engine='kaleido')
+                # Base64エンコードしてHTMLで使える文字列に変換
+                all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
+            except Exception as e:
+                print(f"Error generating graph image: {e}")
+                all_subjects_chart_base64 = "" # エラーが発生した場合は画像なしで続行
+
+    # PDFをメモリ上で生成
+    pdf_bytes = create_dashboard_pdf(student_info, progress_data, all_subjects_chart_base64)
+    
+    # FlaskのResponseオブジェクトとしてPDFを返す
+    return Response(pdf_bytes, mimetype='application/pdf')
+# --- ★★★ ここまで修正 ★★★ ---
 
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(
@@ -113,10 +164,8 @@ def display_page(pathname, auth_store_data):
     user_info = get_current_user_from_store(auth_store_data)
 
     if not user_info:
-        # 未ログイン時はログイン画面のみ表示し、ナビゲーションバーは非表示
         return create_login_layout(), None
 
-    # ログイン済みユーザーには常にナビゲーションバーを表示
     navbar = create_navbar(user_info)
     subjects = get_all_subjects()
 
@@ -166,38 +215,17 @@ def display_page(pathname, auth_store_data):
                     ], className="d-flex w-100 justify-content-between"),
                     dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary")
                 ]),
-                
-                # dbc.ListGroupItem([
-                #     html.Div([
-                #         html.H5("💾 データ管理", className="mb-1"),
-                #         html.P("データベースのバックアップと復元を行います。", className="mb-1 small text-muted"),
-                #     ], className="d-flex w-100 justify-content-between"),
-                #     html.Div([
-                #         dbc.Button("JSONバックアップ", id="backup-btn", color="warning", className="me-2"),
-                #         dcc.Upload(
-                #             id='upload-backup',
-                #             children=html.Div(['または ', html.A('ファイルをドラッグ＆ドロップしてリストア')]),
-                #             style={
-                #                 'width': '100%', 'height': '60px', 'lineHeight': '60px',
-                #                 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px',
-                #                 'textAlign': 'center', 'margin': '10px'
-                #             }
-                #         )
-                #     ])
-                # ])
-                
             ]),
             html.Div(id="admin-statistics", className="mt-4"),
             create_master_textbook_modal(), create_textbook_edit_modal(),
             create_student_management_modal(), create_student_edit_modal(),
             create_bulk_preset_management_modal(), create_bulk_preset_edit_modal(),
-            create_user_list_modal(),   # ユーザー一覧表示モーダル
-            create_new_user_modal(),    # 新規ユーザー作成モーダル
-            create_user_edit_modal()    # ユーザー編集モーダル
+            create_user_list_modal(),
+            create_new_user_modal(),
+            create_user_edit_modal()
         ])
         return page_content, navbar
     
-    # デフォルトはホーム画面
     page_content = html.Div([
         create_main_layout(user_info),
         *create_all_modals(subjects)
@@ -236,11 +264,11 @@ def update_admin_statistics(pathname):
         ])
     except Exception as e:
         return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
-# --- ★★★ ここから修正 ★★★ ---
+
 @app.callback(
     [Output('success-toast', 'is_open'),
      Output('success-toast', 'children')],
-    Input('toast-trigger', 'data'), # IDを 'toast-trigger' に変更
+    Input('toast-trigger', 'data'),
     prevent_initial_call=True
 )
 def show_success_toast(toast_data):
@@ -248,7 +276,6 @@ def show_success_toast(toast_data):
     if toast_data and 'message' in toast_data:
         return True, toast_data['message']
     return False, ""
-# --- ★★★ ここまで修正 ★★★ ---
 
 # --- コールバック登録 ---
 register_auth_callbacks(app)
