@@ -3,6 +3,7 @@
 import sqlite3
 import os
 import uuid
+import pandas as pd
 from datetime import datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -737,3 +738,33 @@ def delete_past_exam_result(result_id):
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def get_student_count_by_school():
+    """校舎ごとの生徒数を取得する"""
+    conn = get_db_connection()
+    df = pd.read_sql_query("SELECT school, COUNT(id) as count FROM students GROUP BY school", conn)
+    conn.close()
+    return df.to_dict('records')
+
+def get_textbook_count_by_subject():
+    """科目ごとの参考書数を取得する"""
+    conn = get_db_connection()
+    df = pd.read_sql_query("SELECT subject, COUNT(id) as count FROM master_textbooks GROUP BY subject", conn)
+    conn.close()
+    return df.to_dict('records')
+
+def get_students_for_instructor(user_id):
+    """担当講師のIDに紐づく生徒のリストを取得する"""
+    if not user_id:
+        return []
+    conn = get_db_connection()
+    students = conn.execute('''
+        SELECT s.name, s.school
+        FROM students s
+        JOIN student_instructors si ON s.id = si.student_id
+        WHERE si.user_id = ?
+        ORDER BY s.school, s.name
+    ''', (user_id,)).fetchall()
+    conn.close()
+    return [f"{dict(s)['school']} - {dict(s)['name']}" for s in students]
+

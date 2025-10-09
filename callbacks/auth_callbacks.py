@@ -1,15 +1,16 @@
 # callbacks/auth_callbacks.py
 
 import dash
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, no_update, html
 import dash_bootstrap_components as dbc
 
 from auth.user_manager import authenticate_user, update_password
+from data.nested_json_processor import get_students_for_instructor
 
 def register_auth_callbacks(app):
     """認証関連のコールバックを登録します。"""
 
-    # --- ログイン処理 (変更なし) ---
+    # --- ログイン処理 ---
     @app.callback(
         [Output('url', 'pathname'),
          Output('auth-store', 'data'),
@@ -33,11 +34,10 @@ def register_auth_callbacks(app):
         else:
             return no_update, no_update, dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
 
-    # --- ★★★ ここから修正 ★★★ ---
     # --- ログアウト処理 ---
     @app.callback(
         [Output('url', 'pathname', allow_duplicate=True),
-         Output('auth-store', 'clear_data')], # clear_data を True にしてセッションをクリア
+         Output('auth-store', 'clear_data')],
         Input('logout-button', 'n_clicks'),
         prevent_initial_call=True
     )
@@ -45,37 +45,52 @@ def register_auth_callbacks(app):
         if n_clicks:
             return '/login', True
         return no_update, no_update
-    # --- ★★★ ここまで修正 ★★★ ---
 
 
-    # --- (以降のプロファイル関連のコールバックは変更なし) ---
+    # --- プロフィール関連のコールバック ---
+    # ★★★ このコールバックを修正 ★★★
     @app.callback(
         Output('user-profile-modal', 'is_open'),
-        [Input('user-menu', 'n_clicks'),
+        [Input('user-profile-btn', 'n_clicks'), # 監視対象のIDを修正
          Input('close-profile-modal', 'n_clicks')],
         [State('user-profile-modal', 'is_open')],
         prevent_initial_call=True
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
-        if n_clicks or close_clicks:
+        # n_clicksがNoneでないことを確認
+        if (n_clicks and n_clicks > 0) or (close_clicks and close_clicks > 0):
             return not is_open
         return is_open
 
     @app.callback(
         [Output('profile-username', 'children'),
          Output('profile-role', 'children'),
-         Output('profile-school', 'children')],
+         Output('profile-school', 'children'),
+         Output('profile-assigned-students', 'children')],
         Input('user-profile-modal', 'is_open'),
         State('auth-store', 'data')
     )
     def display_user_profile(is_open, user_data):
         if is_open and user_data:
+            user_id = user_data.get('id')
+            assigned_students = get_students_for_instructor(user_id)
+            
+            if not assigned_students:
+                student_list_component = html.P("担当生徒はいません。", className="text-muted")
+            else:
+                student_list_component = dbc.ListGroup(
+                    [dbc.ListGroupItem(s) for s in assigned_students],
+                    flush=True,
+                    style={'maxHeight': '150px', 'overflowY': 'auto'}
+                )
+
             return (
                 user_data.get('username', 'N/A'),
                 user_data.get('role', 'N/A'),
-                user_data.get('school', 'N/A')
+                user_data.get('school', 'N/A'),
+                student_list_component
             )
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     @app.callback(
         Output('password-change-modal', 'is_open'),
@@ -107,7 +122,7 @@ def register_auth_callbacks(app):
 
         if not user:
             return dbc.Alert("現在のパスワードが正しくありません。", color="danger")
-        
+
         if not new_pass or not confirm_pass:
             return dbc.Alert("新しいパスワードを入力してください。", color="warning")
 

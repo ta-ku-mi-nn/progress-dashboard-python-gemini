@@ -73,6 +73,9 @@ def create_user_profile_modal():
                 html.P(html.B("ユーザー名: "), id="profile-username"),
                 html.P(html.B("役割: "), id="profile-role"),
                 html.P(html.B("所属校舎: "), id="profile-school"),
+                html.Hr(),
+                html.P(html.B("担当生徒:")),
+                html.Div(id="profile-assigned-students", style={'maxHeight': '200px', 'overflowY': 'auto'})
             ]),
             dbc.ModalFooter([
                 dbc.Button("パスワード変更", id="change-password-button", color="warning"),

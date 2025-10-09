@@ -72,64 +72,68 @@ def create_plan_update_modal(subjects):
         ]
     )
 
-# --- ★★★ ここから修正 ★★★ ---
 def create_all_modals(subjects):
     """
-    アプリケーションで使用するすべてのモーダルを生成して返す。
-    （宿題モーダルは homework_layout.py に移動したため、ここからは削除）
+    アプリケーションで使用するモーダルを生成して返す。
+    （管理者ページのユーザー関連モーダルは admin_components.py に移動）
     """
     return [
         create_plan_update_modal(subjects),
-        # dbc.Modal(id="homework-modal", ...) のブロックを完全に削除
-        dbc.Modal(
-            id="user-list-modal",
-            is_open=False,
-            size="lg",
-            children=[
-                dbc.ModalHeader(dbc.ModalTitle("ユーザー一覧")),
-                dbc.ModalBody(id="user-list-table"),
-                dbc.ModalFooter(dbc.Button("閉じる", id="close-user-list-modal", className="ms-auto"))
-            ]
-        ),
-        dbc.Modal(
-            id="new-user-modal",
-            is_open=False,
-            children=[
-                dbc.ModalHeader(dbc.ModalTitle("新規ユーザー作成")),
-                dbc.ModalBody([
-                    dbc.Alert(id="new-user-alert", is_open=False),
-                    dbc.Form([
-                        dbc.Row([
-                            dbc.Label("ユーザー名", width=3),
-                            dbc.Col(dbc.Input(id="new-username", type="text"), width=9),
-                        ], className="mb-3"),
-                        dbc.Row([
-                            dbc.Label("パスワード", width=3),
-                            dbc.Col(dbc.Input(id="new-password", type="password"), width=9),
-                        ], className="mb-3"),
-                        dbc.Row([
-                            dbc.Label("役割", width=3),
-                            dbc.Col(dcc.Dropdown(
-                                id='new-user-role',
-                                options=[
-                                    {'label': '一般ユーザー', 'value': 'user'},
-                                    {'label': '管理者', 'value': 'admin'},
-                                ],
-                                value='user'
-                            ), width=9),
-                        ], className="mb-3"),
-                        dbc.Row([
-                            dbc.Label("所属校舎", width=3),
-                            dbc.Col(dbc.Input(id="new-user-school", type="text", placeholder="（任意）"), width=9),
-                        ]),
-                    ])
-                ]),
-                dbc.ModalFooter([
-                    dbc.Button("作成", id="create-user-button", color="primary"),
-                    dbc.Button("閉じる", id="close-new-user-modal", className="ms-auto")
-                ]),
-            ]
-        ),
         dcc.Download(id="download-backup"),
     ]
-# --- ★★★ ここまで修正 ★★★ ---
+
+# ユーザー一覧と新規作成モーダルを生成する関数をここに追加
+def create_user_list_modal():
+    """ユーザー一覧表示用のモーダル"""
+    return dbc.Modal(
+        id="user-list-modal",
+        is_open=False,
+        size="lg",
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("ユーザー一覧")),
+            dbc.ModalBody(id="user-list-table"),
+            dbc.ModalFooter(dbc.Button("閉じる", id="close-user-list-modal", className="ms-auto"))
+        ]
+    )
+
+def create_new_user_modal():
+    """新規ユーザー作成用のモーダル"""
+    return dbc.Modal(
+        id="new-user-modal",
+        is_open=False,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("新規ユーザー作成")),
+            dbc.ModalBody([
+                dbc.Alert(id="new-user-alert", is_open=False),
+                dbc.Form([
+                    dbc.Row([
+                        dbc.Label("ユーザー名", width=3),
+                        dbc.Col(dbc.Input(id="new-username", type="text"), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
+                        dbc.Label("パスワード", width=3),
+                        dbc.Col(dbc.Input(id="new-password", type="password"), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
+                        dbc.Label("役割", width=3),
+                        dbc.Col(dcc.Dropdown(
+                            id='new-user-role',
+                            options=[
+                                {'label': '一般ユーザー', 'value': 'user'},
+                                {'label': '管理者', 'value': 'admin'},
+                            ],
+                            value='user'
+                        ), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
+                        dbc.Label("所属校舎", width=3),
+                        dbc.Col(dbc.Input(id="new-user-school", type="text", placeholder="（任意）"), width=9),
+                    ]),
+                ])
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("作成", id="create-user-button", color="primary"),
+                dbc.Button("閉じる", id="close-new-user-modal", className="ms-auto")
+            ]),
+        ]
+    )

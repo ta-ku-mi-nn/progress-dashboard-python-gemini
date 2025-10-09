@@ -67,3 +67,42 @@ def load_users():
     conn.close()
     # コールバックで扱いやすいように辞書のリストに変換
     return [dict(user) for user in users_cursor]
+
+# ★★★ ここから修正 ★★★
+def update_user(user_id, username, role, school):
+    """ユーザー情報を更新する（パスワードは変更しない）"""
+    conn = get_db_connection()
+    try:
+        # 編集対象以外のユーザーでユーザー名が重複していないかチェック
+        existing_user = conn.execute(
+            'SELECT id FROM users WHERE username = ? AND id != ?', (username, user_id)
+        ).fetchone()
+        if existing_user:
+            return False, "このユーザー名は既に使用されています。"
+
+        conn.execute(
+            'UPDATE users SET username = ?, role = ?, school = ? WHERE id = ?',
+            (username, role, school, user_id)
+        )
+        conn.commit()
+        return True, "ユーザー情報が更新されました。"
+    except sqlite3.Error as e:
+        return False, f"更新中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def delete_user(user_id):
+    """指定されたIDのユーザーを削除する"""
+    conn = get_db_connection()
+    try:
+        # ユーザーを削除する前に、関連する生徒の担当情報をクリアする必要がある場合など、
+        # アプリケーションの仕様に応じて事前処理を追加する
+        conn.execute('DELETE FROM student_instructors WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        return True, "ユーザーが正常に削除されました。"
+    except sqlite3.Error as e:
+        return False, f"削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+# ★★★ ここまで修正 ★★★

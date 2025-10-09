@@ -210,3 +210,41 @@ def create_bulk_preset_edit_modal():
         ],
     )
 # --- ★★★ ここまで修正 ★★★
+
+def create_user_edit_modal():
+    """ユーザー編集用のモーダルを生成する"""
+    return dbc.Modal(
+        id="user-edit-modal",
+        is_open=False,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle(id="user-edit-modal-title")),
+            dbc.ModalBody([
+                dbc.Alert(id="user-edit-alert", is_open=False),
+                dcc.Store(id='editing-user-id-store'),
+                dbc.Form([
+                    dbc.Row([
+                        dbc.Label("ユーザー名", width=3),
+                        dbc.Col(dbc.Input(id="user-username-input", type="text"), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
+                        dbc.Label("役割", width=3),
+                        dbc.Col(dcc.Dropdown(
+                            id='user-role-input',
+                            options=[
+                                {'label': '一般ユーザー', 'value': 'user'},
+                                {'label': '管理者', 'value': 'admin'},
+                            ]
+                        ), width=9),
+                    ], className="mb-3"),
+                    dbc.Row([
+                        dbc.Label("所属校舎", width=3),
+                        dbc.Col(dbc.Input(id="user-school-input", type="text"), width=9),
+                    ]),
+                ])
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("保存", id="save-user-btn", color="primary"),
+                dbc.Button("キャンセル", id="cancel-user-edit-btn"),
+            ]),
+        ],
+    )

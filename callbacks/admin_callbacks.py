@@ -4,12 +4,14 @@ import json
 import datetime
 import sqlite3
 import os
+import base64
+import io
 import pandas as pd
 from dash import Input, Output, State, html, dcc, no_update, callback_context, ALL, MATCH
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 
-from auth.user_manager import load_users, add_user
+from auth.user_manager import load_users, add_user, update_user, delete_user
 from data.nested_json_processor import (
     get_all_master_textbooks, add_master_textbook,
     update_master_textbook, delete_master_textbook, get_all_subjects,
@@ -22,36 +24,96 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
 
 def register_admin_callbacks(app):
-    """管理者ページの機能に関連するコールバックを登録します。"""
+    # --- ユーザー管理関連コールバック ---
 
+    # 1. ユーザー一覧モーダルの「開閉」だけを制御するコールバック
     @app.callback(
-        [Output('user-list-modal', 'is_open'), Output('user-list-table', 'children')],
-        [Input('user-list-btn', 'n_clicks'), Input('close-user-list-modal', 'n_clicks')],
+        Output('user-list-modal', 'is_open'),
+        [Input('user-list-btn', 'n_clicks'),
+         Input('close-user-list-modal', 'n_clicks')],
         [State('user-list-modal', 'is_open')],
         prevent_initial_call=True
     )
-    def toggle_user_list_modal(n_clicks, close_clicks, is_open):
-        if not n_clicks and not close_clicks: return is_open, no_update
-        if is_open: return False, no_update
+    def toggle_user_list_modal_visibility(open_clicks, close_clicks, is_open):
+        ctx = callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+        return not is_open
+
+    # 2. ユーザー一覧モーダルの「内容」だけを更新するコールバック
+    @app.callback(
+        Output('user-list-table', 'children'),
+        [Input('user-list-modal', 'is_open'),
+         Input('admin-update-trigger', 'data')],
+        prevent_initial_call=True
+    )
+    def update_user_list_table(is_open, update_signal):
+        # モーダルが開いている時だけ内容を更新
+        if not is_open:
+            raise PreventUpdate
+
         users = load_users()
-        if not users: table = dbc.Alert("登録されているユーザーがいません。", color="info")
-        else:
-            table_header = [html.Thead(html.Tr([html.Th("ユーザー名"), html.Th("役割"), html.Th("所属校舎")]))]
-            table_body = [html.Tbody([html.Tr([html.Td(user['username']), html.Td(user['role']), html.Td(user.get('school', 'N/A'))]) for user in users])]
-            table = dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True)
-        return True, table
+        if not users:
+            return dbc.Alert("登録されているユーザーがいません。", color="info")
+        
+        table_header = [html.Thead(html.Tr([
+            html.Th("ユーザー名"), html.Th("役割"), html.Th("所属校舎"), html.Th("操作")
+        ]))]
+        table_body = [html.Tbody([
+            html.Tr([
+                html.Td(user['username']),
+                html.Td(user['role']),
+                html.Td(user.get('school', 'N/A')),
+                html.Td([
+                    dbc.Button("編集", id={'type': 'edit-user-btn', 'index': user['id']}, size="sm", className="me-1"),
+                    dbc.Button("削除", id={'type': 'delete-user-btn', 'index': user['id']}, color="danger", size="sm", outline=True)
+                ])
+            ]) for user in users
+        ])]
+        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
 
-    @app.callback(Output('new-user-modal', 'is_open'),[Input('new-user-btn', 'n_clicks'), Input('close-new-user-modal', 'n_clicks')],[State('new-user-modal', 'is_open')],prevent_initial_call=True)
-    def toggle_new_user_modal(n_clicks, close_clicks, is_open):
-        if n_clicks or close_clicks: return not is_open
-        return is_open
+    # 3. 新規ユーザーモーダルの開閉と作成処理をすべて制御する単一のコールバック
+    @app.callback(
+        [Output('new-user-modal', 'is_open', allow_duplicate=True),
+         Output('new-user-alert', 'children'),
+         Output('new-user-alert', 'is_open'),
+         Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        [Input('new-user-btn', 'n_clicks'),
+         Input('close-new-user-modal', 'n_clicks'),
+         Input('create-user-button', 'n_clicks')],
+        [State('new-username', 'value'),
+         State('new-password', 'value'),
+         State('new-user-role', 'value'),
+         State('new-user-school', 'value'),
+         State('new-user-modal', 'is_open')],
+        prevent_initial_call=True
+    )
+    def handle_new_user_modal_and_creation(
+        open_clicks, close_clicks, create_clicks, 
+        username, password, role, school, is_open):
+        
+        ctx = callback_context
+        trigger_id = ctx.triggered_id
 
-    @app.callback(Output('new-user-alert', 'children'),Input('create-user-button', 'n_clicks'),[State('new-username', 'value'), State('new-password', 'value'), State('new-user-role', 'value'), State('new-user-school', 'value')],prevent_initial_call=True)
-    def create_new_user(n_clicks, username, password, role, school):
-        if not all([username, password, role]): return dbc.Alert("ユーザー名、パスワード、役割は必須です。", color="warning")
-        success, message = add_user(username, password, role, school)
-        if success: return dbc.Alert(message, color="success")
-        else: return dbc.Alert(message, color="danger")
+        # 「開く」または「閉じる」ボタンが押された場合
+        if trigger_id in ['new-user-btn', 'close-new-user-modal']:
+            return not is_open, "", False, no_update, no_update
+
+        # 「作成」ボタンが押された場合
+        if trigger_id == 'create-user-button':
+            if not all([username, password, role]):
+                return True, dbc.Alert("ユーザー名、パスワード、役割は必須です。", color="warning"), True, no_update, no_update
+            
+            success, message = add_user(username, password, role, school)
+            
+            if success:
+                toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+                return False, "", False, datetime.datetime.now().isoformat(), toast_data
+            else:
+                return True, dbc.Alert(message, color="danger"), True, no_update, no_update
+        
+        raise PreventUpdate
 
     @app.callback(Output('download-backup', 'data'),Input('backup-btn', 'n_clicks'),prevent_initial_call=True)
     def download_backup(n_clicks):
@@ -590,3 +652,126 @@ def register_admin_callbacks(app):
             return False
         return no_update
     # --- ★★★ 修正箇所ここまで ★★★ ---
+    # @app.callback(
+    #     Output('output-data-upload', 'children'),
+    #     Input('upload-backup', 'contents'),
+    #     State('upload-backup', 'filename')
+    # )
+    # def update_output(contents, filename):
+    #     if contents is not None:
+    #         content_type, content_string = contents.split(',')
+    #         decoded = base64.b64decode(content_string)
+    #         try:
+    #             if 'json' in filename:
+    #                 # JSONファイルを読み込む
+    #                 json_data = json.load(io.StringIO(decoded.decode('utf-8')))
+                    
+    #                 # データベース接続
+    #                 conn = sqlite3.connect(DATABASE_FILE)
+    #                 cursor = conn.cursor()
+
+    #                 # テーブルのデータをクリア
+    #                 tables = ["users", "students", "progress", "homework", "master_textbooks", "bulk_presets", "bulk_preset_books", "student_instructors"]
+    #                 for table in tables:
+    #                     cursor.execute(f"DELETE FROM {table};")
+
+    #                 # データをリストア
+    #                 for table_name, records in json_data.items():
+    #                     if table_name not in tables:
+    #                         continue
+    #                     for record in records:
+    #                         columns = ', '.join(record.keys())
+    #                         placeholders = ', '.join('?' for _ in record)
+    #                         query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+    #                         cursor.execute(query, tuple(record.values()))
+                    
+    #                 conn.commit()
+    #                 conn.close()
+
+    #                 return html.Div([
+    #                     dbc.Alert("データのリストアが完了しました。", color="success")
+    #                 ])
+
+    #         except Exception as e:
+    #             return html.Div([
+    #                 dbc.Alert(f"ファイルの処理中にエラーが発生しました: {e}", color="danger")
+    #             ])
+
+    @app.callback(
+        [Output('user-edit-modal', 'is_open'),
+         Output('user-edit-modal-title', 'children'),
+         Output('editing-user-id-store', 'data'),
+         Output('user-username-input', 'value'),
+         Output('user-role-input', 'value'),
+         Output('user-school-input', 'value'),
+         Output('user-edit-alert', 'is_open', allow_duplicate=True)],
+        [Input({'type': 'edit-user-btn', 'index': ALL}, 'n_clicks'),
+         Input('cancel-user-edit-btn', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def handle_user_edit_modal(edit_clicks, cancel_clicks):
+        ctx = callback_context
+        if not ctx.triggered or (isinstance(ctx.triggered_id, dict) and not ctx.triggered[0]['value']):
+            raise PreventUpdate
+        
+        trigger_id = ctx.triggered_id
+
+        if trigger_id == 'cancel-user-edit-btn':
+            return False, "", None, "", "", "", False
+
+        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-user-btn':
+            user_id = trigger_id['index']
+            users = load_users()
+            user_to_edit = next((u for u in users if u['id'] == user_id), None)
+            if user_to_edit:
+                return (True, f"編集: {user_to_edit['username']}", user_id,
+                        user_to_edit['username'], user_to_edit['role'], user_to_edit.get('school', ''), False)
+        return no_update, "", None, "", "", "", False
+
+    @app.callback(
+        [Output('user-edit-alert', 'children'),
+         Output('user-edit-alert', 'is_open'),
+         Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('user-edit-modal', 'is_open', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('save-user-btn', 'n_clicks'),
+        [State('editing-user-id-store', 'data'),
+         State('user-username-input', 'value'),
+         State('user-role-input', 'value'),
+         State('user-school-input', 'value')],
+        prevent_initial_call=True
+    )
+    def save_user_edit(n_clicks, user_id, username, role, school):
+        if not n_clicks or not user_id:
+            raise PreventUpdate
+        
+        success, message = update_user(user_id, username, role, school)
+        if success:
+            toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+            return "", False, datetime.datetime.now().isoformat(), False, toast_data
+        else:
+            return dbc.Alert(message, color="danger"), True, no_update, True, no_update
+
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input({'type': 'delete-user-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def delete_user_callback(delete_clicks):
+        ctx = callback_context
+        # 重要な修正：コールバックが実際のクリックによってトリガーされたかを確認
+        if not ctx.triggered or not ctx.triggered[0]['value']:
+            raise PreventUpdate
+        
+        button_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
+        if not button_id_str:
+            raise PreventUpdate
+            
+        user_id = json.loads(button_id_str)['index']
+        success, message = delete_user(user_id)
+        
+        toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+        # ユーザー一覧を更新するためのトリガーを発行
+        return datetime.datetime.now().isoformat(), toast_data
+

@@ -10,6 +10,7 @@ import threading
 import time
 import webbrowser
 import sqlite3
+import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
@@ -31,8 +32,10 @@ from components.modals import create_all_modals
 from components.admin_components import (
     create_master_textbook_modal, create_textbook_edit_modal,
     create_student_edit_modal, create_student_management_modal,
-    create_bulk_preset_management_modal, create_bulk_preset_edit_modal
+    create_bulk_preset_management_modal, create_bulk_preset_edit_modal,
+    create_user_edit_modal # ユーザー編集モーダルを追加
 )
+from components.modals import create_user_list_modal, create_new_user_modal # ユーザー一覧・新規追加モーダルをインポート
 from components.login_components import (
     create_login_layout,
     create_access_denied_layout,
@@ -45,6 +48,7 @@ from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.homework_callbacks import register_homework_callbacks
 from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
+from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -129,18 +133,67 @@ def display_page(pathname, auth_store_data):
             return create_access_denied_layout(), navbar
 
         page_content = dbc.Container([
-            html.H1("🔧 管理者メニュー", className="mt-4"),
-            dbc.Row([
-                dbc.Col(dbc.Card([dbc.CardHeader("👥 ユーザー管理"), dbc.CardBody([dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"), dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")])]), width=12, md=4, lg=3, className="mb-3"),
-                dbc.Col(dbc.Card([dbc.CardHeader("🧑‍🎓 生徒管理"), dbc.CardBody(dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info", className="w-100"))]), width=12, md=4, lg=3, className="mb-3"),
-                dbc.Col(dbc.Card([dbc.CardHeader("📚 参考書マスター管理"), dbc.CardBody(dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="primary", className="w-100"))]), width=12, md=4, lg=3, className="mb-3"),
-                dbc.Col(dbc.Card([dbc.CardHeader("📦 一括登録設定"), dbc.CardBody(dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary", className="w-100"))]), width=12, md=4, lg=3, className="mb-3"),
-                dbc.Col(dbc.Card([dbc.CardHeader("💾 データ管理"), dbc.CardBody(dbc.Button("JSONバックアップ", id="backup-btn", color="warning", className="w-100"))]), width=12, md=4, lg=3, className="mb-3")
-            ], className="mb-4"),
-            html.Div(id="admin-statistics"),
+            html.H1("🔧 管理者メニュー", className="mt-4 mb-4"),
+            dbc.ListGroup([
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("👥 ユーザー管理", className="mb-1"),
+                        html.P("ユーザーの追加・一覧・編集・削除を行います。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    html.Div([
+                        dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
+                        dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
+                    ])
+                ]),
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("🧑‍🎓 生徒管理", className="mb-1"),
+                        html.P("生徒情報の登録、編集、削除を行います。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info")
+                ]),
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("📚 参考書マスター管理", className="mb-1"),
+                        html.P("学習計画で使用する参考書のマスターデータを管理します。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="primary")
+                ]),
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("📦 一括登録設定", className="mb-1"),
+                        html.P("学習計画の一括登録用プリセットを作成・編集します。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary")
+                ]),
+                
+                # dbc.ListGroupItem([
+                #     html.Div([
+                #         html.H5("💾 データ管理", className="mb-1"),
+                #         html.P("データベースのバックアップと復元を行います。", className="mb-1 small text-muted"),
+                #     ], className="d-flex w-100 justify-content-between"),
+                #     html.Div([
+                #         dbc.Button("JSONバックアップ", id="backup-btn", color="warning", className="me-2"),
+                #         dcc.Upload(
+                #             id='upload-backup',
+                #             children=html.Div(['または ', html.A('ファイルをドラッグ＆ドロップしてリストア')]),
+                #             style={
+                #                 'width': '100%', 'height': '60px', 'lineHeight': '60px',
+                #                 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px',
+                #                 'textAlign': 'center', 'margin': '10px'
+                #             }
+                #         )
+                #     ])
+                # ])
+                
+            ]),
+            html.Div(id="admin-statistics", className="mt-4"),
             create_master_textbook_modal(), create_textbook_edit_modal(),
             create_student_management_modal(), create_student_edit_modal(),
             create_bulk_preset_management_modal(), create_bulk_preset_edit_modal(),
+            create_user_list_modal(),   # ユーザー一覧表示モーダル
+            create_new_user_modal(),    # 新規ユーザー作成モーダル
+            create_user_edit_modal()    # ユーザー編集モーダル
         ])
         return page_content, navbar
     
@@ -161,26 +214,28 @@ def update_admin_statistics(pathname):
         return ""
 
     try:
-        conn = sqlite3.connect(DATABASE_FILE)
-        cursor = conn.cursor()
-        total_students = cursor.execute('SELECT COUNT(id) FROM students').fetchone()[0]
-        total_subjects = cursor.execute('SELECT COUNT(DISTINCT subject) FROM progress').fetchone()[0]
-        total_books = cursor.execute('SELECT COUNT(id) FROM progress').fetchone()[0]
-        completed_books = cursor.execute('SELECT COUNT(id) FROM progress WHERE is_done = 1').fetchone()[0]
-        conn.close()
+        student_counts = get_student_count_by_school()
+        textbook_counts = get_textbook_count_by_subject()
 
-        return dbc.Card([
-            dbc.CardHeader("📊 システム統計情報"),
-            dbc.CardBody(dbc.Row([
-                dbc.Col([html.H4(total_students), html.P("総生徒数")], width=3),
-                dbc.Col([html.H4(total_subjects), html.P("総科目数")], width=3),
-                dbc.Col([html.H4(total_books), html.P("総参考書数")], width=3),
-                dbc.Col([html.H4(completed_books), html.P("完了参考書数")], width=3)
-            ]))
+        student_table = dbc.Table.from_dataframe(pd.DataFrame(student_counts), striped=True, bordered=True, hover=True)
+        textbook_table = dbc.Table.from_dataframe(pd.DataFrame(textbook_counts), striped=True, bordered=True, hover=True)
+
+        return dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("🏫 校舎ごとの生徒数"),
+                    dbc.CardBody(student_table)
+                ])
+            ], width=6),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("📚 科目ごとの参考書数"),
+                    dbc.CardBody(textbook_table)
+                ])
+            ], width=6)
         ])
-    except sqlite3.Error as e:
+    except Exception as e:
         return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
-
 # --- ★★★ ここから修正 ★★★ ---
 @app.callback(
     [Output('success-toast', 'is_open'),
