@@ -3,7 +3,17 @@
 import sqlite3
 import pandas as pd
 
-DATABASE_FILE = 'progress.db'
+# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
+RENDER_DATA_DIR = "/var/data"
+if os.path.exists(RENDER_DATA_DIR):
+    # 本番環境（Render）用のパス
+    DB_DIR = RENDER_DATA_DIR
+else:
+    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
+    # このファイルの2階層上がプロジェクトルート
+    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 
 def update_student_schema_for_multiple_instructors():
     print("--- 生徒・講師関連テーブルのスキーマ更新を開始 ---")

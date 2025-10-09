@@ -146,10 +146,9 @@ def create_progress_stacked_bar_chart(df, title):
     return fig
 
 # --- ★★★ ここから修正 ★★★ ---
-# 関数名を create_subject_progress_pie_chart から create_subject_achievement_bar に変更
 def create_subject_achievement_bar(df, subject):
     """
-    指定された科目の達成度を示す液体タンク風の縦棒グラフを生成する。
+    指定された科目の達成度を示す液体タンク風の縦棒グラフのFigureを生成する。
     """
     subject_df = df[df['subject'] == subject].copy()
     
@@ -172,7 +171,6 @@ def create_subject_achievement_bar(df, subject):
         liquid_color = "rgba(255, 193, 7, 0.7)"
     elif achievement_rate < 80:
         liquid_color = "rgba(177, 255, 47, 0.7)"
-    # 80%以上は緑色のまま
 
     fig = go.Figure()
 
@@ -204,15 +202,9 @@ def create_subject_achievement_bar(df, subject):
         yaxis=dict(range=[0, 100], showticklabels=False, showgrid=False),
         margin=dict(t=50, b=20, l=10, r=10),
         height=220,
-        transition={'duration': 500, 'easing': 'cubic-in-out'},
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
     
-    return dcc.Graph(
-        figure=fig, 
-        config={'displayModeBar': False},
-        # IDの 'type' も関数名に合わせて変更
-        id={'type': 'subject-achievement-bar', 'subject': subject}
-    )
+    return fig
 # --- ★★★ ここまで修正 ★★★ ---

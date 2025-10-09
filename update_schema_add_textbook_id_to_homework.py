@@ -3,7 +3,17 @@ import os
 
 # データベースファイルのパス
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_FILE = os.path.join(BASE_DIR, 'progress.db')
+# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
+RENDER_DATA_DIR = "/var/data"
+if os.path.exists(RENDER_DATA_DIR):
+    # 本番環境（Render）用のパス
+    DB_DIR = RENDER_DATA_DIR
+else:
+    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
+    # このファイルの2階層上がプロジェクトルート
+    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 
 def add_master_textbook_id_column():
     """homeworkテーブルにmaster_textbook_idカラムを追加する"""

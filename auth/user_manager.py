@@ -6,7 +6,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # このファイルの場所を基準に、プロジェクトルートにあるDBファイルを絶対パスで指定
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_FILE = os.path.join(os.path.dirname(BASE_DIR), 'progress.db')
+# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
+RENDER_DATA_DIR = "/var/data"
+if os.path.exists(RENDER_DATA_DIR):
+    # 本番環境（Render）用のパス
+    DB_DIR = RENDER_DATA_DIR
+else:
+    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
+    # このファイルの2階層上がプロジェクトルート
+    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 
 def get_db_connection():
     """データベース接続を取得し、辞書形式で結果を返せるようにする"""

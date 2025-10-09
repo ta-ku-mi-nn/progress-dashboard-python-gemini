@@ -15,7 +15,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 import datetime # datetimeをインポート
-from flask import Response # ★★★ Responseオブジェクトをインポート ★★★
+from flask import Response
 import base64
 import plotly.io as pio
 
@@ -34,9 +34,9 @@ from components.admin_components import (
     create_master_textbook_modal, create_textbook_edit_modal,
     create_student_edit_modal, create_student_management_modal,
     create_bulk_preset_management_modal, create_bulk_preset_edit_modal,
-    create_user_edit_modal # ユーザー編集モーダルを追加
+    create_user_edit_modal
 )
-from components.modals import create_user_list_modal, create_new_user_modal # ユーザー一覧・新規追加モーダルをインポート
+from components.modals import create_user_list_modal, create_new_user_modal
 from components.login_components import (
     create_login_layout,
     create_access_denied_layout,
@@ -53,7 +53,7 @@ from data.nested_json_processor import get_student_count_by_school, get_textbook
 from components.past_exam_layout import create_past_exam_layout
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from utils.dashboard_pdf import create_dashboard_pdf
-from charts.chart_generator import create_progress_stacked_bar_chart
+from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 
 # --- アプリケーションの初期化 ---
@@ -66,7 +66,17 @@ app = dash.Dash(
 app.index_string = APP_INDEX_STRING
 app.server.secret_key = APP_CONFIG['server']['secret_key']
 
-DATABASE_FILE = 'progress.db'
+# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
+RENDER_DATA_DIR = "/var/data"
+if os.path.exists(RENDER_DATA_DIR):
+    # 本番環境（Render）用のパス
+    DB_DIR = RENDER_DATA_DIR
+else:
+    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
+    # このファイルの2階層上がプロジェクトルート
+    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 
 # --- メインレイアウト ---
 app.layout = html.Div([
@@ -92,7 +102,6 @@ app.layout = html.Div([
     ),
     create_user_profile_modal(),
     create_password_change_modal(),
-    # dcc.Downloadはクライアントサイドコールバックのダミーの出力先として残します
     dcc.Download(id="download-pdf-report")
 ])
 
@@ -101,12 +110,10 @@ def get_current_user_from_store(auth_store_data):
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
 
 # --- ★★★ ここから修正 ★★★ ---
-# PDF表示用のFlaskルートを追加
 @app.server.route('/report/pdf/<int:student_id>')
 def serve_pdf_report(student_id):
     """
     指定された生徒IDのレポートPDFを生成し、FlaskのResponseとして返す。
-    これにより、ブラウザで直接PDFが表示される。
     """
     if not student_id:
         return "No student selected", 404
@@ -117,7 +124,6 @@ def serve_pdf_report(student_id):
     if not student_info or not progress_data:
         return "Could not find student data for the report.", 404
 
-    # グラフ生成ロジック
     all_records = []
     for subject, levels in progress_data.items():
         for level, books in levels.items():
@@ -132,25 +138,56 @@ def serve_pdf_report(student_id):
                 })
     
     all_subjects_chart_base64 = ""
+    subject_charts_base64 = []
+    summary_data = {}
+
     if all_records:
         df_all = pd.DataFrame(all_records)
-        fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
-        if fig:
+        df_planned = df_all[df_all['is_planned']].copy()
+        
+        df_planned['achieved_duration'] = df_planned.apply(
+            lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
+            axis=1
+        )
+        planned_hours = df_planned['duration'].sum()
+        achieved_hours = df_planned['achieved_duration'].sum()
+        achievement_rate = (achieved_hours / planned_hours * 100) if planned_hours > 0 else 0
+        completed_books = df_planned[df_planned['is_done']].shape[0]
+        summary_data = {
+            "achieved_hours": f"{achieved_hours:.1f} h",
+            "planned_hours": f"{planned_hours:.1f} h",
+            "achievement_rate": f"{achievement_rate:.1f} %",
+            "completed_books": f"{completed_books} 冊",
+        }
+
+        fig_all = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
+        if fig_all:
             try:
-                # Plotly FigureをPNG画像のバイナリに変換
-                fig_png = pio.to_image(fig, format='png', engine='kaleido')
-                # Base64エンコードしてHTMLで使える文字列に変換
+                fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
                 all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
             except Exception as e:
-                print(f"Error generating graph image: {e}")
-                all_subjects_chart_base64 = "" # エラーが発生した場合は画像なしで続行
+                print(f"Error generating all subjects graph image: {e}")
 
-    # PDFをメモリ上で生成
-    pdf_bytes = create_dashboard_pdf(student_info, progress_data, all_subjects_chart_base64)
+        for subject in sorted(df_all['subject'].unique()):
+            fig_subject = create_subject_achievement_bar(df_all, subject)
+            if fig_subject:
+                try:
+                    fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
+                    subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
+                except Exception as e:
+                    print(f"Error generating graph image for {subject}: {e}")
+
+    pdf_bytes = create_dashboard_pdf(
+        student_info, 
+        progress_data, 
+        all_subjects_chart_base64,
+        subject_charts_base64,
+        summary_data
+    )
     
-    # FlaskのResponseオブジェクトとしてPDFを返す
     return Response(pdf_bytes, mimetype='application/pdf')
 # --- ★★★ ここまで修正 ★★★ ---
+
 
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(

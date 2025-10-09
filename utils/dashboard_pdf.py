@@ -5,16 +5,15 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# PDF変換ライブラリをインポート
 try:
     import weasyprint
 except ImportError:
     weasyprint = None
 
 # --- ★★★ ここから修正 ★★★ ---
-def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base64):
+def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base64, subject_charts_base64, summary_data):
     """
-    生徒情報、進捗データ、グラフ画像を受け取り、PDFのバイナリデータを生成して返す。
+    生徒情報、進捗データ、各種グラフ画像、サマリーデータを受け取り、PDFのバイナリデータを生成して返す。
     """
     if weasyprint is None:
         print("エラー: PDF生成ライブラリ 'weasyprint' がインストールされていません。")
@@ -23,16 +22,17 @@ def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base
         return error_html.encode('utf-8')
 
     html_content = render_dashboard_to_html(
-        student_info,
-        student_progress,
-        [], # 現状、宿題データはレポートに含めない
-        student_info.get("name", "不明な生徒"),
-        all_subjects_chart_base64 # グラフ画像データを渡す
+        student_info=student_info,
+        student_progress=student_progress,
+        student_homework=[], # 宿題データは現在含めない
+        student_name=student_info.get("name", "不明な生徒"),
+        all_subjects_chart_base64=all_subjects_chart_base64,
+        subject_charts_base64=subject_charts_base64,
+        summary_data=summary_data
     )
-    # --- ★★★ ここまで修正 ★★★ ---
+# --- ★★★ ここまで修正 ★★★ ---
 
-    # HTMLをPDFに変換
-    css_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'pdf_style.css')
+    css_path = os.path.join(os.path.dirname(__file__), 'pdf_template.css')
     
     if os.path.exists(css_path):
         css = weasyprint.CSS(css_path)
@@ -44,7 +44,7 @@ def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base
     return pdf_bytes
 
 # --- ★★★ ここから修正 ★★★ ---
-def render_dashboard_to_html(student_info, student_progress, student_homework, student_name, all_subjects_chart_base64):
+def render_dashboard_to_html(student_info, student_progress, student_homework, student_name, all_subjects_chart_base64, subject_charts_base64, summary_data):
     """
     生徒の各種データからPDFの元となるHTML文字列を生成します。
     """
@@ -57,10 +57,8 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
         return "<h1>エラー: PDFテンプレートファイルが見つかりません。</h1>"
 
     template = Template(template_str)
-    # (中略: 宿題と参考書のテーブル生成ロジックは変更なし)
 # --- ★★★ ここまで修正 ★★★ ---
 
-    # --- 宿題データをHTMLテーブルに変換 ---
     if student_homework:
         homework_df = pd.DataFrame(student_homework)
         homework_df = homework_df[['subject', 'task', 'due_date', 'status']]
@@ -69,7 +67,6 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     else:
         homework_table_html = "<p>登録されている宿題はありません。</p>"
     
-    # --- 参考書進捗データをHTMLテーブルに変換 ---
     progress_records = []
     for subject, levels in student_progress.items():
         for level, books in levels.items():
@@ -102,7 +99,9 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
         "generation_date": datetime.now().strftime("%Y年%m月%d日"),
         "homework_table": homework_table_html,
         "progress_table": progress_table_html,
-        "all_subjects_chart": all_subjects_chart_base64, # コンテキストに画像データを追加
+        "all_subjects_chart": all_subjects_chart_base64,
+        "subject_charts": subject_charts_base64,
+        "summary_data": summary_data
     }
     # --- ★★★ ここまで修正 ★★★ ---
 

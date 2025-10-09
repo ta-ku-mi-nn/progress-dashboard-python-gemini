@@ -6,7 +6,17 @@ from werkzeug.security import generate_password_hash
 
 # --- 設定 ---
 # データベースファイル名
-DATABASE_FILE = 'progress.db'
+# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
+RENDER_DATA_DIR = "/var/data"
+if os.path.exists(RENDER_DATA_DIR):
+    # 本番環境（Render）用のパス
+    DB_DIR = RENDER_DATA_DIR
+else:
+    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
+    # このファイルの2階層上がプロジェクトルート
+    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 # 追加したい管理者アカウントの情報
 ADMIN_USERNAME = 'osaka_user1'
 ADMIN_PASSWORD = 'user'

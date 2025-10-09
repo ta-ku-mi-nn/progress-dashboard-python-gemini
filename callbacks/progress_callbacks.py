@@ -7,8 +7,6 @@ import pandas as pd
 from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
-# --- ★★★ ここから修正 ★★★ ---
-
 def create_welcome_layout():
     """初期画面に表示する「How to use」レイアウトを生成します。"""
     return dbc.Row(
@@ -116,12 +114,19 @@ def generate_dashboard_content(student_id, active_tab):
             dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
             summary_cards
         ])
-
+        
+        # --- ★★★ ここから修正 ★★★ ---
         bar_charts = []
         for subject in sorted(df_all['subject'].unique()):
-            bar_chart = create_subject_achievement_bar(df_all, subject)
-            bar_charts.append(dbc.Col(bar_chart, width=12, md=6, lg=4, className="mb-3"))
+            fig = create_subject_achievement_bar(df_all, subject)
+            bar_chart_component = dcc.Graph(
+                figure=fig,
+                config={'displayModeBar': False},
+                id={'type': 'subject-achievement-bar', 'subject': subject}
+            )
+            bar_charts.append(dbc.Col(bar_chart_component, width=12, md=6, lg=4, className="mb-3"))
         right_col = dbc.Row(bar_charts)
+        # --- ★★★ ここまで修正 ★★★ ---
         
         return dbc.Row([
             dbc.Col(left_col, md=8),
@@ -172,7 +177,6 @@ def register_progress_callbacks(app):
     def update_dashboard_on_tab_click(active_tab, student_id):
         """タブがクリックされたときに、それに応じたコンテンツを表示する"""
         return generate_dashboard_content(student_id, active_tab)
-# --- ★★★ ここまで修正 ★★★ ---
 
 def create_summary_cards(df):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""

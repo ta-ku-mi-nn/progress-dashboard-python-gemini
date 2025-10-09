@@ -1,0 +1,9 @@
+# requirements.txt
+dash
+dash-bootstrap-components
+pandas
+gunicorn  #
+plotly
+weasyprint
+kaleido
+werkzeug
