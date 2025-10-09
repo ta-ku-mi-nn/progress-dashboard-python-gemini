@@ -65,6 +65,7 @@ app = dash.Dash(
 )
 app.index_string = APP_INDEX_STRING
 app.server.secret_key = APP_CONFIG['server']['secret_key']
+server = app.server
 
 # RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
 RENDER_DATA_DIR = "/var/data"
@@ -331,17 +332,13 @@ def open_browser():
     webbrowser.open(f"http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}")
 
 
-# --- アプリケーション実行 ---
 if __name__ == '__main__':
+    # このブロックはローカルでの開発時にのみ実行される
     print(
-        f"🚀 アプリケーションを起動中... http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}"
+        f"🚀 アプリケーションを開発モードで起動中... http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}"
     )
-    if APP_CONFIG['browser']['auto_open']:
-        threading.Thread(target=open_browser, daemon=True).start()
-
     app.run(
-        debug=APP_CONFIG['server']['debug'],
-        use_reloader=False,
+        debug=True, # ローカル実行時はデバッグモードを有効にする
         host=APP_CONFIG['server']['host'],
         port=APP_CONFIG['server']['port']
     )
