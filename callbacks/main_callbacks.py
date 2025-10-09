@@ -24,7 +24,7 @@ def register_main_callbacks(app):
         """
         ログインユーザーの校舎に所属する生徒のドロップダウンを生成・表示制御する。
         """
-        if not user_info or pathname not in ['/', '/homework']:
+        if not user_info or pathname not in ['/', '/homework', '/past-exam']:
             return None
 
         user_school = user_info.get('school')

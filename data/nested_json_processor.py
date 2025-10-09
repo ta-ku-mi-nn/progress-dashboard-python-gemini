@@ -638,3 +638,102 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
         return False, f"宿題の削除中にエラーが発生しました: {e}"
     finally:
         conn.close()
+    
+def get_past_exam_results_for_student(student_id):
+    """特定の生徒の過去問結果をすべて取得する"""
+    conn = get_db_connection()
+    results = conn.execute(
+        """
+        SELECT
+            id, date, university_name, faculty_name, exam_system,
+            year, subject, time_required, total_time_allowed, 
+            correct_answers, total_questions
+        FROM past_exam_results
+        WHERE student_id = ?
+        ORDER BY date DESC, university_name, subject
+        """,
+        (student_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in results]
+
+def add_past_exam_result(student_id, result_data):
+    """新しい過去問結果をデータベースに追加する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO past_exam_results (
+                student_id, date, university_name, faculty_name, exam_system,
+                year, subject, time_required, total_time_allowed, 
+                correct_answers, total_questions
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                student_id,
+                result_data['date'],
+                result_data['university_name'],
+                result_data.get('faculty_name'),
+                result_data.get('exam_system'),
+                result_data['year'],
+                result_data['subject'],
+                result_data.get('time_required'),
+                result_data.get('total_time_allowed'), # 新しいカラムを追加
+                result_data.get('correct_answers'),
+                result_data.get('total_questions')
+            )
+        )
+        conn.commit()
+        return True, "過去問の結果を登録しました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"登録中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+    
+def update_past_exam_result(result_id, result_data):
+    """既存の過去問結果を更新する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE past_exam_results SET
+                date = ?, university_name = ?, faculty_name = ?, exam_system = ?,
+                year = ?, subject = ?, time_required = ?, total_time_allowed = ?, 
+                correct_answers = ?, total_questions = ?
+            WHERE id = ?
+            """,
+            (
+                result_data['date'],
+                result_data['university_name'],
+                result_data.get('faculty_name'),
+                result_data.get('exam_system'),
+                result_data['year'],
+                result_data['subject'],
+                result_data.get('time_required'),
+                result_data.get('total_time_allowed'),
+                result_data.get('correct_answers'),
+                result_data.get('total_questions'),
+                result_id
+            )
+        )
+        conn.commit()
+        return True, "過去問の結果を更新しました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"更新中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def delete_past_exam_result(result_id):
+    """指定されたIDの過去問結果を削除する"""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM past_exam_results WHERE id = ?", (result_id,))
+        conn.commit()
+        return True, "過去問の結果を削除しました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()

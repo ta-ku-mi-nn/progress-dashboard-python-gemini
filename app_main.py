@@ -14,6 +14,8 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 import datetime # datetimeをインポート
+from components.past_exam_layout import create_past_exam_layout
+from callbacks.past_exam_callbacks import register_past_exam_callbacks
 
 # --- プロジェクトのルートディレクトリをPythonのパスに追加 ---
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -117,6 +119,10 @@ def display_page(pathname, auth_store_data):
     if pathname == '/homework':
         page_content = create_homework_layout(user_info)
         return page_content, navbar
+    
+    if pathname == '/past-exam':
+        page_content = create_past_exam_layout()
+        return page_content, navbar
 
     if pathname == '/admin':
         if user_info.get('role') != 'admin':
@@ -197,6 +203,7 @@ register_admin_callbacks(app)
 register_report_callbacks(app)
 register_homework_callbacks(app)
 register_plan_callbacks(app)
+register_past_exam_callbacks(app)
 
 # --- ブラウザ自動起動 ---
 def open_browser():

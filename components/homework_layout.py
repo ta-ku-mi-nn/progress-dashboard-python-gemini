@@ -85,14 +85,12 @@ def create_homework_modal():
                     dbc.Col([assignment_controls, other_inputs], md=5),
                 ]),
             ]),
-            # --- ★★★ ここから修正 ★★★ ---
             dbc.ModalFooter([
                 dbc.Button("削除", id="delete-homework-btn", color="danger", className="me-auto"),
                 dbc.Button("クリア", id="clear-homework-modal-btn", color="light"),
                 dbc.Button("キャンセル", id="cancel-homework-btn", color="secondary"),
                 dbc.Button("保存", id="save-homework-modal-btn", color="primary"),
             ]),
-            # --- ★★★ ここまで修正 ★★★ ---
         ],
         id="homework-modal",
         size="lg",
@@ -117,12 +115,10 @@ def create_homework_layout(user_info):
         # 宿題編集用のモーダルをレイアウトに追加
         create_homework_modal(),
 
-        # --- ★★★ ここから修正 ★★★ ---
         # 削除確認ダイアログをレイアウトに追加
         dcc.ConfirmDialog(
             id='delete-homework-confirm',
             message='本当にこの宿題グループを削除しますか？\nこの操作は取り消せません。',
             submit_n_clicks=0,
         ),
-        # --- ★★★ ここまで修正 ★★★ ---
     ])
