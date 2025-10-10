@@ -10,7 +10,6 @@ def create_main_layout(user_info):
     if not user_info:
         return html.Div()
 
-    # --- ★★★ ここから修正 ★★★ ---
     main_content = [
         # タブとボタンを横並びにするためのコンテナ
         html.Div(
@@ -23,9 +22,7 @@ def create_main_layout(user_info):
         html.Div(id='dashboard-content-container', className="mt-4"),
     ]
     return html.Div(main_content)
-    # --- ★★★ ここまで修正 ★★★ ---
 
-# ( ... create_navbar 関数は変更なし ... )
 def create_navbar(user_info):
     """
     ユーザー情報に基づいてナビゲーションバーを生成します。
