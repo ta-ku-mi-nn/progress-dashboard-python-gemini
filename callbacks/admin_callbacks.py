@@ -562,8 +562,9 @@ def register_admin_callbacks(app):
             items.append(item)
         return dbc.ListGroup(items, flush=True)
 
+    # ★★★ ここから修正 ★★★
     @app.callback(
-        Output('preset-selected-books-store', 'data'),
+        Output('preset-selected-books-store', 'data', allow_duplicate=True),
         [Input({'type': 'add-preset-book-btn', 'index': ALL}, 'n_clicks'),
          Input({'type': 'remove-preset-book-btn', 'index': ALL}, 'n_clicks')],
         [State('preset-selected-books-store', 'data')],
@@ -612,12 +613,11 @@ def register_admin_callbacks(app):
             ]) for book_id in selected_book_ids if book_id in book_info
         ]
 
-    # ★★★ ここから修正 ★★★
     @app.callback(
         [Output('bulk-preset-edit-alert', 'children'),
          Output('bulk-preset-edit-alert', 'is_open'),
          Output('admin-update-trigger', 'data', allow_duplicate=True),
-         Output('bulk-preset-edit-modal', 'is_open'),
+         Output('bulk-preset-edit-modal', 'is_open', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
         Input('save-bulk-preset-btn', 'n_clicks'),
         [State('editing-preset-id-store', 'data'),
