@@ -57,14 +57,17 @@ def register_auth_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
-        # どのコンポーネントがコールバックをトリガーしたかを取得
         ctx = callback_context
-        
-        # ボタンがクリックされた場合のみモーダルの表示状態を切り替える
-        if ctx.triggered_id in ['user-profile-btn', 'close-profile-modal']:
+        # どのボタンもクリックされていない場合は、何もしない
+        if not ctx.triggered:
+            return no_update
+
+        # クリックされたボタンIDがプロフィールまたは閉じるボタンの場合のみ状態を切り替える
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if button_id in ['user-profile-btn', 'close-profile-modal']:
             return not is_open
         
-        # それ以外（ページの読み込みなど）の場合は、現在の状態を維持する
+        # それ以外の場合は状態を維持
         return is_open
     # ★★★ ここまで修正 ★★★
 
@@ -107,7 +110,11 @@ def register_auth_callbacks(app):
     )
     def toggle_password_change_modal(n_clicks, close_clicks, is_open):
         ctx = callback_context
-        if ctx.triggered_id in ['change-password-button', 'close-password-modal']:
+        if not ctx.triggered:
+            return no_update
+            
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if button_id in ['change-password-button', 'close-password-modal']:
             return not is_open
         return is_open
 

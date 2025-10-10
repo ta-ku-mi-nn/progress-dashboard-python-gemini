@@ -37,9 +37,11 @@ def create_navbar(user_info):
     
     user_menu = dbc.DropdownMenu(
         [
-            dbc.DropdownMenuItem("プロフィール", id="user-profile-btn", n_clicks=0),
+            # ★★★ 修正点: n_clicks=0 を削除 ★★★
+            dbc.DropdownMenuItem("プロフィール", id="user-profile-btn"),
             dbc.DropdownMenuItem(divider=True),
-            dbc.DropdownMenuItem("ログアウト", id="logout-button", n_clicks=0, href="/login"),
+            # ★★★ 修正点: n_clicks=0 を削除 ★★★
+            dbc.DropdownMenuItem("ログアウト", id="logout-button", href="/login"),
         ],
         label=username,
         nav=True,
