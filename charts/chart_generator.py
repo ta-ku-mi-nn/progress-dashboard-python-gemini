@@ -92,7 +92,7 @@ def create_progress_chart(progress_data, subject):
     
     return fig
 
-
+# ★★★ ここから修正 ★★★
 def create_progress_stacked_bar_chart(df, title):
     """
     与えられたDataFrameから、「予定」と「達成済」の2段積み上げ棒グラフを生成する。
@@ -117,8 +117,14 @@ def create_progress_stacked_bar_chart(df, title):
     for i, group_name in enumerate(df_planned[group_key].unique()):
         group_df = df_planned[df_planned[group_key] == group_name]
         color = colors[i % len(colors)]
-        total_duration = group_df['duration'].sum()
+        
         achieved_duration = group_df['achieved_duration'].sum()
+
+        # 「過去問」の場合、予定時間は0として扱う
+        if group_name == '過去問':
+            plot_total_duration = 0
+        else:
+            plot_total_duration = group_df['duration'].sum()
 
         fig.add_trace(go.Bar(
             y=['達成済'], x=[achieved_duration], name=group_name,
@@ -128,10 +134,10 @@ def create_progress_stacked_bar_chart(df, title):
         ))
         
         fig.add_trace(go.Bar(
-            y=['予定'], x=[total_duration], name=group_name,
+            y=['予定'], x=[plot_total_duration], name=group_name,
             orientation='h', marker=dict(color=color, opacity=0.6),
             legendgroup=group_name, showlegend=False,
-            hovertemplate=f"<b>{group_name}</b><br>総時間: {total_duration:.1f}h<extra></extra>"
+            hovertemplate=f"<b>{group_name}</b><br>総時間: {plot_total_duration:.1f}h<extra></extra>"
         ))
 
     fig.update_layout(
@@ -144,8 +150,8 @@ def create_progress_stacked_bar_chart(df, title):
         margin=dict(t=50, l=60, r=20, b=40),
     )
     return fig
+# ★★★ ここまで修正 ★★★
 
-# --- ★★★ ここから修正 ★★★ ---
 def create_subject_achievement_bar(df, subject):
     """
     指定された科目の達成度を示す液体タンク風の縦棒グラフのFigureを生成する。
@@ -207,4 +213,3 @@ def create_subject_achievement_bar(df, subject):
     )
     
     return fig
-# --- ★★★ ここまで修正 ★★★ ---

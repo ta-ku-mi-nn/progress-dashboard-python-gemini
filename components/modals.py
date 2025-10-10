@@ -8,15 +8,12 @@ from data.nested_json_processor import get_bulk_presets
 def create_plan_update_modal(subjects):
     """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
     
-    # ステップ0: 科目選択
     step0_content = html.Div([
         html.P("まず、更新したい科目を選択してください。", className="mb-3 text-center"),
         dcc.Loading(id="loading-subjects", children=html.Div(id='plan-subject-selection-container', className="d-grid gap-2 d-md-flex justify-content-md-center flex-wrap"))
     ])
 
-    # ステップ1: 参考書選択（2カラムレイアウト）
     step1_content = dbc.Row([
-        # 左列: 選択エリア
         dbc.Col([
             dbc.Tabs([
                 dbc.Tab(label="プリセットから選択", tab_id="tab-preset", children=[
@@ -26,9 +23,17 @@ def create_plan_update_modal(subjects):
                     dbc.Input(id="plan-search-input", placeholder="参考書名で検索...", type="search", className="my-3"),
                     dcc.Loading(html.Div(id='plan-textbook-list-container', style={'maxHeight': '400px', 'overflowY': 'auto'}))
                 ]),
+                dbc.Tab(label="カスタム", tab_id="tab-custom", children=[
+                    dbc.CardBody([
+                        html.P("マスターにない参考書を一時的に追加します。", className="text-muted small"),
+                        dbc.Input(id="custom-book-name-input", placeholder="参考書名", className="mb-2"),
+                        dbc.Input(id="custom-book-level-input", placeholder="ルートレベル", className="mb-2"),
+                        dbc.Input(id="custom-book-duration-input", placeholder="所要時間(h)", type="number", min=0, className="mb-2"),
+                        dbc.Button("追加", id="add-custom-book-btn", color="primary", className="w-100")
+                    ])
+                ]),
             ]),
         ], md=7),
-        # 右列: 選択済みリスト
         dbc.Col([
             html.H5("選択中の参考書", className="mt-3"),
             dbc.Button("すべて選択解除", id="plan-uncheck-all-btn", color="danger", outline=True, size="sm", className="mb-2 w-100"),
@@ -36,7 +41,6 @@ def create_plan_update_modal(subjects):
         ], md=5)
     ])
 
-    # ステップ2: 進捗入力
     step2_content = html.Div([
         html.P("選択した参考書の進捗を分数（例: 10/25）で入力してください。"),
         dcc.Loading(
@@ -48,7 +52,7 @@ def create_plan_update_modal(subjects):
     return dbc.Modal(
         id="plan-update-modal",
         is_open=False,
-        size="xl", # モーダルを大きくする
+        size="xl",
         backdrop="static",
         children=[
             dbc.ModalHeader(dbc.ModalTitle(id="plan-modal-title")),
@@ -58,6 +62,12 @@ def create_plan_update_modal(subjects):
                 dcc.Store(id='plan-subject-store'),
                 dcc.Store(id='plan-selected-books-store', data=[]),
                 dcc.Store(id='plan-current-progress-store', data={}),
+                dcc.Store(id='plan-custom-books-store', data={}),
+                # ★★★ 修正点: 確認ダイアログを追加 ★★★
+                dcc.ConfirmDialog(
+                    id='plan-empty-confirm-dialog',
+                    message='予定が入力されていません。この科目の進捗を0にしますか？',
+                ),
             
                 html.Div(step0_content, id='plan-step-0'),
                 html.Div(step1_content, id='plan-step-1', style={'display': 'none'}),
@@ -72,17 +82,16 @@ def create_plan_update_modal(subjects):
         ]
     )
 
+# ( ... 以降の関数は変更なし ... )
 def create_all_modals(subjects):
     """
     アプリケーションで使用するモーダルを生成して返す。
-    （管理者ページのユーザー関連モーダルは admin_components.py に移動）
     """
     return [
         create_plan_update_modal(subjects),
         dcc.Download(id="download-backup"),
     ]
 
-# ユーザー一覧と新規作成モーダルを生成する関数をここに追加
 def create_user_list_modal():
     """ユーザー一覧表示用のモーダル"""
     return dbc.Modal(

@@ -24,7 +24,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# ( ... 既存の get_all_schools から get_student_progress までの関数 ... )
+# ( ... get_all_schools から get_students_for_user までの関数は変更なし ... )
 def get_all_schools():
     conn = get_db_connection()
     schools = conn.execute('SELECT DISTINCT school FROM students ORDER BY school').fetchall()
@@ -57,6 +57,7 @@ def get_students_for_user(user_info):
         students_by_school[student['school']].append(student['name'])
     return students_by_school
 
+
 def get_student_progress(school, student_name):
     conn = get_db_connection()
     student = conn.execute('SELECT id FROM students WHERE name = ? AND school = ?', (student_name, school)).fetchone()
@@ -69,7 +70,7 @@ def get_student_progress(school, student_name):
         """
         SELECT 
             p.subject, p.level, p.book_name, 
-            COALESCE(m.duration, 0) as duration,
+            COALESCE(p.duration, m.duration, 0) as duration,
             p.is_planned, p.is_done,
             COALESCE(p.completed_units, 0) as completed_units,
             COALESCE(p.total_units, 1) as total_units
@@ -125,7 +126,7 @@ def get_student_progress_by_id(student_id):
         """
         SELECT 
             p.subject, p.level, p.book_name, 
-            COALESCE(m.duration, 0) as duration,
+            COALESCE(p.duration, m.duration, 0) as duration,
             p.is_planned, p.is_done,
             COALESCE(p.completed_units, 0) as completed_units,
             COALESCE(p.total_units, 1) as total_units
@@ -196,16 +197,17 @@ def add_or_update_student_progress(school, student_name, progress_updates):
             ).fetchone()
             
             is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
+            duration = update.get('duration', None)
             
             if existing:
                 cursor.execute(
-                    "UPDATE progress SET is_planned = ?, is_done = ?, completed_units = ?, total_units = ? WHERE id = ?",
-                    (update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), existing['id'])
+                    "UPDATE progress SET is_planned = ?, is_done = ?, completed_units = ?, total_units = ?, duration = ? WHERE id = ?",
+                    (update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), duration, existing['id'])
                 )
             else:
                 cursor.execute(
-                    "INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, completed_units, total_units) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1))
+                    "INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, completed_units, total_units, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), duration)
                 )
         conn.commit()
         return True, f"{len(progress_updates)}件の進捗を更新しました。"
@@ -216,7 +218,6 @@ def add_or_update_student_progress(school, student_name, progress_updates):
     finally:
         conn.close()
 
-# --- ★★★ ここから修正 ★★★ ---
 def get_all_subjects():
     """データベースからすべての科目を指定された順序で取得する"""
     conn = get_db_connection()
@@ -225,24 +226,23 @@ def get_all_subjects():
     
     all_subjects = [s['subject'] for s in subjects_raw]
     
-    # 科目の順序を定義
     subject_order = [
         '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
     ]
     
-    # 順序リストに基づいてソート
     sorted_subjects = sorted(
         all_subjects,
         key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
     )
     
     return sorted_subjects
-# --- ★★★ ここまで修正 ★★★ ---
 
 def get_subjects_for_student(student_id):
+    """生徒の学習予定がある科目のみを取得する"""
     conn = get_db_connection()
+    # is_planned = 1 の条件を追加して、予定がある科目のみを抽出
     subjects_raw = conn.execute(
-        'SELECT DISTINCT subject FROM progress WHERE student_id = ?',
+        'SELECT DISTINCT subject FROM progress WHERE student_id = ? AND is_planned = 1',
         (student_id,)
     ).fetchall()
     conn.close()
@@ -303,7 +303,7 @@ def get_homework_for_textbook(student_id, textbook_id, custom_textbook_name=None
         query += "custom_textbook_name = ?"
         params.append(custom_textbook_name)
     else:
-        return [] # IDもカスタム名もなければ空リストを返す
+        return []
 
     query += " ORDER BY task_date"
     
@@ -318,7 +318,6 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
     try:
         cursor = conn.cursor()
         
-        # 削除条件を設定
         delete_query = "DELETE FROM homework WHERE student_id = ? AND "
         delete_params = [student_id]
         if textbook_id:
@@ -332,7 +331,6 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
             
         cursor.execute(delete_query, tuple(delete_params))
 
-        # 新しい宿題データを挿入
         tasks_to_add = []
         for hw in homework_data:
             if hw['task']:
@@ -620,7 +618,6 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
     try:
         cursor = conn.cursor()
         
-        # 削除条件を設定
         query = "DELETE FROM homework WHERE student_id = ? AND "
         params = [student_id]
 
@@ -631,17 +628,15 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
             query += "custom_textbook_name = ?"
             params.append(custom_textbook_name)
         else:
-            # どちらの識別子もない場合は、何も削除せずにエラーを返す
             return False, "削除対象の参考書が特定できませんでした。"
 
         cursor.execute(query, tuple(params))
         conn.commit()
 
-        # 実際に削除された行数を確認
         if cursor.rowcount > 0:
             return True, "宿題が正常に削除されました。"
         else:
-            return True, "削除対象の宿題はありませんでした。" # エラーではなく成功として扱う
+            return True, "削除対象の宿題はありませんでした。"
 
     except sqlite3.Error as e:
         print(f"宿題の削除エラー: {e}")
@@ -649,6 +644,17 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
         return False, f"宿題の削除中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def get_total_past_exam_time(student_id):
+    """特定の生徒の過去問の合計実施時間を取得する"""
+    conn = get_db_connection()
+    total_time_row = conn.execute(
+        "SELECT SUM(time_required) FROM past_exam_results WHERE student_id = ? AND time_required IS NOT NULL",
+        (student_id,)
+    ).fetchone()
+    conn.close()
+    
+    return (total_time_row[0] / 60) if total_time_row and total_time_row[0] is not None else 0
     
 def get_past_exam_results_for_student(student_id):
     """特定の生徒の過去問結果をすべて取得する"""
@@ -689,7 +695,7 @@ def add_past_exam_result(student_id, result_data):
                 result_data['year'],
                 result_data['subject'],
                 result_data.get('time_required'),
-                result_data.get('total_time_allowed'), # 新しいカラムを追加
+                result_data.get('total_time_allowed'),
                 result_data.get('correct_answers'),
                 result_data.get('total_questions')
             )
@@ -777,4 +783,3 @@ def get_students_for_instructor(user_id):
     ''', (user_id,)).fetchall()
     conn.close()
     return [f"{dict(s)['school']} - {dict(s)['name']}" for s in students]
-
