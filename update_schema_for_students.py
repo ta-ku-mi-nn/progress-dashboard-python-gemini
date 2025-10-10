@@ -2,6 +2,7 @@
 
 import sqlite3
 import pandas as pd
+import os
 
 # RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
 RENDER_DATA_DIR = "/var/data"
