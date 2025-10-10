@@ -51,6 +51,7 @@ from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
 from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
 from components.past_exam_layout import create_past_exam_layout
+from components.howto_layout import create_howto_layout
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from utils.dashboard_pdf import create_dashboard_pdf
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
@@ -214,6 +215,9 @@ def display_page(pathname, auth_store_data):
     if pathname == '/past-exam':
         page_content = create_past_exam_layout()
         return page_content, navbar
+    
+    if pathname == '/howto':
+        return create_howto_layout(user_info), navbar
 
     if pathname == '/admin':
         if user_info.get('role') != 'admin':

@@ -110,6 +110,8 @@ def create_homework_layout(user_info):
             )
         ], align="center", className="my-4"),
 
+        dbc.Container(html.H1("この機能はただいま準備中です。"), className="text-center my-5"),
+
         dcc.Loading(html.Div(id="homework-list-container")),
         
         # 宿題編集用のモーダルをレイアウトに追加
