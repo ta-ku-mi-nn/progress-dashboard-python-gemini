@@ -561,8 +561,7 @@ def register_admin_callbacks(app):
             )
             items.append(item)
         return dbc.ListGroup(items, flush=True)
-    
-    # ★★★ ここから修正 ★★★
+
     @app.callback(
         Output('preset-selected-books-store', 'data'),
         [Input({'type': 'add-preset-book-btn', 'index': ALL}, 'n_clicks'),
@@ -613,11 +612,13 @@ def register_admin_callbacks(app):
             ]) for book_id in selected_book_ids if book_id in book_info
         ]
 
+    # ★★★ ここから修正 ★★★
     @app.callback(
         [Output('bulk-preset-edit-alert', 'children'),
          Output('bulk-preset-edit-alert', 'is_open'),
          Output('admin-update-trigger', 'data', allow_duplicate=True),
-         Output('bulk-preset-edit-modal', 'is_open')],
+         Output('bulk-preset-edit-modal', 'is_open'),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
         Input('save-bulk-preset-btn', 'n_clicks'),
         [State('editing-preset-id-store', 'data'),
          State('preset-subject-input', 'value'),
@@ -627,9 +628,9 @@ def register_admin_callbacks(app):
     )
     def save_bulk_preset(n_clicks, preset_id, subject, name, book_ids):
         if not n_clicks:
-            return "", False, no_update, no_update
+            return "", False, no_update, no_update, no_update
         if not all([subject, name, book_ids]):
-            return dbc.Alert("すべての項目を選択・入力してください。", color="warning"), True, no_update, True
+            return dbc.Alert("すべての項目を選択・入力してください。", color="warning"), True, no_update, True, no_update
         
         if preset_id is None:
             success, message = add_preset(subject, name, book_ids)
@@ -637,11 +638,12 @@ def register_admin_callbacks(app):
             success, message = update_preset(preset_id, subject, name, book_ids)
             
         if success:
-            return "", False, datetime.datetime.now().timestamp(), False
+            toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+            return "", False, datetime.datetime.now().timestamp(), False, toast_data
         else:
-            return dbc.Alert(message, color="danger"), True, no_update, True
+            return dbc.Alert(message, color="danger"), True, no_update, True, no_update
     # ★★★ ここまで修正 ★★★
-            
+        
     @app.callback(
         [Output('user-edit-modal', 'is_open'),
          Output('user-edit-modal-title', 'children'),
