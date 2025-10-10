@@ -603,7 +603,7 @@ def register_admin_callbacks(app):
             placeholders = ','.join('?' for _ in updated_ids)
             query = f"SELECT id, book_name FROM master_textbooks WHERE id IN ({placeholders})"
             cursor = conn.cursor()
-            cursor.execute(query, updated_ids)
+            cursor.execute(query, tuple(updated_ids))
             book_info = {row[0]: row[1] for row in cursor.fetchall()}
         finally:
             conn.close()
