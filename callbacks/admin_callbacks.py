@@ -562,59 +562,63 @@ def register_admin_callbacks(app):
             items.append(item)
         return dbc.ListGroup(items, flush=True)
 
+    # ★★★ ここから修正 ★★★
     @app.callback(
-        [Output('preset-selected-books-store', 'data', allow_duplicate=True),
-         Output('preset-selected-books-list', 'children')],
-        [Input('bulk-preset-edit-modal', 'is_open'),
-         Input({'type': 'add-preset-book-btn', 'index': ALL}, 'n_clicks'),
+        Output('preset-selected-books-store', 'data'),
+        [Input({'type': 'add-preset-book-btn', 'index': ALL}, 'n_clicks'),
          Input({'type': 'remove-preset-book-btn', 'index': ALL}, 'n_clicks')],
         [State('preset-selected-books-store', 'data')],
         prevent_initial_call=True
     )
-    def handle_book_selection_and_render(is_open, add_clicks, remove_clicks, selected_book_ids):
+    def update_selected_books_store(add_clicks, remove_clicks, selected_book_ids):
         ctx = callback_context
-        triggered_id = ctx.triggered_id
-        
-        updated_ids = selected_book_ids or []
+        if not ctx.triggered or not ctx.triggered[0]['value']:
+            raise PreventUpdate
 
-        if isinstance(triggered_id, dict) and ctx.triggered and ctx.triggered[0].get('value'):
-            button_type = triggered_id.get('type')
-            book_id = triggered_id.get('index')
-            
-            if button_type == 'add-preset-book-btn':
-                if book_id not in updated_ids:
-                    updated_ids.append(book_id)
-            elif button_type == 'remove-preset-book-btn':
-                if book_id in updated_ids:
-                    updated_ids.remove(book_id)
+        triggered_id = ctx.triggered_id
+        updated_ids = selected_book_ids or []
         
-        if not updated_ids:
-            return updated_ids, []
+        button_type = triggered_id.get('type')
+        book_id = triggered_id.get('index')
+        
+        if button_type == 'add-preset-book-btn':
+            if book_id not in updated_ids:
+                updated_ids.append(book_id)
+        elif button_type == 'remove-preset-book-btn':
+            if book_id in updated_ids:
+                updated_ids.remove(book_id)
+                
+        return updated_ids
+
+    @app.callback(
+        Output('preset-selected-books-list', 'children'),
+        Input('preset-selected-books-store', 'data'),
+    )
+    def render_selected_books_list(selected_book_ids):
+        if not selected_book_ids:
+            return []
 
         conn = sqlite3.connect(DATABASE_FILE)
         try:
-            placeholders = ','.join('?' for _ in updated_ids)
+            placeholders = ','.join('?' for _ in selected_book_ids)
             query = f"SELECT id, book_name FROM master_textbooks WHERE id IN ({placeholders})"
-            cursor = conn.cursor()
-            cursor.execute(query, tuple(updated_ids))
-            book_info = {row[0]: row[1] for row in cursor.fetchall()}
+            book_info = {row[0]: row[1] for row in conn.execute(query, tuple(selected_book_ids)).fetchall()}
         finally:
             conn.close()
 
-        selected_list_items = [
+        return [
             dbc.ListGroupItem([
                 book_info.get(book_id, f"不明な参考書 ID: {book_id}"),
                 dbc.Button("×", id={'type': 'remove-preset-book-btn', 'index': book_id}, color="danger", size="sm", className="float-end")
-            ]) for book_id in updated_ids if book_id in book_info
+            ]) for book_id in selected_book_ids if book_id in book_info
         ]
-
-        return updated_ids, selected_list_items
-
+    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('bulk-preset-edit-alert', 'children'),
          Output('bulk-preset-edit-alert', 'is_open'),
-         Output('admin-update-trigger', 'data', allow_duplicate=True)],
+         Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('bulk-preset-edit-modal', 'is_open')],
         Input('save-bulk-preset-btn', 'n_clicks'),
         [State('editing-preset-id-store', 'data'),
          State('preset-subject-input', 'value'),
@@ -624,9 +628,9 @@ def register_admin_callbacks(app):
     )
     def save_bulk_preset(n_clicks, preset_id, subject, name, book_ids):
         if not n_clicks:
-            return "", False, no_update
+            return "", False, no_update, no_update
         if not all([subject, name, book_ids]):
-            return dbc.Alert("すべての項目を選択・入力してください。", color="warning"), True, no_update
+            return dbc.Alert("すべての項目を選択・入力してください。", color="warning"), True, no_update, True
         
         if preset_id is None:
             success, message = add_preset(subject, name, book_ids)
@@ -634,22 +638,10 @@ def register_admin_callbacks(app):
             success, message = update_preset(preset_id, subject, name, book_ids)
             
         if success:
-            return "", False, datetime.datetime.now().timestamp()
+            return "", False, datetime.datetime.now().timestamp(), False
         else:
-            return dbc.Alert(message, color="danger"), True, no_update
+            return dbc.Alert(message, color="danger"), True, no_update, True
             
-    @app.callback(
-        Output('bulk-preset-edit-modal', 'is_open', allow_duplicate=True),
-        Input('admin-update-trigger', 'data'),
-        State('save-bulk-preset-btn', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def close_bulk_preset_edit_modal_on_success(ts, n_clicks):
-        ctx = callback_context
-        if n_clicks and ctx.triggered_id == 'admin-update-trigger':
-            return False
-        return no_update
-        
     @app.callback(
         [Output('user-edit-modal', 'is_open'),
          Output('user-edit-modal-title', 'children'),
