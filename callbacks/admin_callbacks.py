@@ -76,7 +76,6 @@ def register_admin_callbacks(app):
         ])]
         return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
 
-    # ★★★ ここから修正 ★★★
     @app.callback(
         [Output('new-user-modal', 'is_open'),
          Output('new-user-alert', 'children'),
@@ -98,7 +97,6 @@ def register_admin_callbacks(app):
         username, password, role, school, is_open):
         
         ctx = callback_context
-        # ボタンクリック以外の要因（ページの再描画など）でコールバックが実行された場合は、何もしない
         if not ctx.triggered or not ctx.triggered[0]['value']:
             return no_update, no_update, no_update, no_update, no_update
 
@@ -123,7 +121,6 @@ def register_admin_callbacks(app):
                 return True, dbc.Alert(message, color="danger"), True, no_update, no_update
         
         return no_update, no_update, no_update, no_update, no_update
-    # ★★★ ここまで修正 ★★★
 
     @app.callback(Output('download-backup', 'data'),Input('backup-btn', 'n_clicks'),prevent_initial_call=True)
     def download_backup(n_clicks):
