@@ -1,7 +1,7 @@
 # callbacks/auth_callbacks.py
 
 import dash
-from dash import Input, Output, State, no_update, html
+from dash import Input, Output, State, no_update, html, callback_context
 import dash_bootstrap_components as dbc
 
 from auth.user_manager import authenticate_user, update_password
@@ -51,14 +51,15 @@ def register_auth_callbacks(app):
     # ★★★ このコールバックを修正 ★★★
     @app.callback(
         Output('user-profile-modal', 'is_open'),
-        [Input('user-profile-btn', 'n_clicks'), # 監視対象のIDを修正
+        [Input('user-profile-btn', 'n_clicks'),
          Input('close-profile-modal', 'n_clicks')],
         [State('user-profile-modal', 'is_open')],
         prevent_initial_call=True
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
-        # n_clicksがNoneでないことを確認
-        if (n_clicks and n_clicks > 0) or (close_clicks and close_clicks > 0):
+        ctx = callback_context
+        # いずれかのボタンがクリックされた場合のみモーダルの状態を反転させる
+        if ctx.triggered_id in ['user-profile-btn', 'close-profile-modal']:
             return not is_open
         return is_open
 
@@ -100,7 +101,8 @@ def register_auth_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_password_change_modal(n_clicks, close_clicks, is_open):
-        if n_clicks or close_clicks:
+        ctx = callback_context
+        if ctx.triggered_id in ['change-password-button', 'close-password-modal']:
             return not is_open
         return is_open
 
@@ -114,6 +116,9 @@ def register_auth_callbacks(app):
         prevent_initial_call=True
     )
     def handle_password_change(n_clicks, current_pass, new_pass, confirm_pass, user_data):
+        if not n_clicks:
+            return no_update
+
         if not user_data:
             return dbc.Alert("セッションが切れました。再度ログインしてください。", color="danger")
 

@@ -784,4 +784,3 @@ def register_admin_callbacks(app):
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         # ユーザー一覧を更新するためのトリガーを発行
         return datetime.datetime.now().isoformat(), toast_data
-
