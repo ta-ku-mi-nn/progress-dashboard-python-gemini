@@ -36,7 +36,6 @@ DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 def register_admin_callbacks(app):
     # --- ユーザー管理関連コールバック ---
 
-    # 1. ユーザー一覧モーダルの「開閉」だけを制御するコールバック
     @app.callback(
         Output('user-list-modal', 'is_open'),
         [Input('user-list-btn', 'n_clicks'),
@@ -46,11 +45,10 @@ def register_admin_callbacks(app):
     )
     def toggle_user_list_modal_visibility(open_clicks, close_clicks, is_open):
         ctx = callback_context
-        if not ctx.triggered_id:
+        if not ctx.triggered or not ctx.triggered[0]['value']:
             raise PreventUpdate
         return not is_open
 
-    # 2. ユーザー一覧モーダルの「内容」だけを更新するコールバック
     @app.callback(
         Output('user-list-table', 'children'),
         [Input('user-list-modal', 'is_open'),
@@ -58,17 +56,13 @@ def register_admin_callbacks(app):
         prevent_initial_call=True
     )
     def update_user_list_table(is_open, update_signal):
-        # モーダルが開いている時だけ内容を更新
         if not is_open:
             raise PreventUpdate
-
         users = load_users()
         if not users:
             return dbc.Alert("登録されているユーザーがいません。", color="info")
         
-        table_header = [html.Thead(html.Tr([
-            html.Th("ユーザー名"), html.Th("役割"), html.Th("所属校舎"), html.Th("操作")
-        ]))]
+        table_header = [html.Thead(html.Tr([html.Th("ユーザー名"), html.Th("役割"), html.Th("所属校舎"), html.Th("操作")]))]
         table_body = [html.Tbody([
             html.Tr([
                 html.Td(user['username']),
@@ -82,10 +76,9 @@ def register_admin_callbacks(app):
         ])]
         return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
 
-    # 3. 新規ユーザーモーダルの開閉と作成処理をすべて制御する単一のコールバック
     # ★★★ ここから修正 ★★★
     @app.callback(
-        [Output('new-user-modal', 'is_open', allow_duplicate=True),
+        [Output('new-user-modal', 'is_open'),
          Output('new-user-alert', 'children'),
          Output('new-user-alert', 'is_open'),
          Output('admin-update-trigger', 'data', allow_duplicate=True),
@@ -105,16 +98,18 @@ def register_admin_callbacks(app):
         username, password, role, school, is_open):
         
         ctx = callback_context
+        # ボタンクリック以外の要因（ページの再描画など）でコールバックが実行された場合は、何もしない
+        if not ctx.triggered or not ctx.triggered[0]['value']:
+            return no_update, no_update, no_update, no_update, no_update
+
         trigger_id = ctx.triggered_id
 
-        if not trigger_id:
-            raise PreventUpdate
+        if trigger_id == 'new-user-btn':
+            return True, "", False, no_update, no_update
+        
+        if trigger_id == 'close-new-user-modal':
+            return False, "", False, no_update, no_update
 
-        # 「開く」または「閉じる」ボタンが押された場合
-        if trigger_id in ['new-user-btn', 'close-new-user-modal']:
-            return not is_open, "", False, no_update, no_update
-
-        # 「作成」ボタンが押された場合
         if trigger_id == 'create-user-button':
             if not all([username, password, role]):
                 return True, dbc.Alert("ユーザー名、パスワード、役割は必須です。", color="warning"), True, no_update, no_update
