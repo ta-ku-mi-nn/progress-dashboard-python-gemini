@@ -51,7 +51,7 @@ def create_navbar(user_info):
         
     return dbc.NavbarSimple(
         children=[
-            dbc.NavItem(dbc.NavLink("使い方", href="/howto")),
+            # dbc.NavItem(dbc.NavLink("使い方", href="/howto")),
             dbc.NavItem(dbc.NavLink("ダッシュボード", href="/")),
             dbc.NavItem(dbc.NavLink("過去問管理", href="/past-exam")),
             dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")),
@@ -60,7 +60,7 @@ def create_navbar(user_info):
         ],
         brand="学習進捗ダッシュボード",
         brand_href="/",
-        color="dark",
+        color="secondary",
         dark=True,
         className="mb-4",
     )

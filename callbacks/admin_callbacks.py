@@ -147,29 +147,15 @@ def register_admin_callbacks(app):
         return is_open
 
     @app.callback(
-        [Output('master-textbook-list-container', 'children'),
-         Output('master-textbook-alert', 'children'),
-         Output('master-textbook-alert', 'is_open')],
+        [Output('master-textbook-list-container', 'children')],
         [Input('master-textbook-modal', 'is_open'),
          Input('admin-update-trigger', 'data'),
-         Input({'type': 'delete-textbook-btn', 'index': ALL}, 'n_clicks'),
          Input('master-textbook-subject-filter', 'value'),
          Input('master-textbook-level-filter', 'value'),
          Input('master-textbook-name-filter', 'value')],
         prevent_initial_call=True
     )
-    def update_master_textbook_list(is_open, update_signal, delete_clicks, subject, level, name):
-        ctx = callback_context
-        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
-
-        alert_msg, alert_is_open = "", False
-
-        if 'delete-textbook-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
-            book_id = json.loads(triggered_prop_id.split('.')[0])['index']
-            success, message = delete_master_textbook(book_id)
-            alert_msg = dbc.Alert(message, color="success" if success else "danger")
-            alert_is_open = True
-
+    def update_master_textbook_list(is_open, update_signal, subject, level, name):
         textbooks = get_all_master_textbooks()
         df = pd.DataFrame(textbooks)
         if subject: df = df[df['subject'] == subject]
@@ -177,12 +163,12 @@ def register_admin_callbacks(app):
         if name: df = df[df['book_name'].str.contains(name, na=False)]
 
         if df.empty:
-            return dbc.Alert("該当する参考書がありません。", color="info"), alert_msg, alert_is_open
+            return [dbc.Alert("該当する参考書がありません。", color="info")]
 
         table_header = [html.Thead(html.Tr([html.Th("科目"), html.Th("レベル"), html.Th("参考書名"), html.Th("所要時間(h)"), html.Th("操作")]))]
         table_body = [html.Tbody([html.Tr([html.Td(row['subject']),html.Td(row['level']),html.Td(row['book_name']),html.Td(row['duration']),html.Td([dbc.Button("編集", id={'type': 'edit-textbook-btn', 'index': row['id']}, size="sm", className="me-1"),dbc.Button("削除", id={'type': 'delete-textbook-btn', 'index': row['id']}, color="danger", size="sm")])]) for _, row in df.iterrows()])]
 
-        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True), alert_msg, alert_is_open
+        return [dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)]
 
 
     @app.callback(
@@ -275,36 +261,22 @@ def register_admin_callbacks(app):
         return no_update
 
     @app.callback(
-        [Output('student-list-container', 'children'),
-         Output('student-management-alert', 'children'),
-         Output('student-management-alert', 'is_open')],
+        [Output('student-list-container', 'children')],
         [Input('student-management-modal', 'is_open'),
-         Input('admin-update-trigger', 'data'),
-         Input({'type': 'delete-student-btn', 'index': ALL}, 'n_clicks')],
+         Input('admin-update-trigger', 'data')],
         State('auth-store', 'data'),
         prevent_initial_call=True
     )
-    def update_student_list_and_handle_delete(is_open, update_signal, delete_clicks, user_info):
-        ctx = callback_context
-        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
-
-        alert_msg, alert_is_open = "", False
-
-        if 'delete-student-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
-            student_id = json.loads(triggered_prop_id.split('.')[0])['index']
-            success, message = delete_student(student_id)
-            alert_msg = dbc.Alert(message, color="success" if success else "danger")
-            alert_is_open = True
-
+    def update_student_list_and_handle_delete(is_open, update_signal, user_info):
         if not user_info:
-            return [], alert_msg, alert_is_open
+            return [[]]
 
         all_students = get_all_students_with_details()
         admin_school = user_info.get('school')
         students = [s for s in all_students if s['school'] == admin_school]
 
         if not students:
-            return dbc.Alert("この校舎には生徒が登録されていません。", color="info"), alert_msg, alert_is_open
+            return [dbc.Alert("この校舎には生徒が登録されていません。", color="info")]
 
         table_header = [html.Thead(html.Tr([
             html.Th("生徒名"), html.Th("偏差値"), html.Th("メイン講師"), html.Th("サブ講師"), html.Th("操作")
@@ -322,7 +294,7 @@ def register_admin_callbacks(app):
             ]) for s in students
         ])]
 
-        return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True), alert_msg, alert_is_open
+        return [dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)]
 
     @app.callback(
         [Output('student-edit-modal', 'is_open'),
@@ -437,30 +409,17 @@ def register_admin_callbacks(app):
             return not is_open
         return no_update
 
+    # ★★★ 修正点: 削除処理を削除し、リストの更新のみに専念 ★★★
     @app.callback(
-        [Output('bulk-preset-list-container', 'children'),
-         Output('bulk-preset-alert', 'children'),
-         Output('bulk-preset-alert', 'is_open')],
+        [Output('bulk-preset-list-container', 'children')],
         [Input('bulk-preset-management-modal', 'is_open'),
-         Input('admin-update-trigger', 'data'),
-         Input({'type': 'delete-bulk-preset-btn', 'index': ALL}, 'n_clicks')],
+         Input('admin-update-trigger', 'data')],
         prevent_initial_call=True
     )
-    def update_bulk_preset_list(is_open, update_signal, delete_clicks):
-        ctx = callback_context
-        triggered_prop_id = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
-
-        alert_msg, alert_is_open = "", False
-
-        if 'delete-bulk-preset-btn' in triggered_prop_id and ctx.triggered[0].get('value'):
-            preset_id = json.loads(triggered_prop_id.split('.')[0])['index']
-            success, message = delete_preset(preset_id)
-            alert_msg = dbc.Alert(message, color="success" if success else "danger")
-            alert_is_open = True
-
+    def update_bulk_preset_list(is_open, update_signal):
         presets = get_all_presets_with_books()
         if not presets:
-            return dbc.Alert("登録されているプリセットがありません。", color="info"), alert_msg, alert_is_open
+            return [dbc.Alert("登録されているプリセットがありません。", color="info")]
 
         items = []
         for preset in presets:
@@ -477,7 +436,7 @@ def register_admin_callbacks(app):
                 ], align="center")
             ]))
 
-        return dbc.ListGroup(items), alert_msg, alert_is_open
+        return [dbc.ListGroup(items)]
 
     @app.callback(
         [Output('bulk-preset-edit-modal', 'is_open'),
@@ -562,7 +521,6 @@ def register_admin_callbacks(app):
             items.append(item)
         return dbc.ListGroup(items, flush=True)
 
-    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('preset-selected-books-store', 'data', allow_duplicate=True),
         [Input({'type': 'add-preset-book-btn', 'index': ALL}, 'n_clicks'),
@@ -642,7 +600,6 @@ def register_admin_callbacks(app):
             return "", False, datetime.datetime.now().timestamp(), False, toast_data
         else:
             return dbc.Alert(message, color="danger"), True, no_update, True, no_update
-    # ★★★ ここまで修正 ★★★
         
     @app.callback(
         [Output('user-edit-modal', 'is_open'),
@@ -699,23 +656,124 @@ def register_admin_callbacks(app):
         else:
             return dbc.Alert(message, color="danger"), True, no_update, True, no_update
 
+    # --- ★★★ ここから修正 (削除関連のコールバック) ★★★ ---
+    # ユーザー削除の確認ダイアログを表示
     @app.callback(
-        [Output('admin-update-trigger', 'data', allow_duplicate=True),
-         Output('toast-trigger', 'data', allow_duplicate=True)],
+        [Output('delete-user-confirm', 'displayed'),
+         Output('item-to-delete-store', 'data', allow_duplicate=True)],
         Input({'type': 'delete-user-btn', 'index': ALL}, 'n_clicks'),
         prevent_initial_call=True
     )
-    def delete_user_callback(delete_clicks):
+    def display_delete_user_confirmation(delete_clicks):
         ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0]['value']:
+        if not ctx.triggered or not any(delete_clicks):
             raise PreventUpdate
-        
-        button_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
-        if not button_id_str:
+        user_id = ctx.triggered_id['index']
+        return True, {'type': 'user', 'id': user_id}
+
+    # ユーザー削除の実行
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('delete-user-confirm', 'submit_n_clicks'),
+        State('item-to-delete-store', 'data'),
+        prevent_initial_call=True
+    )
+    def do_delete_user(submit_n_clicks, item_to_delete):
+        if not submit_n_clicks or not item_to_delete or item_to_delete.get('type') != 'user':
             raise PreventUpdate
-            
-        user_id = json.loads(button_id_str)['index']
+        user_id = item_to_delete.get('id')
         success, message = delete_user(user_id)
-        
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
+
+    # 生徒削除の確認ダイアログを表示
+    @app.callback(
+        [Output('delete-student-confirm', 'displayed'),
+         Output('item-to-delete-store', 'data', allow_duplicate=True)],
+        Input({'type': 'delete-student-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def display_delete_student_confirmation(n_clicks):
+        ctx = callback_context
+        if not ctx.triggered or not any(n_clicks):
+            raise PreventUpdate
+        student_id = ctx.triggered_id['index']
+        return True, {'type': 'student', 'id': student_id}
+
+    # 生徒削除の実行
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('delete-student-confirm', 'submit_n_clicks'),
+        State('item-to-delete-store', 'data'),
+        prevent_initial_call=True
+    )
+    def do_delete_student(submit_n_clicks, item_to_delete):
+        if not submit_n_clicks or not item_to_delete or item_to_delete.get('type') != 'student':
+            raise PreventUpdate
+        student_id = item_to_delete.get('id')
+        success, message = delete_student(student_id)
+        toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+        return datetime.datetime.now().isoformat(), toast_data
+
+    # 参考書削除の確認ダイアログを表示
+    @app.callback(
+        [Output('delete-textbook-confirm', 'displayed'),
+         Output('item-to-delete-store', 'data', allow_duplicate=True)],
+        Input({'type': 'delete-textbook-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def display_delete_textbook_confirmation(n_clicks):
+        ctx = callback_context
+        if not ctx.triggered or not any(n_clicks):
+            raise PreventUpdate
+        book_id = ctx.triggered_id['index']
+        return True, {'type': 'textbook', 'id': book_id}
+
+    # 参考書削除の実行
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('delete-textbook-confirm', 'submit_n_clicks'),
+        State('item-to-delete-store', 'data'),
+        prevent_initial_call=True
+    )
+    def do_delete_textbook(submit_n_clicks, item_to_delete):
+        if not submit_n_clicks or not item_to_delete or item_to_delete.get('type') != 'textbook':
+            raise PreventUpdate
+        book_id = item_to_delete.get('id')
+        success, message = delete_master_textbook(book_id)
+        toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+        return datetime.datetime.now().isoformat(), toast_data
+
+    # プリセット削除の確認ダイアログを表示
+    @app.callback(
+        [Output('delete-preset-confirm', 'displayed'),
+         Output('item-to-delete-store', 'data', allow_duplicate=True)],
+        Input({'type': 'delete-bulk-preset-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def display_delete_preset_confirmation(n_clicks):
+        ctx = callback_context
+        if not ctx.triggered or not any(n_clicks):
+            raise PreventUpdate
+        preset_id = ctx.triggered_id['index']
+        return True, {'type': 'preset', 'id': preset_id}
+
+    # プリセット削除の実行
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('delete-preset-confirm', 'submit_n_clicks'),
+        State('item-to-delete-store', 'data'),
+        prevent_initial_call=True
+    )
+    def do_delete_preset(submit_n_clicks, item_to_delete):
+        if not submit_n_clicks or not item_to_delete or item_to_delete.get('type') != 'preset':
+            raise PreventUpdate
+        preset_id = item_to_delete.get('id')
+        success, message = delete_preset(preset_id)
+        toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
+        return datetime.datetime.now().isoformat(), toast_data
+    # --- ★★★ ここまで修正 ★★★ ---

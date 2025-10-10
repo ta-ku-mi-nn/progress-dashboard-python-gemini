@@ -88,6 +88,7 @@ app.layout = html.Div([
     dcc.Store(id='student-selection-store', storage_type='session'),
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
     dcc.Store(id='toast-trigger', storage_type='memory'),
+    dcc.Store(id='item-to-delete-store', storage_type='memory'),
 
     html.Div(id='navbar-container'),
 
@@ -223,8 +224,13 @@ def display_page(pathname, auth_store_data):
         if user_info.get('role') != 'admin':
             return create_access_denied_layout(), navbar
 
+        # ★★★ 修正点: プリセット削除確認ダイアログを追加 ★★★
         page_content = dbc.Container([
             html.H1("🔧 管理者メニュー", className="mt-4 mb-4"),
+            dcc.ConfirmDialog(id='delete-user-confirm', message='本当にこのユーザーを削除しますか？'),
+            dcc.ConfirmDialog(id='delete-student-confirm', message='本当にこの生徒を削除しますか？'),
+            dcc.ConfirmDialog(id='delete-textbook-confirm', message='本当にこの参考書を削除しますか？'),
+            dcc.ConfirmDialog(id='delete-preset-confirm', message='本当にこのプリセットを削除しますか？'),
             dbc.ListGroup([
                 dbc.ListGroupItem([
                     html.Div([
