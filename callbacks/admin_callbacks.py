@@ -46,7 +46,7 @@ def register_admin_callbacks(app):
     )
     def toggle_user_list_modal_visibility(open_clicks, close_clicks, is_open):
         ctx = callback_context
-        if not ctx.triggered:
+        if not ctx.triggered_id:
             raise PreventUpdate
         return not is_open
 
@@ -105,6 +105,9 @@ def register_admin_callbacks(app):
         
         ctx = callback_context
         trigger_id = ctx.triggered_id
+
+        if not trigger_id:
+            raise PreventUpdate
 
         # 「開く」または「閉じる」ボタンが押された場合
         if trigger_id in ['new-user-btn', 'close-new-user-modal']:

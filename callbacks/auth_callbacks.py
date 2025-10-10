@@ -48,7 +48,6 @@ def register_auth_callbacks(app):
 
 
     # --- プロフィール関連のコールバック ---
-    # ★★★ このコールバックを修正 ★★★
     @app.callback(
         Output('user-profile-modal', 'is_open'),
         [Input('user-profile-btn', 'n_clicks'),
