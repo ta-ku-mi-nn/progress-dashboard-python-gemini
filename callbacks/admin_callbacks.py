@@ -561,7 +561,7 @@ def register_admin_callbacks(app):
             )
             items.append(item)
         return dbc.ListGroup(items, flush=True)
-
+    
     # ★★★ ここから修正 ★★★
     @app.callback(
         Output('preset-selected-books-store', 'data'),
@@ -612,7 +612,6 @@ def register_admin_callbacks(app):
                 dbc.Button("×", id={'type': 'remove-preset-book-btn', 'index': book_id}, color="danger", size="sm", className="float-end")
             ]) for book_id in selected_book_ids if book_id in book_info
         ]
-    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('bulk-preset-edit-alert', 'children'),
@@ -641,6 +640,7 @@ def register_admin_callbacks(app):
             return "", False, datetime.datetime.now().timestamp(), False
         else:
             return dbc.Alert(message, color="danger"), True, no_update, True
+    # ★★★ ここまで修正 ★★★
             
     @app.callback(
         [Output('user-edit-modal', 'is_open'),
