@@ -83,6 +83,7 @@ def register_admin_callbacks(app):
         return dbc.Table(table_header + table_body, bordered=True, striped=True, hover=True, responsive=True)
 
     # 3. 新規ユーザーモーダルの開閉と作成処理をすべて制御する単一のコールバック
+    # ★★★ ここから修正 ★★★
     @app.callback(
         [Output('new-user-modal', 'is_open', allow_duplicate=True),
          Output('new-user-alert', 'children'),
@@ -126,7 +127,8 @@ def register_admin_callbacks(app):
             else:
                 return True, dbc.Alert(message, color="danger"), True, no_update, no_update
         
-        raise PreventUpdate
+        return no_update, no_update, no_update, no_update, no_update
+    # ★★★ ここまで修正 ★★★
 
     @app.callback(Output('download-backup', 'data'),Input('backup-btn', 'n_clicks'),prevent_initial_call=True)
     def download_backup(n_clicks):
@@ -485,7 +487,6 @@ def register_admin_callbacks(app):
 
         return dbc.ListGroup(items), alert_msg, alert_is_open
 
-    # --- ★★★ ここから修正箇所 ★★★ ---
     @app.callback(
         [Output('bulk-preset-edit-modal', 'is_open'),
          Output('bulk-preset-edit-modal-title', 'children'),
@@ -524,14 +525,13 @@ def register_admin_callbacks(app):
             presets = get_all_presets_with_books()
             preset_to_edit = next((p for p in presets if p['id'] == preset_id), None)
             if preset_to_edit:
-                # 参考書名からIDへの変換ロジック
                 all_textbooks = get_all_master_textbooks()
                 book_name_to_id = {b['book_name']: b['id'] for b in all_textbooks}
                 selected_book_ids = [book_name_to_id[name] for name in preset_to_edit.get('books', []) if name in book_name_to_id]
                 
                 return (True, f"編集: {preset_to_edit['preset_name']}", preset_id, 
                         subject_options, preset_to_edit['subject'], preset_to_edit['preset_name'], 
-                        selected_book_ids, # 名前リストの代わりにIDリストを渡す
+                        selected_book_ids,
                         subject_options, level_options)
         
         return [no_update] * 9
@@ -585,8 +585,7 @@ def register_admin_callbacks(app):
         
         updated_ids = selected_book_ids or []
 
-        # ボタンクリックによるIDリストの更新
-        if isinstance(triggered_id, dict) and ctx.triggered[0]['value']:
+        if isinstance(triggered_id, dict) and ctx.triggered and ctx.triggered[0].get('value'):
             button_type = triggered_id.get('type')
             book_id = triggered_id.get('index')
             
@@ -597,9 +596,8 @@ def register_admin_callbacks(app):
                 if book_id in updated_ids:
                     updated_ids.remove(book_id)
         
-        # IDリストを元に表示用コンポーネントを生成
         if not updated_ids:
-            return [], []
+            return updated_ids, []
 
         conn = sqlite3.connect(DATABASE_FILE)
         try:
@@ -618,12 +616,7 @@ def register_admin_callbacks(app):
             ]) for book_id in updated_ids if book_id in book_info
         ]
 
-        # ボタンが押された場合のみストアを更新する
-        if isinstance(triggered_id, dict):
-            return updated_ids, selected_list_items
-        
-        # モーダルが開かれただけの時は、表示リストのみを更新
-        return no_update, selected_list_items
+        return updated_ids, selected_list_items
 
 
     @app.callback(
@@ -664,52 +657,7 @@ def register_admin_callbacks(app):
         if n_clicks and ctx.triggered_id == 'admin-update-trigger':
             return False
         return no_update
-    # --- ★★★ 修正箇所ここまで ★★★ ---
-    # @app.callback(
-    #     Output('output-data-upload', 'children'),
-    #     Input('upload-backup', 'contents'),
-    #     State('upload-backup', 'filename')
-    # )
-    # def update_output(contents, filename):
-    #     if contents is not None:
-    #         content_type, content_string = contents.split(',')
-    #         decoded = base64.b64decode(content_string)
-    #         try:
-    #             if 'json' in filename:
-    #                 # JSONファイルを読み込む
-    #                 json_data = json.load(io.StringIO(decoded.decode('utf-8')))
-                    
-    #                 # データベース接続
-    #                 conn = sqlite3.connect(DATABASE_FILE)
-    #                 cursor = conn.cursor()
-
-    #                 # テーブルのデータをクリア
-    #                 tables = ["users", "students", "progress", "homework", "master_textbooks", "bulk_presets", "bulk_preset_books", "student_instructors"]
-    #                 for table in tables:
-    #                     cursor.execute(f"DELETE FROM {table};")
-
-    #                 # データをリストア
-    #                 for table_name, records in json_data.items():
-    #                     if table_name not in tables:
-    #                         continue
-    #                     for record in records:
-    #                         columns = ', '.join(record.keys())
-    #                         placeholders = ', '.join('?' for _ in record)
-    #                         query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-    #                         cursor.execute(query, tuple(record.values()))
-                    
-    #                 conn.commit()
-    #                 conn.close()
-
-    #                 return html.Div([
-    #                     dbc.Alert("データのリストアが完了しました。", color="success")
-    #                 ])
-
-    #         except Exception as e:
-    #             return html.Div([
-    #                 dbc.Alert(f"ファイルの処理中にエラーが発生しました: {e}", color="danger")
-    #             ])
-
+        
     @app.callback(
         [Output('user-edit-modal', 'is_open'),
          Output('user-edit-modal-title', 'children'),
@@ -773,7 +721,6 @@ def register_admin_callbacks(app):
     )
     def delete_user_callback(delete_clicks):
         ctx = callback_context
-        # 重要な修正：コールバックが実際のクリックによってトリガーされたかを確認
         if not ctx.triggered or not ctx.triggered[0]['value']:
             raise PreventUpdate
         
@@ -785,5 +732,4 @@ def register_admin_callbacks(app):
         success, message = delete_user(user_id)
         
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
-        # ユーザー一覧を更新するためのトリガーを発行
         return datetime.datetime.now().isoformat(), toast_data
