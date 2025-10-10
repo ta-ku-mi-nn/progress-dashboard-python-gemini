@@ -3,7 +3,7 @@ import os  # osをインポート
 
 APP_CONFIG = {
     'server': {
-        'secret_key': 'your-secret-key-change-this-in-production',
+        'secret_key': os.getenv('SECRET_KEY', 'your-secret-key-change-this-in-production'),
         'host': '0.0.0.0',  # 外部からのアクセスを許可するために '0.0.0.0' に変更
         'port': int(os.getenv('PORT', 8051)), # Renderが指定するポート番号を読み込む
         'debug': False  # 本番環境ではFalseに設定
