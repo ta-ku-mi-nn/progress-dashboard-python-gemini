@@ -48,6 +48,7 @@ def register_auth_callbacks(app):
 
 
     # --- プロフィール関連のコールバック ---
+    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('user-profile-modal', 'is_open'),
         [Input('user-profile-btn', 'n_clicks'),
@@ -56,11 +57,16 @@ def register_auth_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
+        # どのコンポーネントがコールバックをトリガーしたかを取得
         ctx = callback_context
-        # いずれかのボタンがクリックされた場合のみモーダルの状態を反転させる
+        
+        # ボタンがクリックされた場合のみモーダルの表示状態を切り替える
         if ctx.triggered_id in ['user-profile-btn', 'close-profile-modal']:
             return not is_open
+        
+        # それ以外（ページの読み込みなど）の場合は、現在の状態を維持する
         return is_open
+    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('profile-username', 'children'),
