@@ -34,10 +34,8 @@ def create_navbar(user_info):
     
     user_menu = dbc.DropdownMenu(
         [
-            # ★★★ 修正点: n_clicks=0 を削除 ★★★
             dbc.DropdownMenuItem("プロフィール", id="user-profile-btn"),
             dbc.DropdownMenuItem(divider=True),
-            # ★★★ 修正点: n_clicks=0 を削除 ★★★
             dbc.DropdownMenuItem("ログアウト", id="logout-button", href="/login"),
         ],
         label=username,
@@ -55,12 +53,14 @@ def create_navbar(user_info):
             dbc.NavItem(dbc.NavLink("ダッシュボード", href="/")),
             dbc.NavItem(dbc.NavLink("過去問管理", href="/past-exam")),
             dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")),
+            # 不具合報告ページへのリンクを追加
+            dbc.NavItem(dbc.NavLink("不具合報告", href="/bug-report")),
             *admin_link,
             user_menu,
         ],
         brand="学習進捗ダッシュボード",
         brand_href="/",
-        color="secondary",
+        color="dark",
         dark=True,
         className="mb-4",
     )

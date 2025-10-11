@@ -783,3 +783,65 @@ def get_students_for_instructor(user_id):
     ''', (user_id,)).fetchall()
     conn.close()
     return [f"{dict(s)['school']} - {dict(s)['name']}" for s in students]
+
+# data/nested_json_processor.py の末尾に追記
+
+def add_bug_report(reporter_username, title, description):
+    """新しい不具合報告をデータベースに追加する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO bug_reports (reporter_username, report_date, title, description)
+            VALUES (?, ?, ?, ?)
+            """,
+            (reporter_username, datetime.now().strftime("%Y-%m-%d %H:%M"), title, description)
+        )
+        conn.commit()
+        return True, "不具合報告が送信されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"報告中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def get_all_bug_reports():
+    """すべての不具合報告を取得する"""
+    conn = get_db_connection()
+    reports = conn.execute(
+        "SELECT * FROM bug_reports ORDER BY report_date DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in reports]
+
+def update_bug_status(bug_id, status):
+    """不具合報告のステータスを更新する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE bug_reports SET status = ? WHERE id = ?",
+            (status, bug_id)
+        )
+        conn.commit()
+        return True, "ステータスが更新されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"ステータス更新中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def resolve_bug(bug_id, resolution_message):
+    """不具合報告を対応済みにし、対応メッセージを保存する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE bug_reports SET status = '対応済', resolution_message = ? WHERE id = ?",
+            (resolution_message, bug_id)
+        )
+        conn.commit()
+        return True, "不具合が対応済みに更新されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"更新中にエラーが発生しました: {e}"
+    finally:
+        conn.close()

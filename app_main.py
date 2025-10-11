@@ -42,6 +42,9 @@ from components.login_components import (
     create_access_denied_layout,
     create_user_profile_modal, create_password_change_modal
 )
+from components.bug_report_layout import create_bug_report_layout
+from components.past_exam_layout import create_past_exam_layout
+from components.howto_layout import create_howto_layout
 from callbacks.main_callbacks import register_main_callbacks
 from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
@@ -49,10 +52,9 @@ from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.homework_callbacks import register_homework_callbacks
 from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
-from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
-from components.past_exam_layout import create_past_exam_layout
-from components.howto_layout import create_howto_layout
+from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
+from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
 from utils.dashboard_pdf import create_dashboard_pdf
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
@@ -219,6 +221,9 @@ def display_page(pathname, auth_store_data):
     
     if pathname == '/howto':
         return create_howto_layout(user_info), navbar
+    
+    if pathname == '/bug-report':
+        return create_bug_report_layout(user_info), navbar
 
     if pathname == '/admin':
         if user_info.get('role') != 'admin':
@@ -334,6 +339,7 @@ register_report_callbacks(app)
 register_homework_callbacks(app)
 register_plan_callbacks(app)
 register_past_exam_callbacks(app)
+register_bug_report_callbacks(app)
 
 # --- ブラウザ自動起動 ---
 def open_browser():

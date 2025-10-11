@@ -1,6 +1,6 @@
 @page {
     size: A4 landscape; /* ページを横向きに設定 */
-    margin: 10mm;
+    margin: 0%;
 }
 
 body {
@@ -8,81 +8,86 @@ body {
     line-height: 1.6;
     color: #333;
 }
+
 .header {
     text-align: center;
-    border-bottom: 2px solid #34495e;
+    border-bottom: 2px solid #eee;
     padding-bottom: 10px;
     margin-bottom: 20px;
 }
+
 .header h1 {
     margin: 0;
-    color: #34495e;
+    color: #333;
+    font-size: 24px;
 }
+
 .student-info {
-    font-size: 0.9em;
+    font-size: 12px;
     color: #555;
     text-align: right;
+    margin-top: -30px;
 }
+
 .container {
     width: 100%;
 }
-.row {
-    display: -weasy-flex;
-    flex-direction: row;
-    width: 100%;
-}
-.col-8 {
-    -weasy-flex: 0 0 66.666667%;
-    max-width: 66.666667%;
-    padding: 10px;
-}
-.col-4 {
-    -weasy-flex: 0 0 33.333333%;
-    max-width: 33.333333%;
-    padding: 10px;
-}
+
 .section {
     margin-bottom: 20px;
-    page-break-inside: avoid;
+    page-break-inside: avoid; /* セクションの途中で改ページされないようにする */
 }
+
 .section h3 {
-    font-size: 1.2em;
-    color: #34495e;
-    border-bottom: 1px solid #bdc3c7;
+    font-size: 16px;
+    color: #333;
+    border-bottom: 1px solid #eee;
     padding-bottom: 5px;
     margin-top: 0;
     margin-bottom: 15px;
 }
+
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85em;
+    font-size: 12px;
 }
-.table th, .table td {
+
+.summary-table th, .summary-table td {
     border: 1px solid #ddd;
     padding: 8px;
-    text-align: left;
+    text-align: center;
+    width: 25%;
 }
-.table th {
-    background-color: #f2f2f2;
+
+.summary-table th {
+    background-color: #f8f9fa;
     font-weight: bold;
 }
+
 .graph-container img {
     max-width: 100%;
     height: auto;
     border: 1px solid #ddd;
     border-radius: 4px;
 }
+
 .subject-charts-container {
     display: -weasy-flex;
     flex-wrap: wrap;
+    width: 100%;
 }
+
 .subject-chart {
     -weasy-flex: 0 0 33.333%;
     max-width: 33.333%;
     padding: 5px;
     box-sizing: border-box;
+    text-align: center;
 }
+
 .subject-chart img {
-    width: 100%;
+    max-width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }

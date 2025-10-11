@@ -3,29 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>学習進捗レポート</title>
-    <style>
-        @page {
-            size: A4 landscape;
-            margin: 10mm;
-        }
-        body { font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; line-height: 1.6; color: #333; }
-        .header { text-align: center; border-bottom: 2px solid #34495e; padding-bottom: 10px; margin-bottom: 20px; }
-        .header h1 { margin: 0; color: #34495e; }
-        .student-info { font-size: 0.9em; color: #555; text-align: right; }
-        .container { width: 100%; }
-        .row { display: -weasy-flex; flex-direction: row; width: 100%; }
-        .col-8 { -weasy-flex: 0 0 66.666667%; max-width: 66.666667%; padding: 10px; }
-        .col-4 { -weasy-flex: 0 0 33.333333%; max-width: 33.333333%; padding: 10px; }
-        .section { margin-bottom: 20px; page-break-inside: avoid; }
-        .section h3 { font-size: 1.2em; color: #34495e; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; margin-top: 0; margin-bottom: 15px; }
-        .table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-        .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .table th { background-color: #f2f2f2; font-weight: bold; }
-        .graph-container img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
-        .subject-charts-container { display: -weasy-flex; flex-wrap: wrap; }
-        .subject-chart { -weasy-flex: 0 0 33.333%; max-width: 33.333%; padding: 5px; box-sizing: border-box; }
-        .subject-chart img { width: 100%; }
-    </style>
 </head>
 <body>
     <div class="header">
@@ -37,28 +14,33 @@
     </div>
 
     <div class="container">
-        <div class="row section">
-            <div class="col-8">
-                <h3>総合学習時間</h3>
-                <div class="graph-container">
-                    {% if all_subjects_chart %}
-                        <img src="data:image/png;base64,{{ all_subjects_chart }}">
-                    {% else %}
-                        <p>グラフデータがありません。</p>
-                    {% endif %}
-                </div>
+        <div class="section">
+            <h3>総合学習時間</h3>
+            <div class="graph-container">
+                {% if all_subjects_chart %}
+                    <img src="data:image/png;base64,{{ all_subjects_chart }}">
+                {% else %}
+                    <p>グラフデータがありません。</p>
+                {% endif %}
             </div>
-            <div class="col-4">
-                <h3>学習サマリー</h3>
-                <table class="table">
-                    <tbody>
-                        <tr><th>達成済時間</th><td>{{ summary_data.achieved_hours }}</td></tr>
-                        <tr><th>予定総時間</th><td>{{ summary_data.planned_hours }}</td></tr>
-                        <tr><th>達成率</th><td>{{ summary_data.achievement_rate }}</td></tr>
-                        <tr><th>完了参考書</th><td>{{ summary_data.completed_books }}</td></tr>
-                    </tbody>
-                </table>
-            </div>
+        </div>
+
+        <div class="section">
+            <h3>学習サマリー</h3>
+            <table class="table summary-table">
+                <tr>
+                    <th>達成済時間</th>
+                    <td>{{ summary_data.achieved_hours }}</td>
+                    <th>予定総時間</th>
+                    <td>{{ summary_data.planned_hours }}</td>
+                </tr>
+                <tr>
+                    <th>達成率</th>
+                    <td>{{ summary_data.achievement_rate }}</td>
+                    <th>完了参考書</th>
+                    <td>{{ summary_data.completed_books }}</td>
+                </tr>
+            </table>
         </div>
 
         <div class="section">
