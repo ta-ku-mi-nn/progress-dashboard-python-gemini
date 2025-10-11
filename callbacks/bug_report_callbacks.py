@@ -96,11 +96,13 @@ def register_bug_report_callbacks(app):
     def toggle_bug_detail_modal(item_clicks, close_clicks, user_info):
         ctx = callback_context
         
+        # 起動条件を厳格化
+        if not ctx.triggered_id or (isinstance(ctx.triggered_id, dict) and not any(item_clicks)):
+            if not (ctx.triggered_id == 'close-bug-detail-modal' and close_clicks):
+                 raise PreventUpdate
+
         # ユーザーが管理者ならこのコールバックは動作しない
         if user_info and user_info.get('role') == 'admin':
-            raise PreventUpdate
-
-        if not ctx.triggered or not any(ctx.triggered_prop_ids.values()):
             raise PreventUpdate
         
         trigger_id = ctx.triggered_id
@@ -139,7 +141,8 @@ def register_bug_report_callbacks(app):
         [Output('bug-admin-modal', 'is_open'),
          Output('editing-bug-id-store', 'data'),
          Output('bug-status-dropdown', 'value'),
-         Output('bug-resolution-message-input', 'value')],
+         Output('bug-resolution-message-input', 'value'),
+         Output('bug-admin-detail-display', 'children')],
         [Input({'type': 'bug-report-item', 'index': ALL}, 'n_clicks'),
          Input('cancel-bug-admin-modal', 'n_clicks')],
         [State('auth-store', 'data')],
@@ -148,26 +151,34 @@ def register_bug_report_callbacks(app):
     def toggle_admin_modal(edit_clicks, cancel_clicks, user_info):
         ctx = callback_context
 
+        # 起動条件を厳格化
+        if not ctx.triggered_id or (isinstance(ctx.triggered_id, dict) and not any(edit_clicks)):
+            if not (ctx.triggered_id == 'cancel-bug-admin-modal' and cancel_clicks):
+                raise PreventUpdate
+
         # ユーザーが管理者でなければこのコールバックは動作しない
         if not user_info or user_info.get('role') != 'admin':
-            raise PreventUpdate
-
-        if not ctx.triggered or not any(ctx.triggered_prop_ids.values()):
             raise PreventUpdate
         
         trigger_id = ctx.triggered_id
         
         if trigger_id == 'cancel-bug-admin-modal':
-            return False, None, no_update, no_update
+            return False, None, no_update, no_update, None
             
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'bug-report-item':
             bug_id = trigger_id['index']
             reports = get_all_bug_reports()
             report = next((r for r in reports if r['id'] == bug_id), None)
             if report:
-                return True, bug_id, report['status'], report.get('resolution_message', '')
+                # 詳細表示コンポーネントを作成
+                details = html.Div([
+                    html.H5(report['title']),
+                    html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"),
+                    dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light")
+                ])
+                return True, bug_id, report['status'], report.get('resolution_message', ''), details
         
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, None
 
     # --- 管理者によるステータス更新 ---
     @app.callback(

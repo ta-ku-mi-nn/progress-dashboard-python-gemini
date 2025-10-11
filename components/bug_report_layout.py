@@ -6,10 +6,8 @@ import dash_bootstrap_components as dbc
 def create_bug_report_layout(user_info):
     """不具合報告ページのレイアウトを生成する"""
     
-    # 権限に応じて表示を切り替えるための変数
     is_admin = user_info.get('role') == 'admin'
 
-    # --- 不具合報告フォーム ---
     report_form = dbc.Card([
         dbc.CardHeader("不具合を報告する"),
         dbc.CardBody([
@@ -20,10 +18,8 @@ def create_bug_report_layout(user_info):
         ])
     ], className="mb-4")
 
-    # --- 不具合一覧表示エリア ---
     report_list = dcc.Loading(html.Div(id="bug-report-list-container"))
 
-    # --- 詳細表示用モーダル ---
     detail_modal = dbc.Modal(
         [
             dbc.ModalHeader(dbc.ModalTitle(id="bug-detail-modal-title")),
@@ -37,13 +33,16 @@ def create_bug_report_layout(user_info):
         size="lg"
     )
     
-    # --- 管理者向け：ステータス更新・対応メッセージ入力モーダル ---
+    # ★★★ ここから修正 ★★★
     admin_modal = dbc.Modal(
         [
             dbc.ModalHeader(dbc.ModalTitle("対応状況を更新")),
             dbc.ModalBody([
                 dbc.Alert(id="bug-admin-alert", is_open=False),
                 dcc.Store(id='editing-bug-id-store'),
+                # 不具合詳細を表示するエリアを追加
+                html.Div(id='bug-admin-detail-display'),
+                html.Hr(),
                 dbc.Label("ステータス"),
                 dcc.Dropdown(
                     id='bug-status-dropdown',
@@ -64,7 +63,8 @@ def create_bug_report_layout(user_info):
         ],
         id="bug-admin-modal",
         is_open=False,
-    ) if is_admin else html.Div() # 管理者でなければ表示しない
+    ) if is_admin else html.Div()
+    # ★★★ ここまで修正 ★★★
 
     return dbc.Container([
         html.H1("不具合報告", className="my-4"),
