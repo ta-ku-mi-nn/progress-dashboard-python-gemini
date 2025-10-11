@@ -82,17 +82,24 @@ def register_bug_report_callbacks(app):
         ]
         return dbc.ListGroup(items, flush=True)
 
-    # --- 詳細モーダルの表示 ---
+    # ★★★ ここから修正 ★★★
+    # --- 詳細モーダル（一般ユーザー向け）の表示 ---
     @app.callback(
         [Output('bug-detail-modal', 'is_open'),
          Output('bug-detail-modal-title', 'children'),
          Output('bug-detail-modal-body', 'children')],
         [Input({'type': 'bug-report-item', 'index': ALL}, 'n_clicks'),
          Input('close-bug-detail-modal', 'n_clicks')],
+        [State('auth-store', 'data')],
         prevent_initial_call=True
     )
-    def toggle_bug_detail_modal(item_clicks, close_clicks):
+    def toggle_bug_detail_modal(item_clicks, close_clicks, user_info):
         ctx = callback_context
+        
+        # ユーザーが管理者ならこのコールバックは動作しない
+        if user_info and user_info.get('role') == 'admin':
+            raise PreventUpdate
+
         if not ctx.triggered or not any(ctx.triggered_prop_ids.values()):
             raise PreventUpdate
         
@@ -127,18 +134,24 @@ def register_bug_report_callbacks(app):
         
         return no_update, no_update, no_update
 
-    # --- 管理者向けモーダルの表示 ---
+    # --- 管理者向け編集モーダルの表示 ---
     @app.callback(
         [Output('bug-admin-modal', 'is_open'),
          Output('editing-bug-id-store', 'data'),
          Output('bug-status-dropdown', 'value'),
          Output('bug-resolution-message-input', 'value')],
-        [Input({'type': 'admin-edit-bug-btn', 'index': ALL}, 'n_clicks'),
+        [Input({'type': 'bug-report-item', 'index': ALL}, 'n_clicks'),
          Input('cancel-bug-admin-modal', 'n_clicks')],
+        [State('auth-store', 'data')],
         prevent_initial_call=True
     )
-    def toggle_admin_modal(edit_clicks, cancel_clicks):
+    def toggle_admin_modal(edit_clicks, cancel_clicks, user_info):
         ctx = callback_context
+
+        # ユーザーが管理者でなければこのコールバックは動作しない
+        if not user_info or user_info.get('role') != 'admin':
+            raise PreventUpdate
+
         if not ctx.triggered or not any(ctx.triggered_prop_ids.values()):
             raise PreventUpdate
         
@@ -147,7 +160,7 @@ def register_bug_report_callbacks(app):
         if trigger_id == 'cancel-bug-admin-modal':
             return False, None, no_update, no_update
             
-        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'admin-edit-bug-btn':
+        if isinstance(trigger_id, dict) and trigger_id.get('type') == 'bug-report-item':
             bug_id = trigger_id['index']
             reports = get_all_bug_reports()
             report = next((r for r in reports if r['id'] == bug_id), None)
@@ -182,3 +195,4 @@ def register_bug_report_callbacks(app):
             return "", False, toast_data, False
         else:
             return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update
+    # ★★★ ここまで修正 ★★★
