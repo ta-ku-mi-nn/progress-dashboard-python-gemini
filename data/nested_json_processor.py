@@ -845,3 +845,12 @@ def resolve_bug(bug_id, resolution_message):
         return False, f"更新中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def get_all_changelog_entries():
+    """すべての更新履歴を取得する"""
+    conn = get_db_connection()
+    entries = conn.execute(
+        "SELECT * FROM changelog ORDER BY release_date DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in entries]

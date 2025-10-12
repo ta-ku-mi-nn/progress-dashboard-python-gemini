@@ -45,6 +45,7 @@ from components.login_components import (
 from components.bug_report_layout import create_bug_report_layout
 from components.past_exam_layout import create_past_exam_layout
 from components.howto_layout import create_howto_layout
+from components.changelog_layout import create_changelog_layout
 from callbacks.main_callbacks import register_main_callbacks
 from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
@@ -224,6 +225,9 @@ def display_page(pathname, auth_store_data):
     
     if pathname == '/bug-report':
         return create_bug_report_layout(user_info), navbar
+    
+    if pathname == '/changelog':
+        return create_changelog_layout(), navbar
 
     if pathname == '/admin':
         if user_info.get('role') != 'admin':
