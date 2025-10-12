@@ -112,7 +112,9 @@ app.layout = html.Div([
     ),
     create_user_profile_modal(),
     create_password_change_modal(),
-    dcc.Download(id="download-pdf-report")
+    dcc.Download(id="download-pdf-report"),
+    # ★★★ ここにバックアップ用のDownloadコンポーネントを移動 ★★★
+    dcc.Download(id="download-backup")
 ])
 
 # --- ヘルパー関数 ---
@@ -173,7 +175,6 @@ def serve_pdf_report(student_id):
         fig_all = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
         if fig_all:
             try:
-                # ★★★ グラフ画像生成に失敗しても処理が止まらないように修正 ★★★
                 fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
                 all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
             except Exception as e:
@@ -183,7 +184,6 @@ def serve_pdf_report(student_id):
             fig_subject = create_subject_achievement_bar(df_all, subject)
             if fig_subject:
                 try:
-                    # ★★★ グラフ画像生成に失敗しても処理が止まらないように修正 ★★★
                     fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
                     subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
                 except Exception as e:
@@ -282,6 +282,13 @@ def display_page(pathname, auth_store_data):
                         html.P("アプリケーションの更新履歴を追加します。", className="mb-1 small text-muted"),
                     ], className="d-flex w-100 justify-content-between"),
                     dbc.Button("更新履歴を追加", id="add-changelog-btn", color="info")
+                ]),
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("💾 データバックアップ", className="mb-1"),
+                        html.P("データベースの全データをJSONファイルとしてダウンロードします。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    dbc.Button("バックアップを実行", id="backup-btn", color="primary")
                 ]),
             ]),
             html.Div(id="admin-statistics", className="mt-4"),

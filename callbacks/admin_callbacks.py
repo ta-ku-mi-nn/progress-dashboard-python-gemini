@@ -123,24 +123,27 @@ def register_admin_callbacks(app):
         
         return no_update, no_update, no_update, no_update, no_update
 
-    @app.callback(Output('download-backup', 'data'),Input('backup-btn', 'n_clicks'),prevent_initial_call=True)
+    # ★★★ ここから修正 ★★★
+    @app.callback(
+        Output('download-backup', 'data'),
+        Input('backup-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )
     def download_backup(n_clicks):
-        if not n_clicks: return no_update
+        if not n_clicks:
+            return no_update
         try:
-            conn = sqlite3.connect(DATABASE_FILE)
-            tables = ["users", "students", "progress", "homework", "master_textbooks", "bulk_presets", "bulk_preset_books", "student_instructors"]
-            backup_data = {"export_date": datetime.datetime.now().isoformat()}
-            for table in tables:
-                df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-                if table == 'users' and 'password' in df.columns: df = df.drop(columns=['password'])
-                backup_data[table] = df.to_dict(orient='records')
-            conn.close()
-            backup_content = json.dumps(backup_data, indent=2, ensure_ascii=False)
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            return dict(content=backup_content, filename=f"dashboard_backup_{timestamp}.json")
+            
+            # データベースファイルを直接読み込んでダウンロードさせる
+            return dcc.send_file(
+                DATABASE_FILE,
+                filename=f"dashboard_backup_{timestamp}.db"
+            )
         except Exception as e:
             print(f"バックアップ作成中にエラーが発生しました: {e}")
             return no_update
+    # ★★★ ここまで修正 ★★★
 
     @app.callback(Output('master-textbook-modal', 'is_open'),[Input('open-master-textbook-modal-btn', 'n_clicks'),Input('close-master-textbook-modal', 'n_clicks')],State('master-textbook-modal', 'is_open'),prevent_initial_call=True)
     def toggle_master_textbook_modal(open_clicks, close_clicks, is_open):
@@ -410,7 +413,6 @@ def register_admin_callbacks(app):
             return not is_open
         return no_update
 
-    # ★★★ 修正点: 削除処理を削除し、リストの更新のみに専念 ★★★
     @app.callback(
         [Output('bulk-preset-list-container', 'children')],
         [Input('bulk-preset-management-modal', 'is_open'),
@@ -657,8 +659,6 @@ def register_admin_callbacks(app):
         else:
             return dbc.Alert(message, color="danger"), True, no_update, True, no_update
 
-    # --- ★★★ ここから修正 (削除関連のコールバック) ★★★ ---
-    # ユーザー削除の確認ダイアログを表示
     @app.callback(
         [Output('delete-user-confirm', 'displayed'),
          Output('item-to-delete-store', 'data', allow_duplicate=True)],
@@ -672,7 +672,6 @@ def register_admin_callbacks(app):
         user_id = ctx.triggered_id['index']
         return True, {'type': 'user', 'id': user_id}
 
-    # ユーザー削除の実行
     @app.callback(
         [Output('admin-update-trigger', 'data', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
@@ -688,7 +687,6 @@ def register_admin_callbacks(app):
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
 
-    # 生徒削除の確認ダイアログを表示
     @app.callback(
         [Output('delete-student-confirm', 'displayed'),
          Output('item-to-delete-store', 'data', allow_duplicate=True)],
@@ -702,7 +700,6 @@ def register_admin_callbacks(app):
         student_id = ctx.triggered_id['index']
         return True, {'type': 'student', 'id': student_id}
 
-    # 生徒削除の実行
     @app.callback(
         [Output('admin-update-trigger', 'data', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
@@ -718,7 +715,6 @@ def register_admin_callbacks(app):
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
 
-    # 参考書削除の確認ダイアログを表示
     @app.callback(
         [Output('delete-textbook-confirm', 'displayed'),
          Output('item-to-delete-store', 'data', allow_duplicate=True)],
@@ -732,7 +728,6 @@ def register_admin_callbacks(app):
         book_id = ctx.triggered_id['index']
         return True, {'type': 'textbook', 'id': book_id}
 
-    # 参考書削除の実行
     @app.callback(
         [Output('admin-update-trigger', 'data', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
@@ -748,7 +743,6 @@ def register_admin_callbacks(app):
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
 
-    # プリセット削除の確認ダイアログを表示
     @app.callback(
         [Output('delete-preset-confirm', 'displayed'),
          Output('item-to-delete-store', 'data', allow_duplicate=True)],
@@ -762,7 +756,6 @@ def register_admin_callbacks(app):
         preset_id = ctx.triggered_id['index']
         return True, {'type': 'preset', 'id': preset_id}
 
-    # プリセット削除の実行
     @app.callback(
         [Output('admin-update-trigger', 'data', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
@@ -777,7 +770,6 @@ def register_admin_callbacks(app):
         success, message = delete_preset(preset_id)
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
-    # --- ★★★ ここまで修正 ★★★ ---
 
     @app.callback(
         Output('add-changelog-modal', 'is_open'),
@@ -794,13 +786,11 @@ def register_admin_callbacks(app):
 
         trigger_id = ctx.triggered_id
 
-        # トーストが更新履歴の保存によってトリガーされた場合のみモーダルを閉じる
         if trigger_id == 'toast-trigger':
             if toast_data and toast_data.get('source') == 'changelog_save':
                 return False
             return no_update
 
-        # 開くボタンまたはキャンセルボタンが押された場合、モーダルの表示状態を反転させる
         if trigger_id in ['add-changelog-btn', 'cancel-changelog-btn']:
             return not is_open
 
@@ -826,7 +816,6 @@ def register_admin_callbacks(app):
         success, message = add_changelog_entry(version, title, description)
 
         if success:
-            # 他のコールバックと区別するために 'source' を追加
             toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message, 'source': 'changelog_save'}
             return "", False, toast_data
         else:
