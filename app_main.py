@@ -58,7 +58,8 @@ from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
 from utils.dashboard_pdf import create_dashboard_pdf
-from charts.generator import create_progress_bar_graph, create_completion_trend_chart, create_daily_progress_chart, create_textbook_progress_chart, create_subject_pie_charts
+# 修正: generator.pyからインポート
+from charts.generator import create_progress_bar_graph, create_textbook_progress_chart
 
 
 # --- アプリケーションの初期化 ---
@@ -168,7 +169,7 @@ def serve_pdf_report(student_id):
             }
 
             fig_all = create_progress_bar_graph(df_all, '全科目の合計学習時間')
-            if fig_all and fig_all.data:
+            if fig_all and fig_all.data: # データがあるか確認
                 try:
                     fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
                     all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
@@ -177,7 +178,7 @@ def serve_pdf_report(student_id):
 
             for subject in sorted(df_all['subject'].unique()):
                 fig_subject = create_textbook_progress_chart(df_all[df_all['subject'] == subject])
-                if fig_subject and fig_subject.data:
+                if fig_subject and fig_subject.data: # データがあるか確認
                     try:
                         fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
                         subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
@@ -193,6 +194,7 @@ def serve_pdf_report(student_id):
     )
     
     return Response(pdf_bytes, mimetype='application/pdf', headers={"Content-disposition": "attachment; filename=dashboard.pdf"})
+
 
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(

@@ -34,10 +34,11 @@ def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base
     
     try:
         css = weasyprint.CSS(css_path)
+        # base_urlを追加して相対パスを解決
         pdf_bytes = weasyprint.HTML(string=html_content, base_url=os.path.dirname(os.path.abspath(__file__))).write_pdf(stylesheets=[css])
     except Exception as e:
         print(f"PDF生成中にエラーが発生しました: {e}")
-        # エラーが発生した場合、HTMLコンテンツをそのまま返す
+        # デバッグしやすいようにエラーメッセージをPDFに含める
         return f"<h1>PDF Generation Error</h1><p>{e}</p>".encode('utf-8')
         
     return pdf_bytes
