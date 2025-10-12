@@ -58,7 +58,7 @@ from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
 from utils.dashboard_pdf import create_dashboard_pdf
-from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
+from charts.generator import create_progress_bar_graph, create_completion_trend_chart, create_daily_progress_chart, create_textbook_progress_chart, create_subject_pie_charts
 
 
 # --- アプリケーションの初期化 ---
@@ -116,7 +116,6 @@ app.layout = html.Div([
 def get_current_user_from_store(auth_store_data):
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
 
-# --- ★★★ ここから修正 ★★★ ---
 @app.server.route('/report/pdf/<int:student_id>')
 def serve_pdf_report(student_id):
     """
@@ -152,37 +151,38 @@ def serve_pdf_report(student_id):
         df_all = pd.DataFrame(all_records)
         df_planned = df_all[df_all['is_planned']].copy()
         
-        df_planned['achieved_duration'] = df_planned.apply(
-            lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
-            axis=1
-        )
-        planned_hours = df_planned['duration'].sum()
-        achieved_hours = df_planned['achieved_duration'].sum()
-        achievement_rate = (achieved_hours / planned_hours * 100) if planned_hours > 0 else 0
-        completed_books = df_planned[df_planned['is_done']].shape[0]
-        summary_data = {
-            "achieved_hours": f"{achieved_hours:.1f} h",
-            "planned_hours": f"{planned_hours:.1f} h",
-            "achievement_rate": f"{achievement_rate:.1f} %",
-            "completed_books": f"{completed_books} 冊",
-        }
+        if not df_planned.empty:
+            df_planned['achieved_duration'] = df_planned.apply(
+                lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
+                axis=1
+            )
+            planned_hours = df_planned['duration'].sum()
+            achieved_hours = df_planned['achieved_duration'].sum()
+            achievement_rate = (achieved_hours / planned_hours * 100) if planned_hours > 0 else 0
+            completed_books = df_planned[df_planned['is_done']].shape[0]
+            summary_data = {
+                "achieved_hours": f"{achieved_hours:.1f} h",
+                "planned_hours": f"{planned_hours:.1f} h",
+                "achievement_rate": f"{achievement_rate:.1f} %",
+                "completed_books": f"{completed_books} 冊",
+            }
 
-        fig_all = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
-        if fig_all:
-            try:
-                fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
-                all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
-            except Exception as e:
-                print(f"Error generating all subjects graph image: {e}")
-
-        for subject in sorted(df_all['subject'].unique()):
-            fig_subject = create_subject_achievement_bar(df_all, subject)
-            if fig_subject:
+            fig_all = create_progress_bar_graph(df_all, '全科目の合計学習時間')
+            if fig_all and fig_all.data:
                 try:
-                    fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
-                    subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
+                    fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
+                    all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
                 except Exception as e:
-                    print(f"Error generating graph image for {subject}: {e}")
+                    print(f"Error generating all subjects graph image: {e}")
+
+            for subject in sorted(df_all['subject'].unique()):
+                fig_subject = create_textbook_progress_chart(df_all[df_all['subject'] == subject])
+                if fig_subject and fig_subject.data:
+                    try:
+                        fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
+                        subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
+                    except Exception as e:
+                        print(f"Error generating graph image for {subject}: {e}")
 
     pdf_bytes = create_dashboard_pdf(
         student_info, 
@@ -192,9 +192,7 @@ def serve_pdf_report(student_id):
         summary_data
     )
     
-    return Response(pdf_bytes, mimetype='application/pdf')
-# --- ★★★ ここまで修正 ★★★ ---
-
+    return Response(pdf_bytes, mimetype='application/pdf', headers={"Content-disposition": "attachment; filename=dashboard.pdf"})
 
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(
@@ -234,7 +232,6 @@ def display_page(pathname, auth_store_data):
         if user_info.get('role') != 'admin':
             return create_access_denied_layout(), navbar
 
-        # ★★★ 修正点: プリセット削除確認ダイアログを追加 ★★★
         page_content = dbc.Container([
             html.H1("🔧 管理者メニュー", className="mt-4 mb-4"),
             dcc.ConfirmDialog(id='delete-user-confirm', message='本当にこのユーザーを削除しますか？'),
