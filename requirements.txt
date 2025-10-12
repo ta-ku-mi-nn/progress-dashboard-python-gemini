@@ -2,8 +2,10 @@
 dash
 dash-bootstrap-components
 pandas
-gunicorn  #
+gunicorn
 plotly
+plotly-express
 weasyprint
 kaleido
 werkzeug
+Jinja2
