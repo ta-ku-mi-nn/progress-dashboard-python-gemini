@@ -9,11 +9,16 @@ body {
     color: #333;
 }
 
-.header {
-    text-align: center;
-    border-bottom: 2px solid #eee;
+.header-container {
+    display: flex;
+    flex-direction: row;
+    border-bottom: #eee solid 1px;
     padding-bottom: 10px;
-    margin-bottom: 20px;
+}
+
+.header {
+    flex: 1;
+    text-align: left;
 }
 
 .header h1 {
@@ -23,27 +28,40 @@ body {
 }
 
 .student-info {
+    flex: 1;
     font-size: 12px;
     color: #555;
     text-align: right;
-    margin-top: -30px;
+    margin-top: 0px;
 }
 
-.container {
+.graph-area{
+    display: flex;
+}
+
+.right-container {
+    flex: 2;
     width: 100%;
+    margin-right: 10px;
 }
 
-.section {
+.left-container {
+    flex: 1;
+    width: 100%;
+    margin-left: 10px;
+}
+
+.section1 {
     margin-bottom: 20px;
     page-break-inside: avoid; /* セクションの途中で改ページされないようにする */
 }
 
-.section h3 {
+.section1 h3 {
     font-size: 16px;
     color: #333;
     border-bottom: 1px solid #eee;
     padding-bottom: 5px;
-    margin-top: 0;
+    margin-top: 15px;
     margin-bottom: 15px;
 }
 
@@ -68,19 +86,19 @@ body {
 .graph-container img {
     max-width: 100%;
     height: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
 }
 
 .subject-charts-container {
+    display: flex; /* この行を追加 */
     display: -weasy-flex;
     flex-wrap: wrap;
     width: 100%;
 }
 
 .subject-chart {
-    -weasy-flex: 0 0 33.333%;
-    max-width: 33.333%;
+    -weasy-flex: 0 0 50%; /* 50%に変更 */
+    flex: 0 0 50%;       /* 50%に変更 */
+    max-width: 50%;      /* 50%に変更 */
     padding: 5px;
     box-sizing: border-box;
     text-align: center;
@@ -88,6 +106,4 @@ body {
 
 .subject-chart img {
     max-width: 100%;
-    border: 1px solid #ddd;
-    border-radius: 4px;
 }
