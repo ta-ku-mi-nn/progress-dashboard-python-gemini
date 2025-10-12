@@ -17,7 +17,8 @@ from data.nested_json_processor import (
     update_master_textbook, delete_master_textbook, get_all_subjects,
     get_all_students_with_details, add_student, update_student, delete_student,
     get_all_instructors_for_school,
-    get_all_presets_with_books, add_preset, update_preset, delete_preset
+    get_all_presets_with_books, add_preset, update_preset, delete_preset,
+    add_changelog_entry
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -777,3 +778,56 @@ def register_admin_callbacks(app):
         toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message}
         return datetime.datetime.now().isoformat(), toast_data
     # --- ★★★ ここまで修正 ★★★ ---
+
+    @app.callback(
+        Output('add-changelog-modal', 'is_open'),
+        [Input('add-changelog-btn', 'n_clicks'),
+         Input('cancel-changelog-btn', 'n_clicks'),
+         Input('toast-trigger', 'data')],
+        State('add-changelog-modal', 'is_open'),
+        prevent_initial_call=True
+    )
+    def toggle_changelog_modal(open_clicks, cancel_clicks, toast_data, is_open):
+        ctx = callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+
+        trigger_id = ctx.triggered_id
+
+        # トーストが更新履歴の保存によってトリガーされた場合のみモーダルを閉じる
+        if trigger_id == 'toast-trigger':
+            if toast_data and toast_data.get('source') == 'changelog_save':
+                return False
+            return no_update
+
+        # 開くボタンまたはキャンセルボタンが押された場合、モーダルの表示状態を反転させる
+        if trigger_id in ['add-changelog-btn', 'cancel-changelog-btn']:
+            return not is_open
+
+        return no_update
+
+    @app.callback(
+        [Output('changelog-modal-alert', 'children'),
+         Output('changelog-modal-alert', 'is_open'),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('save-changelog-btn', 'n_clicks'),
+        [State('changelog-version-input', 'value'),
+         State('changelog-title-input', 'value'),
+         State('changelog-description-input', 'value')],
+        prevent_initial_call=True
+    )
+    def save_changelog_entry(n_clicks, version, title, description):
+        if not n_clicks:
+            raise PreventUpdate
+        
+        if not all([version, title, description]):
+            return dbc.Alert("すべての項目を入力してください。", color="warning"), True, no_update
+
+        success, message = add_changelog_entry(version, title, description)
+
+        if success:
+            # 他のコールバックと区別するために 'source' を追加
+            toast_data = {'timestamp': datetime.datetime.now().isoformat(), 'message': message, 'source': 'changelog_save'}
+            return "", False, toast_data
+        else:
+            return dbc.Alert(message, color="danger"), True, no_update
