@@ -28,14 +28,21 @@ def create_login_layout():
             html.Ul([
                 html.Li(html.B("管理者:")),
                 html.Ul([
-                    html.Li("ユーザー名: admin"),
-                    html.Li("パスワード: admin"),
+                    html.Li("ユーザー名: tokyo_admin"),
+                    html.Li("ユーザー名: osaka_admin"),
+                    html.Li("ユーザー名: nagoya_admin"),
                 ]),
+                html.B("パスワード: admin", className="text-danger"),
                 html.Li(html.B("一般ユーザー:")),
                 html.Ul([
                     html.Li("ユーザー名: tokyo_user1"),
-                    html.Li("パスワード: user"),
+                    html.Li("ユーザー名: tokyo_user2"),
+                    html.Li("ユーザー名: osaka_user1"),
+                    html.Li("ユーザー名: osaka_user2"),
+                    html.Li("ユーザー名: nagoya_user1"),
+                    html.Li("ユーザー名: nagoya_user2"),
                 ]),
+                html.B("パスワード: user", className="text-danger"),
             ])
         ])
     ])
