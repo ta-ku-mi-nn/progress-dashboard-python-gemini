@@ -854,3 +854,22 @@ def get_all_changelog_entries():
     ).fetchall()
     conn.close()
     return [dict(row) for row in entries]
+
+def add_changelog_entry(version, title, description):
+    """新しい更新履歴をデータベースに追加する"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO changelog (version, release_date, title, description)
+            VALUES (?, ?, ?, ?)
+            """,
+            (version, datetime.now().strftime("%Y-%m-%d"), title, description)
+        )
+        conn.commit()
+        return True, "更新履歴が追加されました。"
+    except sqlite3.Error as e:
+        conn.rollback()
+        return False, f"登録中にエラーが発生しました: {e}"
+    finally:
+        conn.close()

@@ -34,7 +34,8 @@ from components.admin_components import (
     create_master_textbook_modal, create_textbook_edit_modal,
     create_student_edit_modal, create_student_management_modal,
     create_bulk_preset_management_modal, create_bulk_preset_edit_modal,
-    create_user_edit_modal
+    create_user_edit_modal,
+    create_add_changelog_modal
 )
 from components.modals import create_user_list_modal, create_new_user_modal
 from components.login_components import (
@@ -272,6 +273,13 @@ def display_page(pathname, auth_store_data):
                     ], className="d-flex w-100 justify-content-between"),
                     dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary")
                 ]),
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.H5("📢 更新履歴の管理", className="mb-1"),
+                        html.P("アプリケーションの更新履歴を追加します。", className="mb-1 small text-muted"),
+                    ], className="d-flex w-100 justify-content-between"),
+                    dbc.Button("更新履歴を追加", id="add-changelog-btn", color="info")
+                ]),
             ]),
             html.Div(id="admin-statistics", className="mt-4"),
             create_master_textbook_modal(), create_textbook_edit_modal(),
@@ -279,7 +287,8 @@ def display_page(pathname, auth_store_data):
             create_bulk_preset_management_modal(), create_bulk_preset_edit_modal(),
             create_user_list_modal(),
             create_new_user_modal(),
-            create_user_edit_modal()
+            create_user_edit_modal(),
+            create_add_changelog_modal()
         ])
         return page_content, navbar
     

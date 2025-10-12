@@ -248,3 +248,32 @@ def create_user_edit_modal():
             ]),
         ],
     )
+
+def create_add_changelog_modal():
+    """更新履歴追加用のモーダルを生成する"""
+    return dbc.Modal(
+        id="add-changelog-modal",
+        is_open=False,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("更新履歴を追加")),
+            dbc.ModalBody([
+                dbc.Alert(id="changelog-modal-alert", is_open=False),
+                dbc.Row([
+                    dbc.Label("バージョン", width=3),
+                    dbc.Col(dbc.Input(id="changelog-version-input", placeholder="例: 1.2.0"), width=9),
+                ], className="mb-3"),
+                dbc.Row([
+                    dbc.Label("タイトル", width=3),
+                    dbc.Col(dbc.Input(id="changelog-title-input", placeholder="変更点の概要"), width=9),
+                ], className="mb-3"),
+                dbc.Row([
+                    dbc.Label("詳細", width=3),
+                    dbc.Col(dbc.Textarea(id="changelog-description-input", rows=4), width=9),
+                ]),
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("保存", id="save-changelog-btn", color="primary"),
+                dbc.Button("キャンセル", id="cancel-changelog-btn", className="ms-auto"),
+            ]),
+        ],
+    )
