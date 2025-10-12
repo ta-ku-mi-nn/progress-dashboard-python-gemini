@@ -4,7 +4,8 @@ import sqlite3
 import os
 import uuid
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta # この行を修正
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # RenderのDiskマウントパス（/var/data）が存在すればそちらを使用

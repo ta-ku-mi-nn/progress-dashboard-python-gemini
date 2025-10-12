@@ -2,6 +2,7 @@
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
+import datetime # この行を追加
 
 # (前半の関数は変更なし)
 def create_master_textbook_modal():
