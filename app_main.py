@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
-from data.nested_json_processor import get_all_subjects, get_student_info_by_id, get_student_progress_by_id
+from data.nested_json_processor import get_all_subjects, get_student_info_by_id, get_student_progress_by_id, get_all_homework_for_student
 from components.main_layout import create_main_layout, create_navbar
 from components.homework_layout import create_homework_layout
 from components.modals import create_all_modals
@@ -132,6 +132,8 @@ def serve_pdf_report(student_id):
 
     student_info = get_student_info_by_id(student_id)
     progress_data = get_student_progress_by_id(student_id)
+    student_homework = get_all_homework_for_student(student_id)
+
 
     if not student_info or not progress_data:
         return "Could not find student data for the report.", 404
@@ -190,12 +192,14 @@ def serve_pdf_report(student_id):
                     print(f"Error generating graph image for {subject}: {e}")
 
     pdf_bytes = create_dashboard_pdf(
-        student_info, 
-        progress_data, 
-        all_subjects_chart_base64,
-        subject_charts_base64,
-        summary_data
-    )
+                    student_info,
+                    progress_data,
+                    student_homework,
+                    all_subjects_chart_base64,
+                    subject_charts_base64,
+                    summary_data
+                )
+
     
     return Response(pdf_bytes, mimetype='application/pdf')
 

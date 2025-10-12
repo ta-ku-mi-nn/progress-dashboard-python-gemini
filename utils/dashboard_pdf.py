@@ -10,7 +10,7 @@ try:
 except ImportError:
     weasyprint = None
 
-def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base64, subject_charts_base64, summary_data):
+def create_dashboard_pdf(student_info, student_progress, student_homework, all_subjects_chart_base64, subject_charts_base64, summary_data):
     """
     生徒情報、進捗データ、各種グラフ画像、サマリーデータを受け取り、PDFのバイナリデータを生成して返す。
     """
@@ -23,7 +23,7 @@ def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base
     html_content = render_dashboard_to_html(
         student_info=student_info,
         student_progress=student_progress,
-        student_homework=[], # 宿題データは現在含めない
+        student_homework=student_homework,
         student_name=student_info.get("name", "不明な生徒"),
         all_subjects_chart_base64=all_subjects_chart_base64,
         subject_charts_base64=subject_charts_base64,
@@ -61,8 +61,8 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
 
     if student_homework:
         homework_df = pd.DataFrame(student_homework)
-        homework_df = homework_df[['subject', 'task', 'due_date', 'status']]
-        homework_df.columns = ['科目', '課題内容', '提出期限', 'ステータス']
+        homework_df = homework_df[['subject', 'task', 'task_date', 'status']]
+        homework_df.columns = ['科目', '課題内容', '日付', 'ステータス']
         homework_table_html = homework_df.to_html(index=False, classes='table table-striped table-sm')
     else:
         homework_table_html = "<p>登録されている宿題はありません。</p>"
