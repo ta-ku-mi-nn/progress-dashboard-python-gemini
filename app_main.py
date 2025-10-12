@@ -252,14 +252,14 @@ def display_page(pathname, auth_store_data):
                         html.H5("🧑‍🎓 生徒管理", className="mb-1"),
                         html.P("生徒情報の登録、編集、削除を行います。", className="mb-1 small text-muted"),
                     ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="info")
+                    dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="warning")
                 ]),
                 dbc.ListGroupItem([
                     html.Div([
                         html.H5("📚 参考書マスター管理", className="mb-1"),
                         html.P("学習計画で使用する参考書のマスターデータを管理します。", className="mb-1 small text-muted"),
                     ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="primary")
+                    dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="dark")
                 ]),
                 dbc.ListGroupItem([
                     html.Div([
