@@ -19,6 +19,9 @@ from flask import Response
 import base64
 import plotly.io as pio
 
+# --- グラフ描画の安定化のため、デフォルトテンプレートを設定 ---
+pio.templates.default = "plotly_white"
+
 # --- プロジェクトのルートディレクトリをPythonのパスに追加 ---
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -116,7 +119,7 @@ app.layout = html.Div([
 def get_current_user_from_store(auth_store_data):
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
 
-# --- ★★★ ここから修正 ★★★ ---
+# --- PDF Report Generation Route ---
 @app.server.route('/report/pdf/<int:student_id>')
 def serve_pdf_report(student_id):
     """
@@ -170,6 +173,7 @@ def serve_pdf_report(student_id):
         fig_all = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
         if fig_all:
             try:
+                # ★★★ グラフ画像生成に失敗しても処理が止まらないように修正 ★★★
                 fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
                 all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
             except Exception as e:
@@ -179,6 +183,7 @@ def serve_pdf_report(student_id):
             fig_subject = create_subject_achievement_bar(df_all, subject)
             if fig_subject:
                 try:
+                    # ★★★ グラフ画像生成に失敗しても処理が止まらないように修正 ★★★
                     fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
                     subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
                 except Exception as e:
@@ -193,7 +198,6 @@ def serve_pdf_report(student_id):
     )
     
     return Response(pdf_bytes, mimetype='application/pdf')
-# --- ★★★ ここまで修正 ★★★ ---
 
 
 # --- ページ表示コールバック（ルーティング） ---
@@ -234,7 +238,6 @@ def display_page(pathname, auth_store_data):
         if user_info.get('role') != 'admin':
             return create_access_denied_layout(), navbar
 
-        # ★★★ 修正点: プリセット削除確認ダイアログを追加 ★★★
         page_content = dbc.Container([
             html.H1("🔧 管理者メニュー", className="mt-4 mb-4"),
             dcc.ConfirmDialog(id='delete-user-confirm', message='本当にこのユーザーを削除しますか？'),

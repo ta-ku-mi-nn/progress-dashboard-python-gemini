@@ -10,7 +10,6 @@ try:
 except ImportError:
     weasyprint = None
 
-# --- ★★★ ここから修正 ★★★ ---
 def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base64, subject_charts_base64, summary_data):
     """
     生徒情報、進捗データ、各種グラフ画像、サマリーデータを受け取り、PDFのバイナリデータを生成して返す。
@@ -30,20 +29,22 @@ def create_dashboard_pdf(student_info, student_progress, all_subjects_chart_base
         subject_charts_base64=subject_charts_base64,
         summary_data=summary_data
     )
-# --- ★★★ ここまで修正 ★★★ ---
 
-    css_path = os.path.join(os.path.dirname(__file__), 'pdf_template.css')
+    # このファイルの場所を基準（base_url）としてCSSファイルを探すように修正
+    base_url = os.path.dirname(os.path.abspath(__file__))
+    css_path = os.path.join(base_url, 'pdf_template.css')
+    
+    html_obj = weasyprint.HTML(string=html_content, base_url=base_url)
     
     if os.path.exists(css_path):
         css = weasyprint.CSS(css_path)
-        pdf_bytes = weasyprint.HTML(string=html_content).write_pdf(stylesheets=[css])
+        pdf_bytes = html_obj.write_pdf(stylesheets=[css])
     else:
         print(f"警告: CSSファイルが見つかりません: {css_path}")
-        pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
+        pdf_bytes = html_obj.write_pdf()
         
     return pdf_bytes
 
-# --- ★★★ ここから修正 ★★★ ---
 def render_dashboard_to_html(student_info, student_progress, student_homework, student_name, all_subjects_chart_base64, subject_charts_base64, summary_data):
     """
     生徒の各種データからPDFの元となるHTML文字列を生成します。
@@ -57,7 +58,6 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
         return "<h1>エラー: PDFテンプレートファイルが見つかりません。</h1>"
 
     template = Template(template_str)
-# --- ★★★ ここまで修正 ★★★ ---
 
     if student_homework:
         homework_df = pd.DataFrame(student_homework)
@@ -91,7 +91,6 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
     sub_instructors = student_info.get('sub_instructors', [])
     sub_instructor_str = ", ".join(sub_instructors) if sub_instructors else 'なし'
 
-    # --- ★★★ ここから修正 ★★★ ---
     context = {
         "student_name": student_name,
         "main_instructor": main_instructor_str,
@@ -103,6 +102,5 @@ def render_dashboard_to_html(student_info, student_progress, student_homework, s
         "subject_charts": subject_charts_base64,
         "summary_data": summary_data
     }
-    # --- ★★★ ここまで修正 ★★★ ---
 
     return template.render(context)

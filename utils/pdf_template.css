@@ -89,16 +89,14 @@ body {
 }
 
 .subject-charts-container {
-    display: flex; /* この行を追加 */
-    display: -weasy-flex;
+    display: flex; /* 修正 */
     flex-wrap: wrap;
     width: 100%;
 }
 
 .subject-chart {
-    -weasy-flex: 0 0 50%; /* 50%に変更 */
-    flex: 0 0 50%;       /* 50%に変更 */
-    max-width: 50%;      /* 50%に変更 */
+    flex: 0 0 50%;       /* 修正 */
+    max-width: 50%;      /* 修正 */
     padding: 5px;
     box-sizing: border-box;
     text-align: center;
