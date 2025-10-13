@@ -36,13 +36,13 @@ def create_changelog_layout():
                         title=f"v{entry['version']} - {entry['title']} - リリース日: {entry['release_date']}"
                     ),
                 ),
-                dbc.Alert(
-                    [
-                        html.H4(f"v{entry['version']} - {entry['title']}", className="mb-1"),
-                        html.Small(f"リリース日: {entry['release_date']}", className="text-muted"),
-                        html.P(entry['description'], className="mt-2")
-                    ], color="info"
-                ), 
+                # dbc.Alert(
+                #     [
+                #         html.H4(f"v{entry['version']} - {entry['title']}", className="mb-1"),
+                #         html.Small(f"リリース日: {entry['release_date']}", className="text-muted"),
+                #         html.P(entry['description'], className="mt-2")
+                #     ], color="info"
+                # ), 
 
                 className="mb-4"
             )
