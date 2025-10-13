@@ -1,39 +1,76 @@
 /* assets/printable.css */
 
 @media print {
-    /* ヘッダーのナビゲーションバーを非表示 */
-    .navbar {
-        display: none !important;
+
+    /* =================================== */
+    /* 共通設定：不要な要素をすべて非表示にする */
+    /* =================================== */
+
+    /* ヘッダーのナビゲーションバー */
+    .navbar { display: none !important; }
+
+    /* 生徒選択ドロップダウン */
+    #student-dropdown-container { display: none !important; }
+
+    /* 「進捗を更新」「PDFレポート」ボタン */
+    #dashboard-actions-container { display: none !important; }
+
+    /* 科目選択タブ */
+    #subject-tabs-container { display: none !important; }
+
+
+    /* =================================== */
+    /* 全体的なレイアウト調整 */
+    /* =================================== */
+    body {
+        background-color: #fff !important;
+        font-size: 10pt; /* 印刷用にフォントサイズを調整 */
     }
 
-    /* 生徒選択ドロップダウンを非表示 */
-    #student-dropdown-container {
-        display: none !important;
-    }
-
-    /* 「進捗を更新」「PDFレポート」ボタンなどを非表示 */
-    #dashboard-actions-container {
-        display: none !important;
-    }
-
-    /* 科目選択タブを非表示 */
-    #subject-tabs-container {
-        display: none !important;
-    }
-
-    /* 印刷時に不要な余白を削除 */
+    /* 印刷時の余白を調整 */
     .container-fluid {
         padding: 0 !important;
+        margin: 15mm; /* A4用紙の一般的な余白 */
     }
 
-    /* カードの影をなくし、境界線をつける */
-    .card {
+    /* カードやグラフの影をなくしてシンプルに */
+    .card, .js-plotly-plot {
         box-shadow: none !important;
         border: 1px solid #dee2e6 !important;
     }
 
-    /* ページ区切りで要素が途切れないように調整 */
-    .row, .col, .card {
+    /* 改ページでレイアウトが崩れるのを防ぐ */
+    .row, .col, .card, h4 {
         page-break-inside: avoid;
+    }
+    h1, h2, h3, h4 {
+        page-break-after: avoid;
+    }
+
+
+    /* ================================================= */
+    /* タブごとの個別レイアウト（ここがポイントです） */
+    /* ================================================= */
+
+    /* 画面では左右2列になっているレイアウトを、印刷時はすべて縦1列に並べる */
+    /* これにより「総合」と「科目別」両方のレイアウトに対応できます */
+    .col-md-8, .col-md-4 {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* サマリーカードを横4列から2列x2行に変更して見やすくする */
+    .card-deck .col {
+        width: 50% !important;
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+    
+    /* 科目別達成率のグラフ（液体タンク）を3列で表示 */
+    #subject-achievement-bars .col {
+      width: 33.33% !important;
+      flex: 0 0 33.33% !important;
+      max-width: 33.33% !important;
     }
 }
