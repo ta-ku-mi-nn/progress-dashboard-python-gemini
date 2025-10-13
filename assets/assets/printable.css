@@ -1,75 +1,83 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 landscape; /* A4サイズ・横向きを指定 */
-    margin: 0mm;       /* 上下左右の余白を0mmに設定 */
+    size: A4 landscape; /* A4サイズ・横向き */
+    margin: 10mm;       /* 余白を少し減らしてスペースを確保 */
 }
 
 @media print {
 
     /* =================================== */
-    /* 共通設定：不要な要素をすべて非表示にする */
+    /* リセット & 基本設定 */
     /* =================================== */
+    * {
+        /* この設定がはみ出しを防ぐ鍵です！ */
+        box-sizing: border-box !important;
+    }
 
-    /* ヘッダーのナビゲーションバー */
-    .navbar { display: none !important; }
-
-    /* 生徒選択ドロップダウン */
-    #student-dropdown-container { display: none !important; }
-
-    /* 「進捗を更新」「PDFレポート」ボタン */
-    #dashboard-actions-container { display: none !important; }
-
-    /* 科目選択タブ */
-    #subject-tabs-container { display: none !important; }
-
-
-    /* =================================== */
-    /* 全体的なレイアウト調整 */
-    /* =================================== */
     body {
         background-color: #fff !important;
-        font-size: 10pt; /* 印刷用にフォントサイズを調整 */
+        font-size: 9pt; /* 全体のフォントを少し小さくして収まりを良くする */
+        -webkit-print-color-adjust: exact !important; /* 背景色やグラフの色を強制的に印刷 */
+        print-color-adjust: exact !important;
     }
 
-    /* 印刷時の余白を調整 */
+    /* =================================== */
+    /* 不要な要素をすべて非表示にする */
+    /* =================================== */
+    .navbar,
+    #student-dropdown-container,
+    #dashboard-actions-container,
+    #subject-tabs-container {
+        display: none !important;
+    }
+
+    /* =================================== */
+    /* レイアウトの調整 */
+    /* =================================== */
+
+    /* コンテナの余白をリセット */
     .container-fluid {
         padding: 0 !important;
-        margin: 15mm; /* A4用紙の一般的な余白 */
+        margin: 0 !important;
     }
 
-    /* カードやグラフの影をなくしてシンプルに */
+    /* カードやグラフの装飾をリセット */
     .card, .js-plotly-plot {
         box-shadow: none !important;
-        border: 1px solid #dee2e6 !important;
+        border: 1px solid #ddd !important;
+    }
+    
+    /* グラフが親要素をはみ出さないようにする */
+    .js-plotly-plot, .plotly, .card-body, img {
+        max-width: 100% !important;
     }
 
-    /* 改ページでレイアウトが崩れるのを防ぐ */
-    .row, .col, .card, h4 {
+    /* ページ区切りで要素が途切れないようにする */
+    .row, .col, .card, h1, h2, h3, h4, h5, p {
         page-break-inside: avoid;
     }
-    h1, h2, h3, h4 {
+    h1, h2, h3, h4, h5 {
         page-break-after: avoid;
     }
 
+    /* =================================== */
+    /* タブごとの個別レイアウト */
+    /* =================================== */
 
-    /* ================================================= */
-    /* タブごとの個別レイアウト（ここがポイントです） */
-    /* ================================================= */
-
-    /* 画面では左右2列になっているレイアウトを、印刷時はすべて縦1列に並べる */
-    /* これにより「総合」と「科目別」両方のレイアウトに対応できます */
+    /* 画面の左右2列レイアウトを、印刷時はすべて縦1列に並べる */
     .col-md-8, .col-md-4 {
         width: 100% !important;
         flex: 0 0 100% !important;
         max-width: 100% !important;
     }
 
-    /* サマリーカードを横4列から2列x2行に変更して見やすくする */
+    /* サマリーカードを2列x2行に設定 */
     .card-deck .col {
         width: 50% !important;
         flex: 0 0 50% !important;
         max-width: 50% !important;
+        padding: 5px !important; /* カード間の余白を調整 */
     }
     
     /* 科目別達成率のグラフ（液体タンク）を3列で表示 */
@@ -77,5 +85,6 @@
       width: 33.33% !important;
       flex: 0 0 33.33% !important;
       max-width: 33.33% !important;
+      padding: 5px !important; /* グラフ間の余白を調整 */
     }
 }
