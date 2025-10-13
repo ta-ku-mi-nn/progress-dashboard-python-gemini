@@ -5,7 +5,5 @@ pandas
 gunicorn
 plotly
 plotly-express
-weasyprint
-kaleido
 werkzeug
 Jinja2

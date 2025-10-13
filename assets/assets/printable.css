@@ -1,0 +1,39 @@
+/* assets/printable.css */
+
+@media print {
+    /* ヘッダーのナビゲーションバーを非表示 */
+    .navbar {
+        display: none !important;
+    }
+
+    /* 生徒選択ドロップダウンを非表示 */
+    #student-dropdown-container {
+        display: none !important;
+    }
+
+    /* 「進捗を更新」「PDFレポート」ボタンなどを非表示 */
+    #dashboard-actions-container {
+        display: none !important;
+    }
+
+    /* 科目選択タブを非表示 */
+    #subject-tabs-container {
+        display: none !important;
+    }
+
+    /* 印刷時に不要な余白を削除 */
+    .container-fluid {
+        padding: 0 !important;
+    }
+
+    /* カードの影をなくし、境界線をつける */
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    /* ページ区切りで要素が途切れないように調整 */
+    .row, .col, .card {
+        page-break-inside: avoid;
+    }
+}

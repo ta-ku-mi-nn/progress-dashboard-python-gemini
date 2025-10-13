@@ -15,8 +15,6 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 import datetime # datetimeをインポート
-from flask import Response
-import base64
 import plotly.io as pio
 
 # --- グラフ描画の安定化のため、デフォルトテンプレートを設定 ---
@@ -60,7 +58,6 @@ from callbacks.plan_callbacks import register_plan_callbacks
 from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
-from utils.dashboard_pdf import create_dashboard_pdf
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 
@@ -120,89 +117,6 @@ app.layout = html.Div([
 # --- ヘルパー関数 ---
 def get_current_user_from_store(auth_store_data):
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
-
-# --- PDF Report Generation Route ---
-@app.server.route('/report/pdf/<int:student_id>')
-def serve_pdf_report(student_id):
-    """
-    指定された生徒IDのレポートPDFを生成し、FlaskのResponseとして返す。
-    """
-    if not student_id:
-        return "No student selected", 404
-
-    student_info = get_student_info_by_id(student_id)
-    progress_data = get_student_progress_by_id(student_id)
-    student_homework = get_all_homework_for_student(student_id)
-
-
-    if not student_info or not progress_data:
-        return "Could not find student data for the report.", 404
-
-    all_records = []
-    for subject, levels in progress_data.items():
-        for level, books in levels.items():
-            for book_name, details in books.items():
-                all_records.append({
-                    'subject': subject, 'book_name': book_name,
-                    'duration': details.get('所要時間', 0),
-                    'is_planned': details.get('予定', False),
-                    'is_done': details.get('達成済', False),
-                    'completed_units': details.get('completed_units', 0),
-                    'total_units': details.get('total_units', 1),
-                })
-    
-    all_subjects_chart_base64 = ""
-    subject_charts_base64 = []
-    summary_data = {}
-
-    if all_records:
-        df_all = pd.DataFrame(all_records)
-        df_planned = df_all[df_all['is_planned']].copy()
-        
-        df_planned['achieved_duration'] = df_planned.apply(
-            lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
-            axis=1
-        )
-        planned_hours = df_planned['duration'].sum()
-        achieved_hours = df_planned['achieved_duration'].sum()
-        achievement_rate = (achieved_hours / planned_hours * 100) if planned_hours > 0 else 0
-        completed_books = df_planned[df_planned['is_done']].shape[0]
-        summary_data = {
-            "achieved_hours": f"{achieved_hours:.1f} h",
-            "planned_hours": f"{planned_hours:.1f} h",
-            "achievement_rate": f"{achievement_rate:.1f} %",
-            "completed_books": f"{completed_books} 冊",
-        }
-
-        fig_all = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
-        if fig_all:
-            try:
-                fig_png = pio.to_image(fig_all, format='png', engine='kaleido', width=800, height=300)
-                all_subjects_chart_base64 = base64.b64encode(fig_png).decode('utf-8')
-            except Exception as e:
-                print(f"Error generating all subjects graph image: {e}")
-
-        for subject in sorted(df_all['subject'].unique()):
-            fig_subject = create_subject_achievement_bar(df_all, subject)
-            if fig_subject:
-                try:
-                    fig_png = pio.to_image(fig_subject, format='png', engine='kaleido', width=300, height=250)
-                    subject_charts_base64.append(base64.b64encode(fig_png).decode('utf-8'))
-                except Exception as e:
-                    print(f"Error generating graph image for {subject}: {e}")
-
-    pdf_bytes = create_dashboard_pdf(
-                    student_info,
-                    progress_data,
-                    student_homework,
-                    all_subjects_chart_base64,
-                    subject_charts_base64,
-                    summary_data
-                )
-
-    
-    return Response(pdf_bytes, mimetype='application/pdf')
-
 
 # --- ページ表示コールバック（ルーティング） ---
 @app.callback(
