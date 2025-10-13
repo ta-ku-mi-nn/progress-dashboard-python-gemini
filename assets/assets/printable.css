@@ -1,5 +1,10 @@
 /* assets/printable.css */
 
+@page {
+    size: A4 landscape; /* A4サイズ・横向きを指定 */
+    margin: 0mm;       /* 上下左右の余白を0mmに設定 */
+}
+
 @media print {
 
     /* =================================== */
