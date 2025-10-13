@@ -33,7 +33,8 @@ def create_changelog_layout():
                         [
                             html.P(entry['description'])
                         ],
-                        title=f"v{entry['version']} - {entry['title']} - リリース日: {entry['release_date']}"
+                        title=f"v{entry['version']} - {entry['title']}",
+                        subtitle=f"リリース日: {entry['release_date']}"
                     ),
                 ),
                 # dbc.Alert(
