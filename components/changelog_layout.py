@@ -12,10 +12,22 @@ def create_changelog_layout():
     if not entries:
         return dbc.Alert("更新履歴はありません。", color="info")
         
+    # ▼ ここから追加 ▼
+    # バージョン番号で降順にソートする
+    # 'v'プレフィックスを削除し、'.'で分割して数値のリストに変換して比較
+    sorted_entries = sorted(
+        entries, 
+        key=lambda e: [int(part) for part in e['version'].lstrip('v').split('.')], 
+        reverse=True
+    )
+    # ▲ ここまで追加 ▲
+        
     timeline_items = []
-    for entry in entries:
+    # イテレートする対象をソート済みのリストに変更
+    for entry in sorted_entries:
         timeline_items.append(
             html.Div([
+                # 'v'がバージョン文字列に含まれていない場合を想定し、f-stringで付与
                 html.H4(f"v{entry['version']} - {entry['title']}", className="mb-1"),
                 html.Small(f"リリース日: {entry['release_date']}", className="text-muted"),
                 html.P(entry['description'], className="mt-2")
