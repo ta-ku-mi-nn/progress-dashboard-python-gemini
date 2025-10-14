@@ -17,7 +17,9 @@ def register_plan_callbacks(app):
     """学習計画モーダルに関連するコールバックを登録します。"""
 
     @app.callback(
-        Output('plan-update-modal', 'is_open'),
+        [Output('plan-update-modal', 'is_open'),
+         # ★★★ 修正点: アラートを非表示にするためのOutputを追加 ★★★
+         Output('plan-modal-alert', 'is_open', allow_duplicate=True)],
         [Input('bulk-register-btn', 'n_clicks'),
          Input('plan-cancel-btn', 'n_clicks'),
          Input('toast-trigger', 'data')],
@@ -26,14 +28,24 @@ def register_plan_callbacks(app):
     )
     def toggle_plan_modal(open_clicks, cancel_clicks, toast_data, is_open):
         ctx = callback_context
-        if ctx.triggered_id == 'toast-trigger':
-            if toast_data and toast_data.get('source') == 'plan':
-                return False
-            return no_update
+        triggered_id = ctx.triggered_id
         
-        if open_clicks or cancel_clicks:
-            return not is_open
-        return is_open
+        # 保存成功のトーストが表示されたら、モーダルを閉じる
+        if triggered_id == 'toast-trigger':
+            if toast_data and toast_data.get('source') == 'plan':
+                return False, False # モーダルを閉じ、アラートも非表示にする
+            return no_update, no_update
+
+        # 「進捗を更新」または「キャンセル」ボタンが押された場合
+        if triggered_id in ['bulk-register-btn', 'plan-cancel-btn']:
+            if not is_open:  # ★★★ 修正点: モーダルを開く場合
+                # モーダルを開き、過去のアラートを非表示にする
+                return True, False
+            else:  # ★★★ 修正点: モーダルを閉じる場合
+                # モーダルを閉じ、アラートも非表示にする
+                return False, False
+                
+        return no_update, no_update
 
     # ★★★ ここから修正 ★★★
     @app.callback(
