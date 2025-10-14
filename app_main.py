@@ -48,6 +48,7 @@ from components.bug_report_layout import create_bug_report_layout
 from components.past_exam_layout import create_past_exam_layout
 from components.howto_layout import create_howto_layout
 from components.changelog_layout import create_changelog_layout
+from components.report_layout import create_report_layout 
 from callbacks.main_callbacks import register_main_callbacks
 from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
@@ -57,7 +58,7 @@ from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
 from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
-from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject
+from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject, get_student_info_by_id
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 
@@ -131,6 +132,17 @@ def display_page(pathname, auth_store_data):
 
     if not user_info:
         return create_login_layout(), None
+    
+        # /report/1 のような動的なURLに対応
+    if pathname.startswith('/report/'):
+        try:
+            student_id = int(pathname.split('/')[-1])
+            student_info = get_student_info_by_id(student_id)
+            student_name = student_info.get('name', '不明な生徒')
+            # レポートページではナビゲーションバーを非表示にする
+            return create_report_layout(student_name), None 
+        except (ValueError, IndexError):
+            return dbc.Alert("無効な生徒IDです。", color="danger"), create_navbar(user_info)
 
     navbar = create_navbar(user_info)
     subjects = get_all_subjects()

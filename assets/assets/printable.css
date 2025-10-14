@@ -1,104 +1,44 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 landscape; /* A4サイズ・横向き */
-    margin: 10mm;       /* 用紙の余白 */
+    size: A4 landscape;
+    margin: 10mm;
 }
 
 @media print {
-
-    /* =================================== */
-    /* 印刷用の基本設定 & リセット */
-    /* =================================== */
-
-    /* htmlとbodyの余白を完全にリセット（空白ページの主な原因） */
     html, body {
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important; /* 背景を白に固定 */
+        background: #fff !important;
         font-size: 9pt;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
-
-    /* すべての要素のはみ出しを防止 */
-    * {
-        box-sizing: border-box !important;
-    }
-
-    /* =================================== */
-    /* 不要な要素の非表示 */
-    /* =================================== */
-    .navbar,
-    #student-dropdown-container,
-    #dashboard-actions-container,
-    #subject-tabs-container {
+    
+    /* 印刷時には、操作用のヘッダー（ボタンなど）を非表示にする */
+    #report-header {
         display: none !important;
     }
 
-    /* =================================== */
-    /* レイアウトの調整 */
-    /* =================================== */
-
-    /* 画面表示時に適用されていた余白をリセット */
-    .mt-4 {
-        margin-top: 0 !important;
-    }
-    
-    .container-fluid {
-        padding: 0 !important;
-        margin: 0 !important;
+    /* コメント入力欄に枠線をつけて、入力内容がわかるようにする */
+    #report-comment-input {
+        border: 1px solid #ccc !important;
+        background-color: #f8f9fa !important;
+        /* 入力されたテキストの色を保持 */
+        color: #000 !important;
     }
 
-    /* カードやグラフの装飾をリセット */
-    .card, .js-plotly-plot {
-        box-shadow: none !important;
-        border: 1px solid #ddd !important;
-        margin-top: 1.5rem !important; /* 要素間のスペースを確保 */
-    }
-    
-    /* 最初のカードには上のマージンは不要 */
-    .card:first-of-type {
-        margin-top: 0 !important;
+    #comment-section {
+        page-break-before: always; /* コメント欄は必ず新しいページから開始 */
     }
 
-    /* グラフが親要素をはみ出さないようにする */
-    .js-plotly-plot, .plotly, .card-body, img {
-        max-width: 100% !important;
-    }
+    /* その他、前回のレイアウト調整CSSはそのまま流用 */
+    .card, .js-plotly-plot { box-shadow: none !important; border: 1px solid #ddd !important; }
+    .row, .col, .card, h2 { page-break-inside: avoid; }
+    h2 { page-break-after: avoid; }
+}
 
-    /* ページ区切りで要素が途切れないようにする */
-    .row, .col, .card, h1, h2, h3, h4, h5, p, .table {
-        page-break-inside: avoid;
-    }
-    h1, h2, h3, h4, h5 {
-        page-break-after: avoid;
-    }
-
-    /* =================================== */
-    /* タブごとの個別レイアウト */
-    /* =================================== */
-
-    /* 左右2列レイアウトを、縦1列に並べる */
-    .col-md-8, .col-md-4 {
-        width: 100% !important;
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-    }
-
-    /* サマリーカードを2列x2行に設定 */
-    .card-deck .col {
-        width: 50% !important;
-        flex: 0 0 50% !important;
-        max-width: 50% !important;
-        padding: 5px !important;
-    }
-    
-    /* 科目別達成率のグラフ（液体タンク）を3列で表示 */
-    #subject-achievement-bars .col {
-      width: 33.33% !important;
-      flex: 0 0 33.33% !important;
-      max-width: 33.33% !important;
-      padding: 5px !important;
-    }
+/* 通常表示時に、印刷用の各大項目の見出しを非表示にしておく */
+.print-header {
+    display: none;
 }
