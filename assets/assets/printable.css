@@ -1,7 +1,7 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 portrait; /* レポートを縦方向に設定 */
+    size: A4 portrait; /* ① レポートを縦方向に設定 */
     margin: 15mm;
 }
 
@@ -22,12 +22,14 @@
         box-sizing: border-box !important;
     }
 
-    /* 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
+    /* ② 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
     #report-header {
         display: none !important;
     }
-    .container-fluid {
-        margin-top: 0 !important;
+    /* .container-fluid に適用されている .my-4 や hr のマージンを上書き */
+    .container-fluid, .my-4, hr {
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     /* =================================== */
@@ -62,7 +64,7 @@
     }
 
     /* =================================== */
-    /* ダッシュボード部分のレイアウト調整 */
+    /* ③ グラフの横並びレイアウト調整 */
     /* =================================== */
 
     /* 画面では左右2列だったものを、印刷時は縦に並べる */
@@ -76,7 +78,6 @@
     #subject-charts-row {
         display: flex !important;
         flex-wrap: wrap !important;
-        width: 100% !important;
     }
     #subject-charts-row .col {
         flex: 0 0 25% !important;   /* 幅を正確に4分の1に */
