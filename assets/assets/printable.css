@@ -15,12 +15,10 @@
         print-color-adjust: exact !important;
     }
     
-    /* 印刷時には、操作用のヘッダー（ボタンなど）を非表示にする */
     #report-header {
         display: none !important;
     }
 
-    /* コメント入力欄に枠線をつけて、入力内容がわかるようにする */
     #report-comment-input {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
@@ -28,7 +26,7 @@
     }
 
     #comment-section {
-        page-break-before: always; /* コメント欄は必ず新しいページから開始 */
+        page-break-before: always;
     }
 
     .card, .js-plotly-plot { 
@@ -43,7 +41,11 @@
     }
 }
 
-/* 通常表示時に、印刷用の各大項目の見出しを非表示にしておく */
 .print-header {
-    display: none;
+    display: block; /* 常に表示されるように変更 */
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 0.5rem;
 }

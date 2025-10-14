@@ -48,6 +48,7 @@ from components.bug_report_layout import create_bug_report_layout
 from components.past_exam_layout import create_past_exam_layout
 from components.howto_layout import create_howto_layout
 from components.changelog_layout import create_changelog_layout
+from components.report_layout import create_report_layout
 from callbacks.main_callbacks import register_main_callbacks
 from callbacks.progress_callbacks import register_progress_callbacks
 from callbacks.admin_callbacks import register_admin_callbacks
@@ -133,6 +134,16 @@ def display_page(pathname, auth_store_data):
 
     if not user_info:
         return create_login_layout(), None
+    
+    if pathname.startswith('/report/'):
+        try:
+            student_id = int(pathname.split('/')[-1])
+            student_info = get_student_info_by_id(student_id)
+            student_name = student_info.get('name', '不明な生徒')
+            # レポートページではナビゲーションバーを非表示にします
+            return create_report_layout(student_name), None
+        except (ValueError, IndexError):
+            return dbc.Alert("無効な生徒IDです。", color="danger"), create_navbar(user_info)
     
     navbar = create_navbar(user_info)
     subjects = get_all_subjects()
