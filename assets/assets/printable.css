@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (改) */
+/* assets/assets/printable.css (最終版) */
 
 @page {
     size: A4 portrait;
@@ -25,17 +25,15 @@
     /* =================================== */
     /* 非表示要素の指定 */
     /* =================================== */
-    /* 操作ヘッダーとその後の区切り線を非表示 */
     #report-header,
     #report-header + hr {
         display: none !important;
     }
 
     /* =================================== */
-    /* レイアウト調整 (最重要) */
+    /* レイアウト調整 */
     /* =================================== */
     
-    /* 1ページ目のダッシュボード部分の左右列を、印刷時は強制的に縦積み */
     #report-dashboard-content > .row > .col-md-8,
     #report-dashboard-content > .row > .col-md-4 {
         flex: 0 0 100% !important;
@@ -43,25 +41,36 @@
         padding: 0 !important;
     }
     
-    /* ★★★ ここが今回の修正の核心部分です ★★★ */
-    /* グラフ群をまとめる親コンテナ(id="subject-charts-row")をフレックスボックスとして定義 */
+    /* 縦棒グラフ群(右列)のレイアウト */
     #subject-charts-row {
         display: flex !important;
-        flex-direction: row !important; /* 横並びを明示 */
-        flex-wrap: wrap !important;     /* 折り返しを許可 */
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
-        page-break-inside: avoid !important; /* コンテナの途中で改ページされるのを防ぐ */
+        page-break-inside: avoid !important;
     }
     
-    /* 親コンテナのすべての子要素（各グラフの列）の幅を25%に強制指定 */
     #subject-charts-row > * {
         flex: 0 0 25% !important;
         max-width: 25% !important;
         padding: 3px !important;
-        page-break-inside: avoid !important; /* グラフの途中で改ページされるのを防ぐ */
+        page-break-inside: avoid !important;
     }
+
+    /* ★★★ ここから追加 ★★★ */
+    /* 横棒グラフ(左列)の高さ自動調整 */
+    #report-dashboard-content .col-md-8 .js-plotly-plot,
+    #report-dashboard-content .col-md-8 .js-plotly-plot .plotly {
+        height: auto !important;
+    }
+    /* グラフ自体の最小の高さを確保 */
+    #report-dashboard-content .col-md-8 .js-plotly-plot {
+        min-height: 180px !important;
+    }
+    /* ★★★ ここまで追加 ★★★ */
+
 
     /* =================================== */
     /* その他共通スタイル */
