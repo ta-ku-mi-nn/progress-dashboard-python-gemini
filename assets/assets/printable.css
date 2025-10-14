@@ -1,13 +1,13 @@
-/* assets/printable.css */
+/* assets/assets/printable.css (改) */
 
 @page {
-    size: A4 portrait; /* ① レポートを縦方向に設定 */
+    size: A4 portrait;
     margin: 15mm;
 }
 
 @media print {
     /* =================================== */
-    /* 基本設定 & リセット (空白ページ対策) */
+    /* 基本設定 & リセット */
     /* =================================== */
     html, body {
         margin: 0 !important;
@@ -22,41 +22,50 @@
         box-sizing: border-box !important;
     }
 
-    /* ② 操作ボタンエリア、区切り線を完全に削除 */
+    /* =================================== */
+    /* 非表示要素の指定 */
+    /* =================================== */
+    /* 操作ヘッダーとその後の区切り線を非表示 */
     #report-header,
     #report-header + hr {
         display: none !important;
     }
 
     /* =================================== */
-    /* ③ グラフの横並びレイアウト調整 */
+    /* レイアウト調整 (最重要) */
     /* =================================== */
-
-    /* 画面では左右2列だったものを、印刷時は縦に並べる */
-    #report-dashboard-content .col-md-8,
-    #report-dashboard-content .col-md-4 {
+    
+    /* 1ページ目のダッシュボード部分の左右列を、印刷時は強制的に縦積み */
+    #report-dashboard-content > .row > .col-md-8,
+    #report-dashboard-content > .row > .col-md-4 {
         flex: 0 0 100% !important;
         max-width: 100% !important;
         padding: 0 !important;
     }
     
-    /* 縦棒グラフのコンテナ(#subject-charts-row)を100%幅にし、中の各グラフを横に4列で並べる */
+    /* ★★★ ここが今回の修正の核心部分です ★★★ */
+    /* グラフ群をまとめる親コンテナ(id="subject-charts-row")をフレックスボックスとして定義 */
     #subject-charts-row {
         display: flex !important;
-        flex-wrap: wrap !important;
-        width: 100% !important; /* ★★★ 修正点: 25% -> 100% に変更 ★★★ */
+        flex-direction: row !important; /* 横並びを明示 */
+        flex-wrap: wrap !important;     /* 折り返しを許可 */
+        width: 100% !important;
         margin: 0 !important;
+        padding: 0 !important;
+        page-break-inside: avoid !important; /* コンテナの途中で改ページされるのを防ぐ */
     }
-    #subject-charts-row > .col {
-        flex: 0 0 25% !important;   /* 幅を正確に4分の1に */
+    
+    /* 親コンテナのすべての子要素（各グラフの列）の幅を25%に強制指定 */
+    #subject-charts-row > * {
+        flex: 0 0 25% !important;
         max-width: 25% !important;
         padding: 3px !important;
+        page-break-inside: avoid !important; /* グラフの途中で改ページされるのを防ぐ */
     }
 
     /* =================================== */
-    /* その他、印刷用の共通スタイル */
+    /* その他共通スタイル */
     /* =================================== */
-    
     .page-break {
         page-break-after: always;
     }
