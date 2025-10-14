@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (最終版) */
+/* assets/assets/printable.css (最終確定版) */
 
 @page {
     size: A4 portrait;
@@ -59,15 +59,22 @@
         page-break-inside: avoid !important;
     }
 
-    /* ★★★ ここから追加 ★★★ */
-    /* 横棒グラフ(左列)の高さ自動調整 */
+    /* ★★★ ここからが今回の修正の核心部分です ★★★ */
+    /*
+     * 横棒グラフ(左列)の高さ自動調整
+     * Plotlyが生成するグラフのコンテナ(js-plotly-plot)、
+     * その内側のdiv(plotly)、SVGコンテナ、そしてSVG本体まで、
+     * すべての高さ指定を強制的に上書きして自動調整させます。
+    */
     #report-dashboard-content .col-md-8 .js-plotly-plot,
-    #report-dashboard-content .col-md-8 .js-plotly-plot .plotly {
-        height: auto !important;
+    #report-dashboard-content .col-md-8 .js-plotly-plot .plotly,
+    #report-dashboard-content .col-md-8 .js-plotly-plot .svg-container,
+    #report-dashboard-content .col-md-8 .js-plotly-plot svg.main-svg {
+        height: 100% !important;
     }
-    /* グラフ自体の最小の高さを確保 */
-    #report-dashboard-content .col-md-8 .js-plotly-plot {
-        min-height: 180px !important;
+    #report-dashboard-content .col-md-8 > div > div:first-child {
+        height: auto !important;
+        min-height: 250px; /* グラフが少なくても最低限の高さを確保 */
     }
     /* ★★★ ここまで追加 ★★★ */
 
