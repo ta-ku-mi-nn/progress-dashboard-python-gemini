@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (修正版) */
+/* assets/assets/printable.css (最終修正版) */
 
 @page {
     size: A4 portrait;
@@ -23,12 +23,18 @@
     }
 
     /* =================================== */
-    /* 非表示要素の指定 */
+    /* 非表示/表示要素の指定 */
     /* =================================== */
     #report-header,
-    #report-header + hr {
+    #report-header + hr,
+    #report-comment-input /* コメント入力欄を非表示に */ {
         display: none !important;
     }
+
+    #printable-comment-output /* 印刷用のコメント表示エリアを表示に */ {
+        display: block !important;
+    }
+
 
     /* =================================== */
     /* レイアウト調整 */
@@ -59,6 +65,13 @@
         page-break-inside: avoid !important;
     }
 
+    /* ★★★ 修正: グラフの幅を強制的に100%にする ★★★ */
+    #report-dashboard-content .js-plotly-plot .svg-container,
+    #report-dashboard-content .js-plotly-plot svg.main-svg {
+        width: 100% !important;
+    }
+
+
     /* =================================== */
     /* その他共通スタイル */
     /* =================================== */
@@ -66,13 +79,15 @@
         page-break-after: always;
     }
     
-    #report-comment-input {
+    /* ★★★ 修正: 印刷用コメント欄のスタイル ★★★ */
+    #printable-comment-output {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
         color: #000 !important;
-        /* ★★★ 修正: 固定の高さを削除し、最小の高さを設定 ★★★ */
-        min-height: 150px;
-        /* heightはJSで制御するため削除 */
+        padding: 10px;
+        min-height: 150px; /* 内容が少なくても最低限の高さを確保 */
+        white-space: pre-wrap; /* 改行やスペースをそのまま表示 */
+        word-wrap: break-word; /* 長い単語を折り返す */
     }
 
     .card, .js-plotly-plot { 

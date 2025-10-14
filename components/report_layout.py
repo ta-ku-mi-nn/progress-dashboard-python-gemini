@@ -49,9 +49,11 @@ def create_report_layout(student_name):
                     dbc.Textarea(
                         id="report-comment-input",
                         placeholder="この欄に入力した内容は、そのままレポートに印刷されます...",
-                        rows=20,
+                        rows=8, # 初期表示の高さを調整
                         className="mb-4"
                     ),
+                    # ★★★ 修正: 印刷専用のコメント表示エリアを追加 ★★★
+                    html.Div(id="printable-comment-output", style={'display': 'none'})
                 ], md=5),
             ], className="mt-4"),
         ]),

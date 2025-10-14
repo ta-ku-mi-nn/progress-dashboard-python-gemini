@@ -86,27 +86,17 @@ def register_report_callbacks(app):
         Input('final-print-btn', 'n_clicks'),
         prevent_initial_call=True
     )
-
+    
     # --- ★★★ ここから修正 ★★★ ---
-    # 4. コメント入力欄の高さ自動調整
+    # 4. コメント入力欄の内容を、印刷用のDivにリアルタイムで反映させる
     app.clientside_callback(
         """
-        function(value) {
-            const el = document.getElementById('report-comment-input');
-            if (el) {
-                // 一時的に高さをリセットして、スクロールハイトを正しく計算させる
-                el.style.height = 'auto';
-                // スクロールハイト（内容の高さ）に行の高さ（おおよそ24px）を加える
-                const newHeight = el.scrollHeight + 24;
-                el.style.height = newHeight + 'px';
-            }
-            // DashはOutputへの何らかの返り値を期待するが、DOMを直接操作しているので
-            // no_updateを返す
-            return window.dash_clientside.no_update;
+        function(text_value) {
+            // 入力されたテキストをそのまま返す
+            return text_value;
         }
         """,
-        Output('dummy-clientside-output', 'children', allow_duplicate=True), # ダミーのOutput
-        Input('report-comment-input', 'value'),
-        prevent_initial_call=True
+        Output('printable-comment-output', 'children'),
+        Input('report-comment-input', 'value')
     )
     # --- ★★★ ここまで修正 ★★★ ---
