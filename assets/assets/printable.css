@@ -22,45 +22,15 @@
         box-sizing: border-box !important;
     }
 
-    /* ② 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
-    #report-header {
+    /* ② 操作ボタンエリア、区切り線、およびそれらが持つ余白を完全に削除 */
+    /* !important を使い、セレクタをより具体的にして強制的に非表示にする */
+    body > .container-fluid > #report-header,
+    body > .container-fluid > hr {
         display: none !important;
-    }
-    /* .container-fluid に適用されている .my-4 や hr のマージンを上書き */
-    .container-fluid, .my-4, hr {
         margin: 0 !important;
         padding: 0 !important;
-    }
-
-    /* =================================== */
-    /* 印刷時のレイアウト調整 */
-    /* =================================== */
-    
-    /* 1ページ目の終わりに必ず改ページを入れる */
-    .page-break {
-        page-break-after: always;
-    }
-    
-    /* コメント入力欄のスタイル */
-    #report-comment-input {
-        border: 1px solid #ccc !important;
-        background-color: #f8f9fa !important;
-        color: #000 !important;
-        height: 400px;
-    }
-
-    /* カードやグラフの装飾をリセット */
-    .card, .js-plotly-plot { 
-        box-shadow: none !important; 
-        border: 1px solid #ddd !important; 
-    }
-
-    /* 各要素がページをまたいで途切れるのを防ぐ */
-    .row, .col, .card, h2, h4, .table { 
-        page-break-inside: avoid; 
-    }
-    h2, h4 { 
-        page-break-after: avoid; 
+        height: 0 !important;
+        visibility: hidden !important;
     }
 
     /* =================================== */
@@ -72,16 +42,46 @@
     #report-dashboard-content .col-md-4 {
         flex: 0 0 100% !important;
         max-width: 100% !important;
+        padding: 0 !important;
     }
     
     /* 縦棒グラフのコンテナ(#subject-charts-row)内の各グラフを横に4列で並べる */
     #subject-charts-row {
         display: flex !important;
         flex-wrap: wrap !important;
+        width: 25% !important;
+        margin: 0 !important;
     }
-    #subject-charts-row .col {
+    #subject-charts-row > .col {
         flex: 0 0 25% !important;   /* 幅を正確に4分の1に */
         max-width: 25% !important;
-        padding: 3px !important;    /* グラフ間のわずかな余白 */
+        padding: 3px !important;
+    }
+
+    /* =================================== */
+    /* その他、印刷用の共通スタイル */
+    /* =================================== */
+    
+    .page-break {
+        page-break-after: always;
+    }
+    
+    #report-comment-input {
+        border: 1px solid #ccc !important;
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        height: 400px;
+    }
+
+    .card, .js-plotly-plot { 
+        box-shadow: none !important; 
+        border: 1px solid #ddd !important; 
+    }
+
+    .row, .col, .card, h2, h4, .table { 
+        page-break-inside: avoid; 
+    }
+    h2, h4 { 
+        page-break-after: avoid; 
     }
 }
