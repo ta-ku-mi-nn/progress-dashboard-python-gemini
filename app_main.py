@@ -96,6 +96,7 @@ app.layout = html.Div([
     dcc.Store(id='item-to-delete-store', storage_type='memory'),
 
     html.Div(id='dummy-clientside-output', style={'display': 'none'}),
+    dcc.Store(id='report-content-store', storage_type='session'),
     html.Div(id='navbar-container'),
 
     dbc.Container([
@@ -134,17 +135,6 @@ def display_page(pathname, auth_store_data):
     if not user_info:
         return create_login_layout(), None
     
-        # /report/1 のような動的なURLに対応
-    if pathname.startswith('/report/'):
-        try:
-            student_id = int(pathname.split('/')[-1])
-            student_info = get_student_info_by_id(student_id)
-            student_name = student_info.get('name', '不明な生徒')
-            # レポートページではナビゲーションバーを非表示にする
-            return create_report_layout(student_name), None 
-        except (ValueError, IndexError):
-            return dbc.Alert("無効な生徒IDです。", color="danger"), create_navbar(user_info)
-
     navbar = create_navbar(user_info)
     subjects = get_all_subjects()
 
