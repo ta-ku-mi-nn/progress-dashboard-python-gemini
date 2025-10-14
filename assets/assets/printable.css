@@ -22,15 +22,10 @@
         box-sizing: border-box !important;
     }
 
-    /* ② 操作ボタンエリア、区切り線、およびそれらが持つ余白を完全に削除 */
-    /* !important を使い、セレクタをより具体的にして強制的に非表示にする */
-    body > .container-fluid > #report-header,
-    body > .container-fluid > hr {
+    /* ② 操作ボタンエリア、区切り線を完全に削除 */
+    #report-header,
+    #report-header + hr {
         display: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        height: 0 !important;
-        visibility: hidden !important;
     }
 
     /* =================================== */
@@ -45,11 +40,11 @@
         padding: 0 !important;
     }
     
-    /* 縦棒グラフのコンテナ(#subject-charts-row)内の各グラフを横に4列で並べる */
+    /* 縦棒グラフのコンテナ(#subject-charts-row)を100%幅にし、中の各グラフを横に4列で並べる */
     #subject-charts-row {
         display: flex !important;
         flex-wrap: wrap !important;
-        width: 25% !important;
+        width: 100% !important; /* ★★★ 修正点: 25% -> 100% に変更 ★★★ */
         margin: 0 !important;
     }
     #subject-charts-row > .col {
