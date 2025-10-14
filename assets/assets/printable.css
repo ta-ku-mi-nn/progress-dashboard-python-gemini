@@ -1,7 +1,7 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 portrait; /* 用紙を縦向きに設定 */
+    size: A4 portrait; /* ① レポートを縦方向に設定 */
     margin: 15mm;
 }
 
@@ -23,19 +23,60 @@
     }
 
     /* =================================== */
-    /* 印刷時のレイアウト調整 */
+    /* ② 空白ページ対策 */
     /* =================================== */
 
-    /* 操作ボタンエリアは印刷しない */
-    #report-header {
+    /* 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
+    #report-header, .my-4 {
         display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* ページのルートコンテナが持つ余白も削除 */
+    .container-fluid {
+        margin-top: 0 !important;
     }
 
+    /* =================================== */
+    /* ③ グラフの横並びレイアウト調整 */
+    /* =================================== */
+
+    /* 画面では左右2列だったものを、印刷時は縦に並べる */
+    #report-dashboard-content .col-md-8,
+    #report-dashboard-content .col-md-4 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 縦棒グラフのコンテナ(#subject-charts-row)内の各グラフを横に3列で並べる */
+    #subject-charts-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+    }
+    #subject-charts-row .col {
+        flex: 0 0 33.33% !important;
+        max-width: 33.33% !important;
+        padding: 2px !important;
+    }
+
+    /* =================================== */
+    /* その他、印刷用の共通スタイル */
+    /* =================================== */
+    
     /* 1ページ目の終わりに必ず改ページを入れる */
     .page-break {
         page-break-after: always;
     }
-    
+
+    /* コメント入力欄のスタイル */
+    #report-comment-input {
+        border: 1px solid #ccc !important;
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        height: 400px;
+    }
+
     /* カードやグラフの装飾をリセット */
     .card, .js-plotly-plot { 
         box-shadow: none !important; 
@@ -48,28 +89,5 @@
     }
     h2, h4 { 
         page-break-after: avoid; 
-    }
-
-    /* コメント入力欄のスタイル */
-    #report-comment-input {
-        border: 1px solid #ccc !important;
-        background-color: #f8f9fa !important;
-        color: #000 !important;
-        height: 400px; /* 印刷時の高さを確保 */
-    }
-
-    /* =================================== */
-    /* ダッシュボード部分のレイアウト調整 */
-    /* =================================== */
-
-    /* グラフコンテナ内の各グラフを横に3列で並べる */
-    #subject-charts-row {
-        display: flex !important;
-        flex-wrap: wrap !important;
-    }
-    #subject-charts-row .col {
-        flex: 0 0 33.33% !important;
-        max-width: 33.33% !important;
-        padding: 2px !important;
     }
 }
