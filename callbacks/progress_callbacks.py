@@ -179,29 +179,40 @@ def generate_dashboard_content(student_id, active_tab):
             dbc.Col(right_col, md=4),
         ])
 
-# ★★★ 修正点: `register_progress_callbacks` のコールバックを修正 ★★★
 def register_progress_callbacks(app):
     """進捗表示に関連するコールバックを登録します。"""
 
     @app.callback(
-        Output('dashboard-content-container', 'children', allow_duplicate=True),
-        [Input('subject-tabs', 'active_tab'),
+        Output('dashboard-content-container', 'children'), # allow_duplicateは不要になる場合がある
+        [Input('student-selection-store', 'data'), # ★ Inputに 'student-selection-store' を追加
+         Input('subject-tabs', 'active_tab'),
          Input('toast-trigger', 'data')],
-        State('student-selection-store', 'data'),
+        # Stateからは削除
         prevent_initial_call=True
     )
-    def update_dashboard_on_tab_click_or_save(active_tab, toast_data, student_id):
+    def update_dashboard_content(student_id, active_tab, toast_data):
         ctx = callback_context
-        if not ctx.triggered:
-            raise PreventUpdate
+        triggered_id = ctx.triggered_id
+        
+        if not student_id:
+            # 生徒が選択されていない場合はウェルカム画面を表示
+            return create_welcome_layout()
 
-        # 保存処理（plan）によるトリガーでなければ更新しない
-        if ctx.triggered_id == 'toast-trigger':
+        # 生徒が変更されたのがトリガーの場合、必ず「総合」タブを表示
+        if triggered_id == 'student-selection-store':
+            active_tab = '総合'
+
+        # 保存処理（plan）によるトリガーのチェック
+        if triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'plan':
                 raise PreventUpdate
+        
+        # タブがまだ生成されていない場合などのエラーを防ぐ
+        if active_tab is None:
+            raise PreventUpdate
 
         return generate_dashboard_content(student_id, active_tab)
-
+    
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
     df_planned = df[df['is_planned']].copy()

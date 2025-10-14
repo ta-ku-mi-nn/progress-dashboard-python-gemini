@@ -62,16 +62,17 @@ def register_main_callbacks(app):
     # --- ★★★ ここから修正 ★★★ ---
     @app.callback(
         [Output('subject-tabs-container', 'children'),
-         Output('dashboard-actions-container', 'children'),
-         Output('dashboard-content-container', 'children')],
+        Output('dashboard-actions-container', 'children'),
+        # ↓ Outputから 'dashboard-content-container' を削除
+        ],
         Input('student-selection-store', 'data'),
         State('url', 'pathname')
     )
     def update_dashboard_on_student_select(student_id, pathname):
-        """生徒が選択されたら、タブ、アクションボタン、初期コンテンツを生成する"""
+        """生徒が選択されたら、タブとアクションボタンを生成する（コンテンツは生成しない）"""
         if not student_id or pathname != '/':
-            # 生徒が選択されていない場合は「How to use」を表示
-            return None, None, create_welcome_layout()
+            # 生徒が選択されていない場合は何も表示しない
+            return None, None
 
         # --- 生徒選択時の処理 ---
         subjects = get_subjects_for_student(student_id)
@@ -87,10 +88,8 @@ def register_main_callbacks(app):
             dbc.Button("レポート印刷", id="print-report-btn", color="info", outline=True, className="ms-2")
         ])
 
-        # 初期表示として「総合」タブの内容を生成
-        initial_content = generate_dashboard_content(student_id, '総合')
-
-        return tabs, actions, initial_content
+        # ↓ コンテンツは返さない
+        return tabs, actions
     # --- ★★★ ここまで修正 ★★★ ---
 
     @app.callback(
