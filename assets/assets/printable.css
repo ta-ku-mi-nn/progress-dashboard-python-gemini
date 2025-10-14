@@ -46,4 +46,17 @@
     h2, h4 { 
         page-break-after: avoid; 
     }
+
+        /* 科目別グラフを横並びにするための設定 */
+    #subject-charts-row {
+        display: flex !important;     /* Flexboxレイアウトを強制 */
+        flex-wrap: wrap !important;   /* 画面幅に応じて折り返す */
+        width: 100% !important;
+    }
+
+    #subject-charts-row .col {
+        flex: 1 1 30% !important; /* 各グラフの幅を約33%に設定 */
+        max-width: 32% !important; /* はみ出し防止 */
+        padding: 5px !important;
+    }
 }

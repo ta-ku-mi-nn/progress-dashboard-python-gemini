@@ -140,7 +140,7 @@ def generate_dashboard_content(student_id, active_tab):
                 id={'type': 'subject-achievement-bar', 'subject': subject}
             )
             bar_charts.append(dbc.Col(bar_chart_component, width=12, md=6, lg=4, className="mb-3"))
-        right_col = dbc.Row(bar_charts)
+        right_col = dbc.Row(bar_charts, id="subject-charts-row") 
         
         return dbc.Row([
             dbc.Col(left_col, md=8),
