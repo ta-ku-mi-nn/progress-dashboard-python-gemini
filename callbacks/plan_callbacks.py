@@ -16,38 +16,59 @@ from data.nested_json_processor import (
 def register_plan_callbacks(app):
     """学習計画モーダルに関連するコールバックを登録します。"""
 
+    # --- ★★★ ここから修正 ★★★ ---
     @app.callback(
         [Output('plan-update-modal', 'is_open'),
-         # ★★★ 修正点: アラートを非表示にするためのOutputを追加 ★★★
          Output('plan-modal-alert', 'is_open', allow_duplicate=True)],
         [Input('bulk-register-btn', 'n_clicks'),
          Input('plan-cancel-btn', 'n_clicks'),
          Input('toast-trigger', 'data')],
-        State('plan-update-modal', 'is_open'),
+        [State('plan-update-modal', 'is_open')],
         prevent_initial_call=True
     )
     def toggle_plan_modal(open_clicks, cancel_clicks, toast_data, is_open):
+        """モーダルの開閉を厳密に制御する"""
         ctx = callback_context
-        triggered_id = ctx.triggered_id
-        
-        # 保存成功のトーストが表示されたら、モーダルを閉じる
-        if triggered_id == 'toast-trigger':
-            if toast_data and toast_data.get('source') == 'plan':
-                return False, False # モーダルを閉じ、アラートも非表示にする
-            return no_update, no_update
+        if not ctx.triggered:
+            raise PreventUpdate
 
-        # 「進捗を更新」または「キャンセル」ボタンが押された場合
-        if triggered_id in ['bulk-register-btn', 'plan-cancel-btn']:
-            if not is_open:  # ★★★ 修正点: モーダルを開く場合
-                # モーダルを開き、過去のアラートを非表示にする
-                return True, False
-            else:  # ★★★ 修正点: モーダルを閉じる場合
+        # どのコンポーネントがコールバックをトリガーしたかを取得
+        # .split('.')[0] を使って、パターンマッチングIDのベース部分を取得
+        trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        # JSON形式のID文字列（パターンマッチング）かどうかを判定
+        try:
+            trigger_id = json.loads(trigger_id_str)
+            trigger_id = trigger_id.get('type')
+        except (json.JSONDecodeError, AttributeError):
+            trigger_id = trigger_id_str
+
+
+        # ケース1: 「進捗を更新」ボタンがクリックされた
+        if trigger_id == 'bulk-register-btn':
+            # n_clicksがNoneや0でないことを確認し、再描画による誤作動を防ぐ
+            if open_clicks is None or open_clicks == 0:
+                raise PreventUpdate
+            # モーダルを開き、過去のアラートを非表示にする
+            return True, False
+
+        # ケース2: 「キャンセル」ボタンがクリックされた
+        if trigger_id == 'plan-cancel-btn':
+            # モーダルを閉じ、アラートも非表示にする
+            return False, False
+
+        # ケース3: 保存が成功し、トーストが表示された
+        if trigger_id == 'toast-trigger':
+            if toast_data and toast_data.get('source') == 'plan':
                 # モーダルを閉じ、アラートも非表示にする
                 return False, False
-                
-        return no_update, no_update
+            # 他のトーストが原因なら何もしない
+            raise PreventUpdate
 
-    # ★★★ ここから修正 ★★★
+        # 上記のいずれでもなければ、状態を変更しない
+        return no_update, no_update
+    # --- ★★★ ここまで修正 ★★★ ---
+
     @app.callback(
         [Output('plan-step-0', 'style'),
          Output('plan-step-1', 'style'),
@@ -97,7 +118,6 @@ def register_plan_callbacks(app):
         save_style = {'display': 'inline-block'} if step == 2 else {'display': 'none'}
 
         return styles[0], styles[1], styles[2], step, back_style, next_style, save_style, show_dialog
-    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         Output('plan-modal-title', 'children'),
@@ -294,16 +314,14 @@ def register_plan_callbacks(app):
         if not n_clicks: return no_update
         return "1/1"
 
-    # ★★★ 修正点: 次へボタンの無効化ロジックを簡素化 ★★★
     @app.callback(Output('plan-next-btn', 'disabled'),[Input('plan-step-store', 'data'), Input('plan-subject-store', 'data')])
     def control_next_button_state(step, subject):
         if step == 0 and not subject: return True
         return False
         
-    # ★★★ 修正点: 保存ロジックを修正 ★★★
     @app.callback(
-        [Output('plan-modal-alert', 'children'),
-         Output('plan-modal-alert', 'is_open'),
+        [Output('plan-modal-alert', 'children', allow_duplicate=True),
+         Output('plan-modal-alert', 'is_open', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True)],
         [Input('plan-save-btn', 'n_clicks'),
          Input('plan-empty-confirm-dialog', 'submit_n_clicks')],
