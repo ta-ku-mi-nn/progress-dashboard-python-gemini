@@ -1,8 +1,8 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 landscape;
-    margin: 10mm;
+    size: A4 portrait; /* A4サイズ・縦向きに変更 */
+    margin: 15mm;
 }
 
 @media print {
@@ -15,37 +15,35 @@
         print-color-adjust: exact !important;
     }
     
+    /* 印刷時には、操作用のヘッダー（ボタンなど）を非表示にする */
     #report-header {
         display: none !important;
     }
 
+    /* 印刷用のヘッダー（タイトルや日付）は表示したままにする */
+    .report_header {
+        display: block;
+    }
+    
+    /* コメント入力欄に枠線をつけて、入力内容がわかるようにする */
     #report-comment-input {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
         color: #000 !important;
+        height: 300px; /* 印刷時の高さを固定 */
     }
 
-    #comment-section {
-        page-break-before: always;
-    }
-
+    /* カードやグラフの影をなくす */
     .card, .js-plotly-plot { 
         box-shadow: none !important; 
         border: 1px solid #ddd !important; 
     }
+
+    /* 要素の途中で改ページされるのを防ぐ */
     .row, .col, .card, h2, .table { 
         page-break-inside: avoid; 
     }
-    h2 { 
+    h2, h4 { 
         page-break-after: avoid; 
     }
-}
-
-.print-header {
-    display: block; /* 常に表示されるように変更 */
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-top: 2rem;
-    border-bottom: 2px solid #dee2e6;
-    padding-bottom: 0.5rem;
 }
