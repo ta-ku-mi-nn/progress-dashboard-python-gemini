@@ -1,7 +1,7 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 landscape; /* 用紙を横向きに設定 */
+    size: A4 portrait; /* 用紙を縦向きに設定 */
     margin: 15mm;
 }
 
