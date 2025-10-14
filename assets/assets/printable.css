@@ -1,7 +1,7 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 landscape; /* A4・横向き */
+    size: A4 portrait; /* A4・縦向き */
     margin: 0mm;
 }
 
