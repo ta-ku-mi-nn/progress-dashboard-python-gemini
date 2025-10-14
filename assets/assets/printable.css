@@ -70,7 +70,9 @@
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
         color: #000 !important;
-        height: 400px;
+        /* ★★★ 修正: 固定の高さを削除し、最小の高さを設定 ★★★ */
+        min-height: 150px;
+        /* heightはJSで制御するため削除 */
     }
 
     .card, .js-plotly-plot { 

@@ -125,7 +125,11 @@ def generate_dashboard_content(student_id, active_tab):
         stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
         
         left_col = html.Div([
-            dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
+            dcc.Graph(
+                figure=stacked_bar_fig, 
+                style={'height': '250px'},
+                config={'responsive': True} # ★★★ レスポンシブ設定を追加 ★★★
+            ) if stacked_bar_fig else html.Div(),
             summary_cards
         ])
         
@@ -167,7 +171,11 @@ def generate_dashboard_content(student_id, active_tab):
         summary_cards = create_summary_cards(df_subject)
 
         left_col = html.Div([
-            dcc.Graph(figure=fig, style={'height': '250px'}) if fig else dbc.Alert("予定されている学習がありません。", color="info"),
+            dcc.Graph(
+                figure=fig, 
+                style={'height': '250px'},
+                config={'responsive': True} # ★★★ レスポンシブ設定を追加 ★★★
+            ) if fig else dbc.Alert("予定されている学習がありません。", color="info"),
             summary_cards
         ])
 
