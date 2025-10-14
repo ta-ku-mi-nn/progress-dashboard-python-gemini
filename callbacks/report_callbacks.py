@@ -4,6 +4,7 @@ from dash import Input, Output, State, html, dcc, no_update
 import dash_bootstrap_components as dbc
 import pandas as pd
 
+# 必要な関数をインポート
 from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_past_exam_results_for_student
 from callbacks.progress_callbacks import generate_dashboard_content
 
@@ -26,6 +27,7 @@ def generate_past_exam_table_for_report(student_id):
         return f"{int(req)}" if pd.notna(req) else ""
     df['所要時間(分)'] = df.apply(format_time, axis=1)
     
+    # レポートに不要な「操作」列を削除
     table_df = df[['date', 'university_name', 'faculty_name', 'year', 'subject', '所要時間(分)', '正答率']]
     table_df.columns = ['日付', '大学名', '学部名', '年度', '科目', '所要時間(分)', '正答率']
     
@@ -39,20 +41,21 @@ def register_report_callbacks(app):
     app.clientside_callback(
         """
         function(n_clicks, student_id) {
+            // n_clicks > 0 は、アプリ起動時にコールバックが発火するのを防ぐため
             if (n_clicks > 0 && student_id) {
                 window.open(`/report/${student_id}`);
             }
             return ""; // ダミー出力を返す
         }
         """,
-        Output('dummy-clientside-output', 'children'), # 安全なダミー出力先
+        Output('dummy-clientside-output', 'children'), 
         Input('print-report-btn', 'n_clicks'),
         State('student-selection-store', 'data'),
         prevent_initial_call=True
     )
 
-    # 2. レポートページが開かれたら、コンテンツを生成する
-    app.callback(
+    # 2. レポートページが開かれたら、そのページのコンテンツを生成する
+    @app.callback(
         Output('printable-report-content', 'children'),
         Input('url', 'pathname'),
         prevent_initial_call=True
@@ -78,6 +81,10 @@ def register_report_callbacks(app):
             else:
                 content = generate_dashboard_content(student_id, content_id)
             
+            # コンテンツがない場合はスキップ
+            if content is None:
+                continue
+
             report_pages.append(html.Div([
                 html.H2(f"レポート: {content_id}", className="print-header"),
                 content
