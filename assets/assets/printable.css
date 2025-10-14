@@ -24,7 +24,6 @@
     #report-comment-input {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
-        /* 入力されたテキストの色を保持 */
         color: #000 !important;
     }
 
@@ -32,10 +31,16 @@
         page-break-before: always; /* コメント欄は必ず新しいページから開始 */
     }
 
-    /* その他、前回のレイアウト調整CSSはそのまま流用 */
-    .card, .js-plotly-plot { box-shadow: none !important; border: 1px solid #ddd !important; }
-    .row, .col, .card, h2 { page-break-inside: avoid; }
-    h2 { page-break-after: avoid; }
+    .card, .js-plotly-plot { 
+        box-shadow: none !important; 
+        border: 1px solid #ddd !important; 
+    }
+    .row, .col, .card, h2, .table { 
+        page-break-inside: avoid; 
+    }
+    h2 { 
+        page-break-after: avoid; 
+    }
 }
 
 /* 通常表示時に、印刷用の各大項目の見出しを非表示にしておく */

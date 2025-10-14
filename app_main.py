@@ -95,6 +95,7 @@ app.layout = html.Div([
     dcc.Store(id='toast-trigger', storage_type='memory'),
     dcc.Store(id='item-to-delete-store', storage_type='memory'),
 
+    html.Div(id='dummy-clientside-output', style={'display': 'none'}),
     html.Div(id='navbar-container'),
 
     dbc.Container([

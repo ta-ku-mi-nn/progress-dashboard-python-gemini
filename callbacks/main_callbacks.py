@@ -84,7 +84,7 @@ def register_main_callbacks(app):
         
         actions = dbc.ButtonGroup([
             dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True),
-            dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2")
+            dbc.Button("レポート印刷", id="print-report-btn", color="info", outline=True, className="ms-2")
         ])
 
         # 初期表示として「総合」タブの内容を生成
