@@ -1,13 +1,13 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 portrait; /* ① レポートを縦方向に設定 */
+    size: A4 portrait; /* レポートを縦方向に設定 */
     margin: 15mm;
 }
 
 @media print {
     /* =================================== */
-    /* 基本設定 & リセット */
+    /* 基本設定 & リセット (空白ページ対策) */
     /* =================================== */
     html, body {
         margin: 0 !important;
@@ -22,53 +22,23 @@
         box-sizing: border-box !important;
     }
 
-    /* =================================== */
-    /* ② 空白ページ対策 */
-    /* =================================== */
-
     /* 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
-    #report-header, .my-4 {
+    #report-header {
         display: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
     }
-    
-    /* ページのルートコンテナが持つ余白も削除 */
     .container-fluid {
         margin-top: 0 !important;
     }
 
     /* =================================== */
-    /* ③ グラフの横並びレイアウト調整 */
-    /* =================================== */
-
-    /* 画面では左右2列だったものを、印刷時は縦に並べる */
-    #report-dashboard-content .col-md-8,
-    #report-dashboard-content .col-md-4 {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-    }
-
-    /* 縦棒グラフのコンテナ(#subject-charts-row)内の各グラフを横に3列で並べる */
-    #subject-charts-row {
-        display: flex !important;
-        flex-wrap: wrap !important;
-    }
-    #subject-charts-row .col {
-        flex: 0 0 33.33% !important;
-        max-width: 33.33% !important;
-        padding: 2px !important;
-    }
-
-    /* =================================== */
-    /* その他、印刷用の共通スタイル */
+    /* 印刷時のレイアウト調整 */
     /* =================================== */
     
     /* 1ページ目の終わりに必ず改ページを入れる */
     .page-break {
         page-break-after: always;
     }
-
+    
     /* コメント入力欄のスタイル */
     #report-comment-input {
         border: 1px solid #ccc !important;
@@ -89,5 +59,28 @@
     }
     h2, h4 { 
         page-break-after: avoid; 
+    }
+
+    /* =================================== */
+    /* ダッシュボード部分のレイアウト調整 */
+    /* =================================== */
+
+    /* 画面では左右2列だったものを、印刷時は縦に並べる */
+    #report-dashboard-content .col-md-8,
+    #report-dashboard-content .col-md-4 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* 縦棒グラフのコンテナ(#subject-charts-row)内の各グラフを横に4列で並べる */
+    #subject-charts-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        width: 100% !important;
+    }
+    #subject-charts-row .col {
+        flex: 0 0 25% !important;   /* 幅を正確に4分の1に */
+        max-width: 25% !important;
+        padding: 3px !important;    /* グラフ間のわずかな余白 */
     }
 }
