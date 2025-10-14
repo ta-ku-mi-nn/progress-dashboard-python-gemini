@@ -50,7 +50,6 @@ def register_report_callbacks(app):
     @app.callback(
         Output('printable-report-content', 'children'),
         Input('url', 'pathname'),
-        prevent_initial_call=True
     )
     def generate_report_content_for_page(pathname):
         if not pathname or not pathname.startswith('/report/'):
