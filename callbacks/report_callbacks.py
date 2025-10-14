@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
 
-from data.nested_json_processor import get_subjects_for_student, get_past_exam_results_for_student
+from data.nested_json_processor import get_past_exam_results_for_student
 from callbacks.progress_callbacks import generate_dashboard_content
 
 def generate_past_exam_table_for_report(student_id):
@@ -66,11 +66,8 @@ def register_report_callbacks(app):
             return dbc.Alert("無効なURLです。", color="danger"), "", ""
 
         # --- 各パーツを生成 ---
-        # 画像部分（総合ダッシュボード）
         dashboard_content = generate_dashboard_content(student_id, '総合')
-        # 過去問情報
         past_exam_table = generate_past_exam_table_for_report(student_id)
-        # 作成日
         creation_date = f"作成日: {datetime.now().strftime('%Y年%m月%d日')}"
         
         return dashboard_content, past_exam_table, creation_date

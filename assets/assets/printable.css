@@ -1,13 +1,13 @@
 /* assets/printable.css */
 
 @page {
-    size: A4 portrait; /* A4・縦向き */
-    margin: 0mm;
+    size: A4 landscape; /* 用紙を横向きに設定 */
+    margin: 15mm;
 }
 
 @media print {
     /* =================================== */
-    /* リセット & 基本設定 */
+    /* 基本設定 & リセット */
     /* =================================== */
     html, body {
         margin: 0 !important;
@@ -23,26 +23,26 @@
     }
 
     /* =================================== */
-    /* 印刷時のレイアウト調整 (空白ページ対策) */
+    /* 印刷時のレイアウト調整 */
     /* =================================== */
 
-    /* 操作ボタンエリアとそのコンテナが持つ余白を完全に削除 */
+    /* 操作ボタンエリアは印刷しない */
     #report-header {
         display: none !important;
     }
-    .container-fluid.mt-4 {
-        margin-top: 0 !important;
+
+    /* 1ページ目の終わりに必ず改ページを入れる */
+    .page-break {
+        page-break-after: always;
     }
     
-    /* コメント入力欄の設定 */
-    #report-comment-input {
-        border: 1px solid #ccc !important;
-        background-color: #f8f9fa !important;
-        color: #000 !important;
-        height: 300px;
+    /* カードやグラフの装飾をリセット */
+    .card, .js-plotly-plot { 
+        box-shadow: none !important; 
+        border: 1px solid #ddd !important; 
     }
 
-    /* ページ区切りで要素が途切れないようにする */
+    /* 各要素がページをまたいで途切れるのを防ぐ */
     .row, .col, .card, h2, h4, .table { 
         page-break-inside: avoid; 
     }
@@ -50,35 +50,26 @@
         page-break-after: avoid; 
     }
 
-    /* カードやグラフの装飾をリセット */
-    .card, .js-plotly-plot { 
-        box-shadow: none !important; 
-        border: 1px solid #ddd !important; 
+    /* コメント入力欄のスタイル */
+    #report-comment-input {
+        border: 1px solid #ccc !important;
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        height: 400px; /* 印刷時の高さを確保 */
     }
 
     /* =================================== */
     /* ダッシュボード部分のレイアウト調整 */
     /* =================================== */
 
-    /* 左右の列の幅を調整 */
-    #report-dashboard-content .col-md-8 {
-        flex: 0 0 60% !important;
-        max-width: 60% !important;
+    /* グラフコンテナ内の各グラフを横に3列で並べる */
+    #subject-charts-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
     }
-    #report-dashboard-content .col-md-4 {
-        flex: 0 0 40% !important;
-        max-width: 40% !important;
-    }
-    
-    /* グラフコンテナ(#subject-charts-row)内の各グラフを横に3列で並べる */
     #subject-charts-row .col {
         flex: 0 0 33.33% !important;
         max-width: 33.33% !important;
         padding: 2px !important;
     }
-}
-
-/* 通常表示時に、印刷用の各大項目の見出しは非表示 */
-.print-header {
-    display: none;
 }
