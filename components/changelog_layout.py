@@ -49,6 +49,6 @@ def create_changelog_layout():
         )
 
     return html.Div([
-        html.H1("更新履歴", className="my-4"),
+        html.H2("更新履歴", className="my-4"),
         *timeline_items
     ])

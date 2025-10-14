@@ -103,7 +103,7 @@ def create_homework_layout(user_info):
     
     return html.Div([
         dbc.Row([
-            dbc.Col(html.H1("宿題管理")),
+            dbc.Col(html.H2("宿題管理")),
             dbc.Col(
                 dbc.Button("新しい宿題を追加", id="add-homework-btn", color="success"),
                 className="text-end"
@@ -112,7 +112,7 @@ def create_homework_layout(user_info):
 
         # 機能未実装のため、準備中メッセージを表示
         dbc.Alert([
-            dbc.Container(html.H1("この機能はただいま準備中です"), className="text-center mt-5"),
+            dbc.Container(html.H2("この機能はただいま準備中です"), className="text-center mt-5"),
             dbc.Container(html.H3("開発終了までお待ちください"), className="text-center mt-5 mb-5"),
         ], color="info"),
         dcc.Loading(html.Div(id="homework-list-container")),

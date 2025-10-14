@@ -170,7 +170,7 @@ def display_page(pathname, auth_store_data):
             return create_access_denied_layout(), navbar
 
         page_content = dbc.Container([
-            html.H1("🔧 管理者メニュー", className="mt-4 mb-4"),
+            html.H2("🔧 管理者メニュー", className="mt-4 mb-4"),
             dcc.ConfirmDialog(id='delete-user-confirm', message='本当にこのユーザーを削除しますか？'),
             dcc.ConfirmDialog(id='delete-student-confirm', message='本当にこの生徒を削除しますか？'),
             dcc.ConfirmDialog(id='delete-textbook-confirm', message='本当にこの参考書を削除しますか？'),

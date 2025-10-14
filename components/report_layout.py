@@ -7,7 +7,7 @@ def create_report_layout(student_name):
     return dbc.Container([
         # 画面上部に表示されるヘッダー
         html.Div([
-            html.H1(f"{student_name}さん の学習進捗レポート"),
+            html.H2(f"{student_name}さん の学習進捗レポート"),
             html.P("内容を確認し、コメントを入力してから印刷してください。"),
             dbc.Button(
                 [html.I(className="fas fa-print me-2"), "この内容を印刷"],

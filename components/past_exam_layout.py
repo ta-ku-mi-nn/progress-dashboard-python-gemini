@@ -12,7 +12,7 @@ def create_past_exam_layout():
         dcc.Store(id='editing-past-exam-id-store'),
 
         dbc.Row([
-            dbc.Col(html.H1("過去問管理")),
+            dbc.Col(html.H2("過去問管理")),
             dbc.Col(
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success"),
                 className="text-end"
