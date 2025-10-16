@@ -1,6 +1,4 @@
-# callbacks/report_callbacks.py
-
-from dash import Input, Output, State, html, dcc, no_update
+from dash import Input, Output, State, html, dcc, no_update, clientside_callback
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
@@ -53,8 +51,8 @@ def register_report_callbacks(app):
     # 2. レポートページが開かれたら、内容を生成して各セクションに配置する
     @app.callback(
         [Output('report-dashboard-content', 'children'),
-        Output('report-past-exam-content', 'children'),
-        Output('report-creation-date', 'children')],
+         Output('report-past-exam-content', 'children'),
+         Output('report-creation-date', 'children')],
         Input('url', 'pathname')
     )
     def generate_custom_report_content(pathname):
@@ -65,19 +63,21 @@ def register_report_callbacks(app):
         except (ValueError, IndexError):
             return dbc.Alert("無効なURLです。", color="danger"), "", ""
 
-        # ★★★ 修正: for_print=Trueを渡す ★★★
         dashboard_content = generate_dashboard_content(student_id, '総合', for_print=True)
         past_exam_table = generate_past_exam_table_for_report(student_id)
         creation_date = f"作成日: {datetime.now().strftime('%Y年%m月%d日')}"
 
         return dashboard_content, past_exam_table, creation_date
 
-    # 3. レポートページの印刷ボタンで印刷ダイアログを開く
+    # 3. ★★★ 修正: 印刷前にグラフの読み込みを待つ ★★★
     app.clientside_callback(
         """
         function(n_clicks) {
             if (n_clicks > 0) {
-                window.print();
+                // グラフの読み込みを待ってから印刷
+                setTimeout(function() {
+                    window.print();
+                }, 500);  // 500ms待機
             }
             return window.dash_clientside.no_update;
         }
@@ -87,16 +87,13 @@ def register_report_callbacks(app):
         prevent_initial_call=True
     )
 
-    # --- ★★★ ここから修正 ★★★ ---
     # 4. コメント入力欄の内容を、印刷用のDivにリアルタイムで反映させる
     app.clientside_callback(
         """
         function(text_value) {
-            // 入力されたテキストをそのまま返す
             return text_value;
         }
         """,
         Output('printable-comment-output', 'children'),
         Input('report-comment-input', 'value')
     )
-    # --- ★★★ ここまで修正 ★★★ ---
