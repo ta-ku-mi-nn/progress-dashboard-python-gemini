@@ -2,7 +2,7 @@
 
 import json
 import datetime
-import sqlite3
+# sqlite3 は不要なので削除
 import os
 import base64
 import io
@@ -20,23 +20,16 @@ from data.nested_json_processor import (
     get_all_presets_with_books, add_preset, update_preset, delete_preset,
     add_changelog_entry
 )
+# configからDATABASE_URLを読み込むように変更
+from config.settings import APP_CONFIG
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
-RENDER_DATA_DIR = "/var/data"
-if os.path.exists(RENDER_DATA_DIR):
-    # 本番環境（Render）用のパス
-    DB_DIR = RENDER_DATA_DIR
-else:
-    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
-    # このファイルの2階層上がプロジェクトルート
-    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATABASE_URL = APP_CONFIG['data']['database_url']
 
-DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
+# BASE_DIR, RENDER_DATA_DIR, DATABASE_FILE の定義は不要なので削除
 
 def register_admin_callbacks(app):
     # --- ユーザー管理関連コールバック ---
-
+    # (このセクションのコールバックはデータアクセス層の関数を呼び出しているため変更なし)
     @app.callback(
         Output('user-list-modal', 'is_open'),
         [Input('user-list-btn', 'n_clicks'),
@@ -123,27 +116,23 @@ def register_admin_callbacks(app):
 
         return no_update, no_update, no_update, no_update, no_update
 
-    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('download-backup', 'data'),
         Input('backup-btn', 'n_clicks'),
         prevent_initial_call=True
     )
     def download_backup(n_clicks):
+        # PostgreSQLの場合、ファイル直接ダウンロードは適さないため、
+        # pg_dumpコマンドを実行してバックアップファイルを作成し、それを返すロジックに変更する必要があります。
+        # Render環境ではファイルシステムへの書き込みが制限されるため、この機能は一旦無効化するか、
+        # 外部ストレージ(S3など)と連携する方式を検討する必要があります。
+        # ここでは一旦機能をコメントアウトします。
         if not n_clicks:
             return no_update
-        try:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # データベースファイルを直接読み込んでダウンロードさせる
-            return dcc.send_file(
-                DATABASE_FILE,
-                filename=f"dashboard_backup_{timestamp}.db"
-            )
-        except Exception as e:
-            print(f"バックアップ作成中にエラーが発生しました: {e}")
-            return no_update
-    # ★★★ ここまで修正 ★★★
+        # Renderではセキュリティ上、サーバー上のシェルコマンド実行は推奨されません。
+        # データベースのバックアップはRenderのダッシュボードから手動で行うのが安全です。
+        print("バックアップ機能はRenderのダッシュボードから実行してください。")
+        return no_update
 
     @app.callback(Output('master-textbook-modal', 'is_open'),[Input('open-master-textbook-modal-btn', 'n_clicks'),Input('close-master-textbook-modal', 'n_clicks')],State('master-textbook-modal', 'is_open'),prevent_initial_call=True)
     def toggle_master_textbook_modal(open_clicks, close_clicks, is_open):
@@ -556,16 +545,16 @@ def register_admin_callbacks(app):
         Input('preset-selected-books-store', 'data'),
     )
     def render_selected_books_list(selected_book_ids):
+        """
+        選択された参考書のリストを描画する。
+        DB接続を直接行わず、データアクセス層の関数を利用するように修正。
+        """
         if not selected_book_ids:
             return []
 
-        conn = sqlite3.connect(DATABASE_FILE)
-        try:
-            placeholders = ','.join('?' for _ in selected_book_ids)
-            query = f"SELECT id, book_name FROM master_textbooks WHERE id IN ({placeholders})"
-            book_info = {row[0]: row[1] for row in conn.execute(query, tuple(selected_book_ids)).fetchall()}
-        finally:
-            conn.close()
+        # 全てのマスター参考書を取得し、IDでフィルタリングする
+        all_books = get_all_master_textbooks()
+        book_info = {book['id']: book['book_name'] for book in all_books if book['id'] in selected_book_ids}
 
         return [
             dbc.ListGroupItem([

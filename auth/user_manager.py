@@ -1,34 +1,30 @@
 # auth/user_manager.py
 
-import sqlite3
-import os
+import psycopg2
+from psycopg2.extras import DictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
+from config.settings import APP_CONFIG
 
-# このファイルの場所を基準に、プロジェクトルートにあるDBファイルを絶対パスで指定
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
-RENDER_DATA_DIR = "/var/data"
-if os.path.exists(RENDER_DATA_DIR):
-    # 本番環境（Render）用のパス
-    DB_DIR = RENDER_DATA_DIR
-else:
-    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
-    # このファイルの2階層上がプロジェクトルート
-    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
+DATABASE_URL = APP_CONFIG['data']['database_url']
 
 def get_db_connection():
-    """データベース接続を取得し、辞書形式で結果を返せるようにする"""
-    conn = sqlite3.connect(DATABASE_FILE)
-    conn.row_factory = sqlite3.Row
+    """PostgreSQLデータベース接続を取得します。"""
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 def get_user(username):
     """ユーザー名でユーザー情報をデータベースから取得する"""
     conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-    conn.close()
+    user = None
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT * FROM users WHERE username = %s', (username,))
+            user = cur.fetchone()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_user): {e}")
+    finally:
+        if conn:
+            conn.close()
     return user
 
 def authenticate_user(username, password):
@@ -45,16 +41,23 @@ def add_user(username, password, role='user', school=None):
 
     conn = get_db_connection()
     try:
-        conn.execute(
-            'INSERT INTO users (username, password, role, school) VALUES (?, ?, ?, ?)',
-            (username, generate_password_hash(password), role, school)
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                'INSERT INTO users (username, password, role, school) VALUES (%s, %s, %s, %s)',
+                (username, generate_password_hash(password), role, school)
+            )
         conn.commit()
         return True, "ユーザーが正常に作成されました。"
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.rollback()
         return False, "このユーザー名は既に使用されています。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (add_user): {e}")
+        return False, "ユーザー作成中にエラーが発生しました。"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def update_password(username, new_password):
     """指定されたユーザーのパスワードをデータベースで更新する"""
@@ -62,57 +65,79 @@ def update_password(username, new_password):
         return False, "ユーザーが見つかりません。"
 
     conn = get_db_connection()
-    conn.execute(
-        'UPDATE users SET password = ? WHERE username = ?',
-        (generate_password_hash(new_password), username)
-    )
-    conn.commit()
-    conn.close()
-    return True, "パスワードが更新されました。"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'UPDATE users SET password = %s WHERE username = %s',
+                (generate_password_hash(new_password), username)
+            )
+        conn.commit()
+        return True, "パスワードが更新されました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (update_password): {e}")
+        return False, "パスワード更新中にエラーが発生しました。"
+    finally:
+        if conn:
+            conn.close()
 
 def load_users():
     """すべてのユーザー情報をデータベースから読み込む（管理者ページ用）"""
     conn = get_db_connection()
-    users_cursor = conn.execute('SELECT id, username, role, school FROM users ORDER BY username').fetchall()
-    conn.close()
-    # コールバックで扱いやすいように辞書のリストに変換
-    return [dict(user) for user in users_cursor]
+    users = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT id, username, role, school FROM users ORDER BY username')
+            users_cursor = cur.fetchall()
+            users = [dict(user) for user in users_cursor]
+    except psycopg2.Error as e:
+        print(f"データベースエラー (load_users): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return users
 
-# ★★★ ここから修正 ★★★
 def update_user(user_id, username, role, school):
     """ユーザー情報を更新する（パスワードは変更しない）"""
     conn = get_db_connection()
     try:
-        # 編集対象以外のユーザーでユーザー名が重複していないかチェック
-        existing_user = conn.execute(
-            'SELECT id FROM users WHERE username = ? AND id != ?', (username, user_id)
-        ).fetchone()
-        if existing_user:
-            return False, "このユーザー名は既に使用されています。"
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # 編集対象以外のユーザーでユーザー名が重複していないかチェック
+            cur.execute(
+                'SELECT id FROM users WHERE username = %s AND id != %s', (username, user_id)
+            )
+            existing_user = cur.fetchone()
+            if existing_user:
+                return False, "このユーザー名は既に使用されています。"
 
-        conn.execute(
-            'UPDATE users SET username = ?, role = ?, school = ? WHERE id = ?',
-            (username, role, school, user_id)
-        )
+            cur.execute(
+                'UPDATE users SET username = %s, role = %s, school = %s WHERE id = %s',
+                (username, role, school, user_id)
+            )
         conn.commit()
         return True, "ユーザー情報が更新されました。"
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (update_user): {e}")
         return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_user(user_id):
     """指定されたIDのユーザーを削除する"""
     conn = get_db_connection()
     try:
-        # ユーザーを削除する前に、関連する生徒の担当情報をクリアする必要がある場合など、
-        # アプリケーションの仕様に応じて事前処理を追加する
-        conn.execute('DELETE FROM student_instructors WHERE user_id = ?', (user_id,))
-        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        with conn.cursor() as cur:
+            # アプリケーションの仕様に応じて事前処理を追加する
+            cur.execute('DELETE FROM student_instructors WHERE user_id = %s', (user_id,))
+            cur.execute('DELETE FROM users WHERE id = %s', (user_id,))
         conn.commit()
         return True, "ユーザーが正常に削除されました。"
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (delete_user): {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
-# ★★★ ここまで修正 ★★★
+        if conn:
+            conn.close()

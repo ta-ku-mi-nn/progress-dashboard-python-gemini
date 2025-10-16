@@ -1,21 +1,18 @@
 # update_master_textbooks.py
 
-import sqlite3
+import psycopg2
+from psycopg2.extras import execute_values
 import pandas as pd
 import os
+from config.settings import APP_CONFIG
 
 # --- 設定 ---
-# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
-RENDER_DATA_DIR = "/var/data"
-if os.path.exists(RENDER_DATA_DIR):
-    # 本番環境（Render）用のパス
-    DB_DIR = RENDER_DATA_DIR
-else:
-    # このファイルと同じ階層にDBファイルがあると想定
-    DB_DIR = os.path.dirname(os.path.abspath(__file__))
-
-DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
+DATABASE_URL = APP_CONFIG['data']['database_url']
 CSV_FILE = 'text_data.csv'
+
+def get_db_connection():
+    """PostgreSQLデータベース接続を取得します。"""
+    return psycopg2.connect(DATABASE_URL)
 
 def update_textbooks_from_csv():
     """
@@ -29,9 +26,9 @@ def update_textbooks_from_csv():
     print("="*50)
     print("参考書マスターデータの更新を開始します...")
     print(f"入力ファイル: {CSV_FILE}")
-    print(f"対象データベース: {DATABASE_FILE}")
     print("="*50)
 
+    conn = None  # 接続オブジェクトを初期化
     try:
         # CSVファイルを読み込み、重複を除去
         df = pd.read_csv(CSV_FILE, encoding='utf-8')
@@ -44,24 +41,39 @@ def update_textbooks_from_csv():
             print(f"   ({original_rows - len(df)} 件の重複データは除去されました)")
 
         # データベースに接続
-        conn = sqlite3.connect(DATABASE_FILE)
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            # 2. 'master_textbooks' テーブルの既存データをすべて削除 (TRUNCATEを使用)
+            # TRUNCATEはDELETEよりも高速で、テーブルのIDシーケンスもリセットします。
+            print("2. 既存の参考書マスターデータをクリアしています...")
+            cur.execute("TRUNCATE TABLE master_textbooks RESTART IDENTITY CASCADE;")
+            print("   -> 既存データをすべてクリアしました。")
 
-        # 2. 'master_textbooks' テーブルの既存データをすべて削除
-        cursor.execute("DELETE FROM master_textbooks;")
-        print("2. 既存の参考書マスターデータをすべてクリアしました。")
+            # 3. DataFrameからタプルのリストに変換して、新しいデータを挿入
+            print("3. 新しいマスターデータをデータベースに保存しています...")
+            data_to_insert = [tuple(row) for row in df.to_numpy()]
+            
+            # execute_values を使って高速に一括挿入
+            execute_values(
+                cur,
+                "INSERT INTO master_textbooks (level, subject, book_name, duration) VALUES %s",
+                data_to_insert
+            )
+            
+            print(f"   -> {len(data_to_insert)} 件の新しいマスターデータを保存しました。")
 
-        # 3. DataFrameからデータベースに新しいデータを挿入
-        df.to_sql('master_textbooks', conn, if_exists='append', index=False)
-        
+        # 変更をコミット
         conn.commit()
-        conn.close()
 
-        print(f"3. {len(df)} 件の新しいマスターデータをデータベースに保存しました。")
         print("\n🎉 参考書マスターデータの更新が正常に完了しました！")
 
-    except Exception as e:
+    except (Exception, psycopg2.Error) as e:
         print(f"\n[エラー] 処理中にエラーが発生しました: {e}")
+        if conn:
+            conn.rollback() # エラーが発生した場合は変更を取り消し
+    finally:
+        if conn:
+            conn.close() # 接続を閉じる
 
 if __name__ == '__main__':
     update_textbooks_from_csv()

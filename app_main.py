@@ -2,19 +2,14 @@
 
 #!/usr/bin/env python3
 """
-学習進捗ダッシュボード - データベース版 認証機能付きメインアプリケーション
+学習進捗ダッシュボード - PostgreSQL版 認証機能付きメインアプリケーション
 """
 import sys
 import os
-import threading
-import time
-import webbrowser
-import sqlite3
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
-import datetime # datetimeをインポート
 import plotly.io as pio
 
 # --- グラフ描画の安定化のため、デフォルトテンプレートを設定 ---
@@ -27,7 +22,10 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # --- 設定と外部ファイルのインポート ---
 from config.settings import APP_CONFIG
 from config.styles import APP_INDEX_STRING, EXTERNAL_STYLESHEETS
-from data.nested_json_processor import get_all_subjects, get_student_info_by_id, get_student_progress_by_id, get_all_homework_for_student
+from data.nested_json_processor import (
+    get_all_subjects, get_student_info_by_id,
+    get_student_count_by_school, get_textbook_count_by_subject
+)
 from components.main_layout import create_main_layout, create_navbar
 from components.homework_layout import create_homework_layout
 from components.modals import create_all_modals
@@ -58,8 +56,6 @@ from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
 from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
-from data.nested_json_processor import get_student_count_by_school, get_textbook_count_by_subject, get_student_info_by_id
-from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 
 # --- アプリケーションの初期化 ---
@@ -73,18 +69,6 @@ app.index_string = APP_INDEX_STRING
 app.server.secret_key = APP_CONFIG['server']['secret_key']
 server = app.server
 
-# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
-RENDER_DATA_DIR = "/var/data"
-if os.path.exists(RENDER_DATA_DIR):
-    # 本番環境（Render）用のパス
-    DB_DIR = RENDER_DATA_DIR
-else:
-    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
-    # このファイルの2階層上がプロジェクトルート
-    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
-
 # --- メインレイアウト ---
 app.layout = html.Div([
     dcc.Location(id='url', refresh=True),
@@ -94,11 +78,6 @@ app.layout = html.Div([
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
     dcc.Store(id='toast-trigger', storage_type='memory'),
     dcc.Store(id='item-to-delete-store', storage_type='memory'),
-
-    # ★★★ ここから修正 ★★★
-    # エラー回避のため、IDが存在するように非表示でボタンを配置
-    dbc.Button(id="initial-bulk-register-btn-mirror", style={"display": "none"}),
-    # ★★★ ここまで修正 ★★★
 
     html.Div(id='dummy-clientside-output', style={'display': 'none'}),
     dcc.Store(id='report-content-store', storage_type='session'),
@@ -253,6 +232,7 @@ def update_admin_statistics(pathname):
         return ""
 
     try:
+        # データアクセス層の関数を呼び出すように変更
         student_counts = get_student_count_by_school()
         textbook_counts = get_textbook_count_by_subject()
 
@@ -299,20 +279,14 @@ register_plan_callbacks(app)
 register_past_exam_callbacks(app)
 register_bug_report_callbacks(app)
 
-# --- ブラウザ自動起動 ---
-def open_browser():
-    """開発用にブラウザを自動で開く"""
-    time.sleep(2)
-    webbrowser.open(f"http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}")
-
 
 if __name__ == '__main__':
-    # このブロックはローカルでの開発時にのみ実行される
+    # このブロックは 'python app_main.py' で実行したときのみ動作
     print(
         f"🚀 アプリケーションを開発モードで起動中... http://{APP_CONFIG['server']['host']}:{APP_CONFIG['server']['port']}"
     )
     app.run(
-        debug=True, # ローカル実行時はデバッグモードを有効にする
+        debug=APP_CONFIG['server']['debug'],
         host=APP_CONFIG['server']['host'],
         port=APP_CONFIG['server']['port']
     )

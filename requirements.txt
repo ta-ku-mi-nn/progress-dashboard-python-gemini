@@ -7,3 +7,5 @@ plotly
 plotly-express
 werkzeug
 Jinja2
+psycopg2-binary
+python-dotenv
