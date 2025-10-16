@@ -37,7 +37,7 @@ def get_students_for_user(user_info):
         return {}
     conn = get_db_connection()
     username = user_info.get('username')
-
+    
     if user_info.get('role') == 'admin':
         students_cursor = conn.execute('SELECT name, school FROM students ORDER BY school, name').fetchall()
     else:
@@ -66,11 +66,11 @@ def get_student_progress(school, student_name):
         conn.close()
         return {}
     student_id = student['id']
-
+    
     progress_records = conn.execute(
         """
-        SELECT
-            p.subject, p.level, p.book_name,
+        SELECT 
+            p.subject, p.level, p.book_name, 
             COALESCE(p.duration, m.duration, 0) as duration,
             p.is_planned, p.is_done,
             COALESCE(p.completed_units, 0) as completed_units,
@@ -96,7 +96,7 @@ def get_student_progress(school, student_name):
             'total_units': row['total_units']
         }
     return progress_data
-
+    
 def get_student_info_by_id(student_id):
     """生徒IDに基づいて生徒情報を取得する"""
     conn = get_db_connection()
@@ -104,20 +104,20 @@ def get_student_info_by_id(student_id):
     if not student:
         conn.close()
         return {}
-
+    
     instructors = conn.execute('''
         SELECT u.username, si.is_main
         FROM student_instructors si
         JOIN users u ON si.user_id = u.id
         WHERE si.student_id = ?
     ''', (student_id,)).fetchall()
-
+    
     conn.close()
-
+    
     student_info = dict(student)
     student_info['main_instructors'] = [i['username'] for i in instructors if i['is_main'] == 1]
     student_info['sub_instructors'] = [i['username'] for i in instructors if i['is_main'] == 0]
-
+    
     return student_info
 
 def get_student_progress_by_id(student_id):
@@ -125,8 +125,8 @@ def get_student_progress_by_id(student_id):
     conn = get_db_connection()
     progress_records = conn.execute(
         """
-        SELECT
-            p.subject, p.level, p.book_name,
+        SELECT 
+            p.subject, p.level, p.book_name, 
             COALESCE(p.duration, m.duration, 0) as duration,
             p.is_planned, p.is_done,
             COALESCE(p.completed_units, 0) as completed_units,
@@ -160,6 +160,23 @@ def get_student_info(school, student_name):
         conn.close()
         return {}
     return get_student_info_by_id(student['id'])
+
+# --- ★★★ ここから修正 ★★★
+def get_assigned_students_for_user(user_id):
+    """指定されたユーザーIDに紐づく生徒のリスト（idとname）を取得する"""
+    if not user_id:
+        return []
+    conn = get_db_connection()
+    students = conn.execute('''
+        SELECT s.id, s.name
+        FROM students s
+        JOIN student_instructors si ON s.id = si.student_id
+        WHERE si.user_id = ?
+        ORDER BY s.name
+    ''', (user_id,)).fetchall()
+    conn.close()
+    return [dict(row) for row in students]
+# --- ★★★ ここまで修正 ★★★
 
 def get_master_textbook_list(subject, search_term=""):
     conn = get_db_connection()
@@ -196,10 +213,10 @@ def add_or_update_student_progress(school, student_name, progress_updates):
                 "SELECT id FROM progress WHERE student_id = ? AND subject = ? AND level = ? AND book_name = ?",
                 (student_id, update['subject'], update['level'], update['book_name'])
             ).fetchone()
-
+            
             is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
             duration = update.get('duration', None)
-
+            
             if existing:
                 cursor.execute(
                     "UPDATE progress SET is_planned = ?, is_done = ?, completed_units = ?, total_units = ?, duration = ? WHERE id = ?",
@@ -224,18 +241,18 @@ def get_all_subjects():
     conn = get_db_connection()
     subjects_raw = conn.execute('SELECT DISTINCT subject FROM master_textbooks').fetchall()
     conn.close()
-
+    
     all_subjects = [s['subject'] for s in subjects_raw]
-
+    
     subject_order = [
         '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
     ]
-
+    
     sorted_subjects = sorted(
         all_subjects,
         key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
     )
-
+    
     return sorted_subjects
 
 def get_subjects_for_student(student_id):
@@ -247,14 +264,14 @@ def get_subjects_for_student(student_id):
         (student_id,)
     ).fetchall()
     conn.close()
-
+    
     student_subjects = [s['subject'] for s in subjects_raw]
-
+    
     # get_all_subjects と同じ順序でソート
     subject_order = [
         '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
     ]
-
+    
     sorted_subjects = sorted(
         student_subjects,
         key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
@@ -289,11 +306,11 @@ def get_all_homework_for_student(student_id):
 def get_homework_for_textbook(student_id, textbook_id, custom_textbook_name=None):
     """特定の生徒・参考書(またはカスタム名)の宿題を取得する"""
     conn = get_db_connection()
-
+    
     query = """
         SELECT id, task, task_date, status, other_info
         FROM homework
-        WHERE student_id = ? AND
+        WHERE student_id = ? AND 
     """
     params = [student_id]
 
@@ -307,7 +324,7 @@ def get_homework_for_textbook(student_id, textbook_id, custom_textbook_name=None
         return []
 
     query += " ORDER BY task_date"
-
+    
     homework_list = conn.execute(query, tuple(params)).fetchall()
     conn.close()
     return [dict(row) for row in homework_list]
@@ -318,7 +335,7 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-
+        
         delete_query = "DELETE FROM homework WHERE student_id = ? AND "
         delete_params = [student_id]
         if textbook_id:
@@ -329,7 +346,7 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
             delete_params.append(custom_textbook_name)
         else:
             raise ValueError("参考書IDまたはカスタム参考書名のどちらかが必要です。")
-
+            
         cursor.execute(delete_query, tuple(delete_params))
 
         tasks_to_add = []
@@ -347,7 +364,7 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
                 """,
                 tasks_to_add
             )
-
+        
         conn.commit()
         return True, "宿題を保存しました。"
     except (sqlite3.Error, ValueError) as e:
@@ -360,7 +377,7 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
 def get_bulk_presets():
     conn = get_db_connection()
     presets_raw = conn.execute("""
-        SELECT
+        SELECT 
             p.id, p.subject, p.preset_name, pb.book_name
         FROM bulk_presets p
         JOIN bulk_preset_books pb ON p.id = pb.preset_id
@@ -372,12 +389,12 @@ def get_bulk_presets():
         subject = row['subject']
         preset_name = row['preset_name']
         book_name = row['book_name']
-
+        
         if subject not in presets:
             presets[subject] = {}
         if preset_name not in presets[subject]:
             presets[subject][preset_name] = []
-
+        
         presets[subject][preset_name].append(book_name)
     return presets
 
@@ -429,13 +446,13 @@ def delete_master_textbook(book_id):
 def get_all_students_with_details():
     conn = get_db_connection()
     students_raw = conn.execute('SELECT * FROM students ORDER BY school, name').fetchall()
-
+    
     instructors_raw = conn.execute('''
         SELECT si.student_id, u.username, si.is_main
         FROM student_instructors si
         JOIN users u ON si.user_id = u.id
     ''').fetchall()
-
+    
     conn.close()
 
     students = [dict(s) for s in students_raw]
@@ -454,7 +471,7 @@ def add_student(name, school, deviation_value, main_instructor_id, sub_instructo
             (name, school, deviation_value)
         )
         student_id = cursor.lastrowid
-
+        
         if main_instructor_id:
             cursor.execute(
                 "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (?, ?, 1)",
@@ -481,9 +498,9 @@ def update_student(student_id, name, deviation_value, main_instructor_id, sub_in
             "UPDATE students SET name = ?, deviation_value = ? WHERE id = ?",
             (name, deviation_value, student_id)
         )
-
+        
         cursor.execute("DELETE FROM student_instructors WHERE student_id = ?", (student_id,))
-
+        
         if main_instructor_id:
             cursor.execute(
                 "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (?, ?, 1)",
@@ -541,7 +558,7 @@ def get_all_presets_with_books():
     for book in books:
         if book['preset_id'] in presets_dict:
             presets_dict[book['preset_id']]['books'].append(book['book_name'])
-
+    
     return list(presets_dict.values())
 
 def add_preset(subject, preset_name, book_ids):
@@ -558,7 +575,7 @@ def add_preset(subject, preset_name, book_ids):
             placeholders = ','.join('?' for _ in book_ids)
             book_names_rows = cursor.execute(f"SELECT book_name FROM master_textbooks WHERE id IN ({placeholders})", book_ids).fetchall()
             book_names = [row['book_name'] for row in book_names_rows]
-
+            
             cursor.executemany(
                 "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES (?, ?)",
                 [(preset_id, book) for book in book_names]
@@ -618,7 +635,7 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-
+        
         query = "DELETE FROM homework WHERE student_id = ? AND "
         params = [student_id]
 
@@ -654,9 +671,9 @@ def get_total_past_exam_time(student_id):
         (student_id,)
     ).fetchone()
     conn.close()
-
+    
     return (total_time_row[0] / 60) if total_time_row and total_time_row[0] is not None else 0
-
+    
 def get_past_exam_results_for_student(student_id):
     """特定の生徒の過去問結果をすべて取得する"""
     conn = get_db_connection()
@@ -664,7 +681,7 @@ def get_past_exam_results_for_student(student_id):
         """
         SELECT
             id, date, university_name, faculty_name, exam_system,
-            year, subject, time_required, total_time_allowed,
+            year, subject, time_required, total_time_allowed, 
             correct_answers, total_questions
         FROM past_exam_results
         WHERE student_id = ?
@@ -683,7 +700,7 @@ def add_past_exam_result(student_id, result_data):
             """
             INSERT INTO past_exam_results (
                 student_id, date, university_name, faculty_name, exam_system,
-                year, subject, time_required, total_time_allowed,
+                year, subject, time_required, total_time_allowed, 
                 correct_answers, total_questions
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -708,7 +725,7 @@ def add_past_exam_result(student_id, result_data):
         return False, f"登録中にエラーが発生しました: {e}"
     finally:
         conn.close()
-
+    
 def update_past_exam_result(result_id, result_data):
     """既存の過去問結果を更新する"""
     conn = get_db_connection()
@@ -717,7 +734,7 @@ def update_past_exam_result(result_id, result_data):
             """
             UPDATE past_exam_results SET
                 date = ?, university_name = ?, faculty_name = ?, exam_system = ?,
-                year = ?, subject = ?, time_required = ?, total_time_allowed = ?,
+                year = ?, subject = ?, time_required = ?, total_time_allowed = ?, 
                 correct_answers = ?, total_questions = ?
             WHERE id = ?
             """,

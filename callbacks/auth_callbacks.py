@@ -10,34 +10,39 @@ from data.nested_json_processor import get_students_for_instructor
 def register_auth_callbacks(app):
     """認証関連のコールバックを登録します。"""
 
+    # --- ★★★ ここから修正 ★★★
     # --- ログイン処理 ---
     @app.callback(
-        [Output('url', 'pathname'),
-         Output('auth-store', 'data'),
-         Output('login-alert', 'children')],
+        Output('url', 'pathname'),
+        Output('auth-store', 'data'),
+        Output('login-alert', 'children'),
+        Output('login-alert', 'is_open'), # 変更箇所: is_openをOutputに追加
         Input('login-button', 'n_clicks'),
-        [State('username-input', 'value'),
-         State('password-input', 'value')],
+        State('username-input', 'value'),
+        State('password-input', 'value'),
         prevent_initial_call=True
     )
     def handle_login(n_clicks, username, password):
         if not n_clicks:
-            return no_update, no_update, ""
+            return no_update, no_update, "", False
 
         if not username or not password:
-            return no_update, no_update, dbc.Alert("ユーザー名とパスワードを入力してください。", color="warning")
+            alert_msg = dbc.Alert("ユーザー名とパスワードを入力してください。", color="warning")
+            return no_update, no_update, alert_msg, True
 
         user = authenticate_user(username, password)
         if user:
             user_data_for_store = {k: v for k, v in user.items() if k != 'password'}
-            return '/', user_data_for_store, ""
+            return '/', user_data_for_store, "", False
         else:
-            return no_update, no_update, dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
+            alert_msg = dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
+            return no_update, no_update, alert_msg, True
+    # --- ★★★ ここまで修正 ★★★
 
     # --- ログアウト処理 ---
     @app.callback(
-        [Output('url', 'pathname', allow_duplicate=True),
-         Output('auth-store', 'clear_data')],
+        Output('url', 'pathname', allow_duplicate=True),
+        Output('auth-store', 'clear_data'),
         Input('logout-button', 'n_clicks'),
         prevent_initial_call=True
     )
@@ -48,7 +53,6 @@ def register_auth_callbacks(app):
 
 
     # --- プロフィール関連のコールバック ---
-    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('user-profile-modal', 'is_open'),
         [Input('user-profile-btn', 'n_clicks'),
@@ -57,16 +61,12 @@ def register_auth_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
-        # どのコンポーネントがコールバックをトリガーしたかを取得
         ctx = callback_context
-
-        # ボタンがクリックされたことを確認できた場合のみモーダルの表示状態を切り替える
+        
         if ctx.triggered and ctx.triggered[0]['value'] is not None:
             return not is_open
-
-        # それ以外（ページの読み込みなど）の場合は、現在の状態を維持する
+        
         return is_open
-    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('profile-username', 'children'),
@@ -80,7 +80,7 @@ def register_auth_callbacks(app):
         if is_open and user_data:
             user_id = user_data.get('id')
             assigned_students = get_students_for_instructor(user_id)
-
+            
             if not assigned_students:
                 student_list_component = html.P("担当生徒はいません。", className="text-muted")
             else:
