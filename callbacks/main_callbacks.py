@@ -6,9 +6,8 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user # 変更箇所: get_assigned_students_for_userをインポート
+from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user
 from utils.permissions import can_access_student
-# ★★★ インポートを追加 ★★★
 from callbacks.progress_callbacks import create_welcome_layout, generate_dashboard_content
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +26,6 @@ DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 def register_main_callbacks(app):
     """メインページとグローバルセレクターに関連するコールバックを登録します。"""
 
-    # --- ★★★ ここから修正 ★★★
     @app.callback(
         Output('student-dropdown-container', 'children'),
         Input('url', 'pathname'),
@@ -71,15 +69,17 @@ def register_main_callbacks(app):
             placeholder="生徒を選択...",
             value=selected_student_id
         )
-    # --- ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('subject-tabs-container', 'children'),
          Output('dashboard-actions-container', 'children'),
-         Output('dashboard-content-container', 'children')],
+         # --- ★★★ ここから修正 ★★★
+         Output('dashboard-content-container', 'children', allow_duplicate=True)],
+         # --- ★★★ ここまで修正 ★★★
         Input('student-selection-store', 'data'),
         [State('url', 'pathname'),
-         State('auth-store', 'data')]
+         State('auth-store', 'data')],
+        prevent_initial_call=True # 変更箇所
     )
     def update_dashboard_on_student_select(student_id, pathname, user_info):
         """生徒が選択されたら、タブ、アクションボタン、初期コンテンツを生成する"""
@@ -98,8 +98,7 @@ def register_main_callbacks(app):
         tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
         
         action_buttons = []
-        # 変更箇所: can_access_studentはメイン講師か管理者かを判定するため、ここでは役割で判定
-        if user_info.get('role') == 'admin' or user_info.get('username') in student_info.get('main_instructors', []):
+        if can_access_student(user_info, student_info):
             action_buttons.append(dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True))
         
         action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
