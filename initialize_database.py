@@ -20,10 +20,7 @@ JSON_FILE = 'bulk_buttons.json'
 
 def get_db_connection():
     """PostgreSQLデータベース接続を取得します。"""
-    conn = psycopg2.connect(DATABASE_URL)
-    # Autocommitを有効にして、各コマンドが即座に実行されるようにする
-    # conn.autocommit = True
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
 def drop_all_tables(conn):
     """データベース内のすべてのテーブルを削除します。"""
@@ -223,8 +220,6 @@ def setup_initial_data(conn):
         print(f"  - {len(students_to_create)} 人の生徒を作成しました。")
 
         # 講師と生徒の関連付け
-        # ★★★ ここからがエラー修正箇所 ★★★
-        # pandasを使わずに直接DBから辞書のリストとして取得
         cur.execute("SELECT id, school FROM students")
         students_list = [dict(row) for row in cur.fetchall()]
         cur.execute("SELECT id, school, role FROM users")
@@ -232,14 +227,11 @@ def setup_initial_data(conn):
         
         instructors_to_add = []
         for student in students_list:
-            # メイン講師 (admin) を設定
             main_instructor = next((user for user in users_list if user['school'] == student['school'] and user['role'] == 'admin'), None)
             if main_instructor:
-                # Pythonの `int` 型でIDを扱う
                 main_instructor_id = int(main_instructor['id'])
                 student_id = int(student['id'])
                 instructors_to_add.append((student_id, main_instructor_id, 1))
-        # ★★★ ここまでがエラー修正箇所 ★★★
         
         execute_values(cur, "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES %s", instructors_to_add)
         print(f"  - {len(instructors_to_add)} 件の講師・生徒関係を作成しました。")
@@ -304,35 +296,45 @@ def setup_bulk_presets_from_json(conn):
 if __name__ == '__main__':
     if not DATABASE_URL:
         print("エラー: 環境変数 'DATABASE_URL' が設定されていません。")
-        print(".envファイルを作成するか、環境変数を設定してください。")
+        exit()
+    
+    # ★★★ ここからが修正箇所 ★★★
+    print("="*60)
+    print("データベース初期化モードを選択してください:")
+    print("1: 【新規デプロイ用】テーブル作成＋デモデータ投入")
+    print("2: 【データ移行用】テーブル作成のみ（データは投入しない）")
+    print("="*60)
+    mode = input("モードを選択してください (1 または 2): ").strip()
+    
+    if mode not in ['1', '2']:
+        print("無効な選択です。処理を中断しました。")
         exit()
 
     print("="*60)
-    print("警告: このスクリプトはPostgreSQLデータベースを完全にリセットします。")
-    print("      データベース内のすべてのデータが削除されます。")
-    print(f"対象データベース: {DATABASE_URL.split('@')[-1]}") # パスワードなどを隠して表示
+    print("警告: このスクリプトはデータベースを完全にリセットします。")
+    print(f"対象データベース: {DATABASE_URL.split('@')[-1]}")
     print("="*60)
     response = input("実行してもよろしいですか？ (yes/no): ").lower()
     if response != 'yes':
         print("\n処理を中断しました。")
         exit()
+    # ★★★ ここまでが修正箇所 ★★★
 
     connection = None
     try:
         connection = get_db_connection()
         
-        # 1. すべてのテーブルを一旦削除
         drop_all_tables(connection)
-
-        # 2. 最新のスキーマでテーブルを再作成
         create_all_tables(connection)
         
-        # 3. 初期データを投入
-        setup_initial_data(connection)
-        
-        # 4. CSV/JSONからデータをインポート
-        import_master_textbooks(connection)
-        setup_bulk_presets_from_json(connection)
+        if mode == '1':
+            print("\n★★★ 新規デプロイモードで実行します ★★★\n")
+            setup_initial_data(connection)
+            import_master_textbooks(connection)
+            setup_bulk_presets_from_json(connection)
+        else:
+            print("\n★★★ データ移行モードで実行します ★★★")
+            print("テーブルの作成のみ行いました。この後、ローカルで migrate_data.py を実行してください。")
         
         print("\n🎉🎉🎉 データベースの初期化がすべて完了しました！ 🎉🎉🎉")
 
