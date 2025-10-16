@@ -70,25 +70,23 @@
         page-break-inside: avoid !important;
     }
 
-    /* ★★★ グラフ表示の強制（最優先） ★★★ */
-    .js-plotly-plot,
-    .js-plotly-plot *,
-    .plotly,
-    .plotly *,
-    .svg-container,
-    .svg-container * {
+/* ★★★ グラフ表示の強制（修正版） ★★★ */
+    .js-plotly-plot {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
-    }
-
-    /* グラフコンテナのサイズ設定 */
-    .js-plotly-plot {
         width: 100% !important;
-        min-height: 250px !important;
-        height: auto !important;
+        height: 250px !important; /* autoから固定値に変更 */
         page-break-inside: avoid !important;
         background: white !important;
+    }
+
+    /* Plotlyの内部コンテナの表示を確保 */
+    .js-plotly-plot .plotly, 
+    .js-plotly-plot .svg-container {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
     /* SVGコンテナの設定 */
