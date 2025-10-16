@@ -95,12 +95,6 @@ def create_progress_chart(progress_data, subject):
 def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
     """
     与えられたDataFrameから、「予定」と「達成済」の2段積み上げ棒グラフを生成する。
-    
-    Args:
-        df: データフレーム
-        title: グラフタイトル
-        height: グラフの高さ（デフォルト250）
-        for_print: 印刷用の場合True（レイアウトを調整）
     """
     if df.empty:
         return None
@@ -144,36 +138,37 @@ def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
             hovertemplate=f"<b>{group_name}</b><br>総時間: {plot_total_duration:.1f}h<extra></extra>"
         ))
 
-    # ★★★ 修正: Plotlyの新しい記法に対応 ★★★
     if for_print:
-        # 印刷用: 固定サイズで表示
+        # ★★★ 印刷用: より明示的な設定 ★★★
         layout_config = {
             'barmode': 'stack',
             'title': {
                 'text': title,
-                'font': {'size': 14}
+                'font': {'size': 14, 'color': 'black'}  # 色も明示
             },
             'xaxis': {
                 'title': {
                     'text': "学習時間 (h)",
-                    'font': {'size': 11}  # ★ 修正: titleの中にfontを入れる
+                    'font': {'size': 11, 'color': 'black'}
                 },
-                'tickfont': {'size': 10},
+                'tickfont': {'size': 10, 'color': 'black'},
+                'gridcolor': 'lightgray',
+                'showgrid': True,
             },
             'yaxis': {
                 'categoryorder': 'array',
                 'categoryarray': ['予定', '達成済'],
-                'tickfont': {'size': 11},
+                'tickfont': {'size': 11, 'color': 'black'},
             },
             'showlegend': False,
-            'width': 700,  # 固定幅を設定（A4用紙に収まるサイズ）
+            'width': 650,  # 少し幅を狭く
             'height': 250,
             'margin': dict(t=45, l=55, r=15, b=40),
             'paper_bgcolor': 'white',
-            'plot_bgcolor': 'white',
+            'plot_bgcolor': 'rgba(250,250,250,1)',  # 背景を明示
+            'font': {'color': 'black'},  # 全体のフォント色
         }
     else:
-        # 通常表示用: レスポンシブ
         layout_config = {
             'barmode': 'stack',
             'title_text': title,
