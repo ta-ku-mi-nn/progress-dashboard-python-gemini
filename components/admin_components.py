@@ -133,7 +133,7 @@ def create_student_edit_modal():
             ]),
         ],
     )
-    
+
 def create_bulk_preset_management_modal():
     """一括登録プリセット管理用のメインモーダル"""
     return dbc.Modal(

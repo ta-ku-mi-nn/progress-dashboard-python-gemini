@@ -62,7 +62,7 @@ def register_past_exam_callbacks(app):
                     time_val = str(result_to_edit['time_required'])
                     if result_to_edit.get('total_time_allowed') is not None:
                         time_val += f"/{result_to_edit['total_time_allowed']}"
-                
+
                 return (
                     True, "過去問結果の編集", result_id,
                     result_to_edit['date'], result_to_edit['university_name'],
@@ -99,7 +99,7 @@ def register_past_exam_callbacks(app):
 
         if not all([date, university, year, subject, total]):
             return dbc.Alert("日付、大学名、年度、科目、問題数は必須です。", color="warning"), True, no_update, no_update
-        
+
         time_required, total_time_allowed = None, None
         if time_str:
             try:
@@ -140,7 +140,7 @@ def register_past_exam_callbacks(app):
         ctx = callback_context
         if not ctx.triggered or not ctx.triggered[0]['value']:
             raise PreventUpdate
-        
+
         result_id = ctx.triggered_id['index']
         return True, result_id
 
@@ -154,7 +154,7 @@ def register_past_exam_callbacks(app):
     def execute_delete(n_clicks, result_id):
         if not n_clicks or not result_id:
             raise PreventUpdate
-        
+
         success, message = delete_past_exam_result(result_id)
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
         return toast_data
@@ -172,11 +172,11 @@ def register_past_exam_callbacks(app):
     def update_past_exam_table(student_id, toast_data, selected_university, selected_subject):
         if not student_id:
             return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4"), [], []
-        
+
         results = get_past_exam_results_for_student(student_id)
-        
+
         df = pd.DataFrame(results) if results else pd.DataFrame()
-        
+
         university_options = [{'label': u, 'value': u} for u in sorted(df['university_name'].unique())] if not df.empty else []
         subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())] if not df.empty else []
 
@@ -206,6 +206,6 @@ def register_past_exam_callbacks(app):
 
         table_df = df[['date', 'university_name', 'faculty_name', 'exam_system', 'year', 'subject', '所要時間(分)', '正答率', '操作']]
         table_df.columns = ['日付', '大学名', '学部名', '入試方式', '年度', '科目', '所要時間(分)', '正答率', '操作']
-        
+
         table = dbc.Table.from_dataframe(table_df, striped=True, bordered=True, hover=True, responsive=True)
         return table, university_options, subject_options

@@ -59,11 +59,11 @@ def register_auth_callbacks(app):
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
         # どのコンポーネントがコールバックをトリガーしたかを取得
         ctx = callback_context
-        
+
         # ボタンがクリックされたことを確認できた場合のみモーダルの表示状態を切り替える
         if ctx.triggered and ctx.triggered[0]['value'] is not None:
             return not is_open
-        
+
         # それ以外（ページの読み込みなど）の場合は、現在の状態を維持する
         return is_open
     # ★★★ ここまで修正 ★★★
@@ -80,7 +80,7 @@ def register_auth_callbacks(app):
         if is_open and user_data:
             user_id = user_data.get('id')
             assigned_students = get_students_for_instructor(user_id)
-            
+
             if not assigned_students:
                 student_list_component = html.P("担当生徒はいません。", className="text-muted")
             else:

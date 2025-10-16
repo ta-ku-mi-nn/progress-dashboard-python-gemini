@@ -3,7 +3,7 @@
 from dash import Input, Output, State, dcc, html, no_update, callback_context, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from datetime import date, timedelta, datetime 
+from datetime import date, timedelta, datetime
 import json
 import pandas as pd
 
@@ -84,7 +84,7 @@ def register_homework_callbacks(app):
         if isinstance(trigger_id, dict):
             return True, "宿題を編集", {'mode': 'edit', **trigger_id}, False
         return not is_open, no_update, {}, False
-        
+
     # モーダルへのデータ読み込みコールバック（変更なし）
     @app.callback(
         [Output('homework-modal-subject-dropdown', 'value'),
@@ -127,7 +127,7 @@ def register_homework_callbacks(app):
             output_values, other_info.get('remarks', ''), other_info.get('test_result', ''),
             other_info.get('achievement', None)
         )
-    
+
     # 科目ドロップダウンの更新コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-subject-dropdown', 'options'),
@@ -135,12 +135,12 @@ def register_homework_callbacks(app):
         Input('student-selection-store', 'data')
     )
     def update_modal_subject_dropdown(student_id):
-        if not student_id: 
+        if not student_id:
             return [], True
-        subjects = get_all_subjects() 
+        subjects = get_all_subjects()
         options = [{'label': s, 'value': s} for s in subjects]
         return options, False
-    
+
     # 参考書ドロップダウンの更新コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-textbook-dropdown', 'options', allow_duplicate=True),
@@ -155,7 +155,7 @@ def register_homework_callbacks(app):
         subject_textbooks = [b for b in all_textbooks if b['subject'] == subject]
         options = [{'label': b['book_name'], 'value': b['id']} for b in subject_textbooks]
         return options, False
-    
+
     # 保存コールバック（変更なし）
     @app.callback(
         [Output('homework-modal-alert', 'children'),
@@ -217,7 +217,7 @@ def register_homework_callbacks(app):
         for i in range(len(ranges)):
             if i < len(output_values): output_values[i] = ranges[i]
         return output_values
-        
+
     # --- ★★★ ここから修正 ★★★ ---
 
     @app.callback(
@@ -243,7 +243,7 @@ def register_homework_callbacks(app):
     def delete_homework_after_confirmation(submit_n_clicks, student_id, editing_data):
         if not submit_n_clicks or not student_id or not editing_data or editing_data.get('mode') != 'edit':
             raise PreventUpdate
-        
+
         textbook_id = editing_data.get('textbook_id', -1)
         custom_name = editing_data.get('custom_name', '')
 
@@ -252,7 +252,7 @@ def register_homework_callbacks(app):
             textbook_id if textbook_id != -1 else None,
             custom_name
         )
-        
+
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
         # 成功・失敗に関わらず、アラートは表示せず、モーダルを閉じてトーストで結果を通知
         return "", False, False, toast_data
@@ -269,7 +269,7 @@ def register_homework_callbacks(app):
     def clear_modal_inputs(n_clicks):
         if not n_clicks:
             raise PreventUpdate
-        
+
         empty_ranges = [''] * 7
         # 科目と参考書のドロップダウンはクリアしない (no_update を使わない代わりに Output から外す)
         return "", empty_ranges, "", "", None

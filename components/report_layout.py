@@ -5,7 +5,7 @@ from datetime import datetime
 
 def create_report_layout(student_name):
     """印刷専用ページのレイアウトを生成する"""
-    
+
     # 印刷時には非表示になる、操作用のヘッダー
     action_header = html.Div([
         html.H1(f"{student_name}さん の学習進捗レポート"),
@@ -19,7 +19,7 @@ def create_report_layout(student_name):
 
     # --- ここからが印刷されるコンテンツ ---
     printable_area = html.Div([
-        
+
         # 1ページ目のコンテンツ
         html.Div([
             # 印刷用ヘッダー
@@ -30,7 +30,7 @@ def create_report_layout(student_name):
                     html.P(f"生徒名: {student_name}", className="mb-0 text-muted"),
                 ], width="auto", className="text-end"),
             ], align="center", className="mb-4"),
-            
+
             # ダッシュボード部分（画像で示された部分）
             dcc.Loading(html.Div(id="report-dashboard-content")),
         ], className="page-break"), # 1ページ目の終わりに改ページ

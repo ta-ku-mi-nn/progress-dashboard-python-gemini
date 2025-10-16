@@ -7,7 +7,7 @@ from data.nested_json_processor import get_bulk_presets
 
 def create_plan_update_modal(subjects):
     """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
-    
+
     step0_content = html.Div([
         html.P("まず、更新したい科目を選択してください。", className="mb-3 text-center"),
         dcc.Loading(id="loading-subjects", children=html.Div(id='plan-subject-selection-container', className="d-grid gap-2 d-md-flex justify-content-md-center flex-wrap"))
@@ -48,7 +48,7 @@ def create_plan_update_modal(subjects):
             children=html.Div(id='plan-progress-input-container', style={'maxHeight': '500px', 'overflowY': 'auto'})
         )
     ])
-    
+
     return dbc.Modal(
         id="plan-update-modal",
         is_open=False,
@@ -68,7 +68,7 @@ def create_plan_update_modal(subjects):
                     id='plan-empty-confirm-dialog',
                     message='予定が入力されていません。この科目の進捗を0にしますか？',
                 ),
-            
+
                 html.Div(step0_content, id='plan-step-0'),
                 html.Div(step1_content, id='plan-step-1', style={'display': 'none'}),
                 html.Div(step2_content, id='plan-step-2', style={'display': 'none'}),

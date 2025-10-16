@@ -6,22 +6,22 @@ from data.nested_json_processor import get_all_changelog_entries
 
 def create_changelog_layout():
     """更新履歴ページのレイアウトを生成する"""
-    
+
     entries = get_all_changelog_entries()
-    
+
     if not entries:
         return dbc.Alert("更新履歴はありません。", color="info")
-        
+
     # ▼ ここから追加 ▼
     # バージョン番号で降順にソートする
     # 'v'プレフィックスを削除し、'.'で分割して数値のリストに変換して比較
     sorted_entries = sorted(
-        entries, 
-        key=lambda e: [int(part) for part in e['version'].lstrip('v').split('.')], 
+        entries,
+        key=lambda e: [int(part) for part in e['version'].lstrip('v').split('.')],
         reverse=True
     )
     # ▲ ここまで追加 ▲
-        
+
     timeline_items = []
     # イテレートする対象をソート済みのリストに変更
     for entry in sorted_entries:
@@ -42,7 +42,7 @@ def create_changelog_layout():
                 #         html.Small(f"リリース日: {entry['release_date']}", className="text-muted"),
                 #         html.P(entry['description'], className="mt-2")
                 #     ], color="info"
-                # ), 
+                # ),
 
                 className="mb-4"
             )

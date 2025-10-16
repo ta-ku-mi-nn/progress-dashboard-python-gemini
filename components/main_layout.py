@@ -31,7 +31,7 @@ def create_navbar(user_info):
         return None
 
     username = user_info.get('username', 'ゲスト')
-    
+
     user_menu = dbc.DropdownMenu(
         [
             dbc.DropdownMenuItem("プロフィール", id="user-profile-btn"),
@@ -46,7 +46,7 @@ def create_navbar(user_info):
     admin_link = []
     if user_info.get('role') == 'admin':
         admin_link = [dbc.NavItem(dbc.NavLink("管理者メニュー", href="/admin"))]
-        
+
     return dbc.NavbarSimple(
         children=[
             # dbc.NavItem(dbc.NavLink("使い方", href="/howto")),

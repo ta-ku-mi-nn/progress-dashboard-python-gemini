@@ -31,19 +31,19 @@ def create_completion_trend_chart(daily_data):
         return fig
 
     fig = px.line(
-        daily_data, 
-        x='日付', 
+        daily_data,
+        x='日付',
         y='完了数',
         title='',
         markers=True,
         line_shape='spline'
     )
-    
+
     fig.update_traces(
         line=dict(color='#3498db', width=3),
         marker=dict(size=8, color='#e74c3c')
     )
-    
+
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -52,7 +52,7 @@ def create_completion_trend_chart(daily_data):
         yaxis=dict(showgrid=True, gridwidth=1, gridcolor='lightgray'),
         margin=dict(l=40, r=40, t=40, b=40)
     )
-    
+
     return fig
 
 def create_daily_progress_chart(daily_data):
@@ -73,7 +73,7 @@ def create_daily_progress_chart(daily_data):
         return fig
 
     colors = ['#e74c3c' if x == 0 else '#27ae60' for x in daily_data['完了数']]
-    
+
     fig = go.Figure(data=[
         go.Bar(
             x=daily_data['日付'],
@@ -83,7 +83,7 @@ def create_daily_progress_chart(daily_data):
             textposition='auto'
         )
     ])
-    
+
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -93,7 +93,7 @@ def create_daily_progress_chart(daily_data):
         margin=dict(l=40, r=40, t=40, b=40),
         showlegend=False
     )
-    
+
     return fig
 
 def create_textbook_progress_chart(textbook_data):
@@ -146,7 +146,7 @@ def create_textbook_progress_chart(textbook_data):
         margin=dict(l=40, r=40, t=40, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
-    
+
     return fig
 
 def create_subject_pie_charts(subject_data):
@@ -182,7 +182,7 @@ def create_subject_pie_charts(subject_data):
         completed = row['完了数']
         total = row['総数']
         achievement_rate = row['平均達成率']
-        
+
         # 達成率に応じた色設定
         if achievement_rate >= 80:
             liquid_color = "#28a745"  # 緑
@@ -196,7 +196,7 @@ def create_subject_pie_charts(subject_data):
         else:
             liquid_color = "#dc3545"  # 赤
             glow_color = "#dc3545"
-        
+
         # 液体タンクカードを作成
         tank_card = dbc.Col([
                     # 液体タンクコンテナ
@@ -220,7 +220,7 @@ def create_subject_pie_charts(subject_data):
                             }),
                             # 科目名と達成率（タンク内）
                             html.Div([
-                                html.H4(subject, className="text-white fw-bold mb-2", 
+                                html.H4(subject, className="text-white fw-bold mb-2",
                                        style={'textShadow': '3px 3px 6px rgba(0,0,0,0.7)', 'fontSize': '1.3rem'}),
                                 html.H2(f"{achievement_rate:.1f}%", className="text-white fw-bold mb-0",
                                        style={'textShadow': '3px 3px 6px rgba(0,0,0,0.7)', 'fontSize': '2.2rem'})
@@ -273,7 +273,7 @@ def create_subject_pie_charts(subject_data):
                 'cursor': 'pointer',
                 'minHeight': '280px'
             }, id={'type': 'tank-card', 'index': subject})
-        
+
         liquid_tanks.append(tank_card)
 
     return dbc.Row(liquid_tanks, className="g-3")

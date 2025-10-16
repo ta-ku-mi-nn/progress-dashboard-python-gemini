@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 
 def create_bug_report_layout(user_info):
     """不具合報告ページのレイアウトを生成する"""
-    
+
     is_admin = user_info.get('role') == 'admin'
 
     report_form = dbc.Card([
@@ -32,7 +32,7 @@ def create_bug_report_layout(user_info):
         is_open=False,
         size="lg"
     )
-    
+
     # ★★★ ここから修正 ★★★
     admin_modal = dbc.Modal(
         [

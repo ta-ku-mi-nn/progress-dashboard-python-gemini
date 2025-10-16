@@ -134,7 +134,7 @@ def display_page(pathname, auth_store_data):
 
     if not user_info:
         return create_login_layout(), None
-    
+
     if pathname.startswith('/report/'):
         try:
             student_id = int(pathname.split('/')[-1])
@@ -144,24 +144,24 @@ def display_page(pathname, auth_store_data):
             return create_report_layout(student_name), None
         except (ValueError, IndexError):
             return dbc.Alert("無効な生徒IDです。", color="danger"), create_navbar(user_info)
-    
+
     navbar = create_navbar(user_info)
     subjects = get_all_subjects()
 
     if pathname == '/homework':
         page_content = create_homework_layout(user_info)
         return page_content, navbar
-    
+
     if pathname == '/past-exam':
         page_content = create_past_exam_layout()
         return page_content, navbar
-    
+
     if pathname == '/howto':
         return create_howto_layout(user_info), navbar
-    
+
     if pathname == '/bug-report':
         return create_bug_report_layout(user_info), navbar
-    
+
     if pathname == '/changelog':
         return create_changelog_layout(), navbar
 
@@ -232,7 +232,7 @@ def display_page(pathname, auth_store_data):
             create_add_changelog_modal()
         ])
         return page_content, navbar
-    
+
     page_content = html.Div([
         create_main_layout(user_info),
         *create_all_modals(subjects)

@@ -55,7 +55,7 @@ def register_bug_report_callbacks(app):
         ctx = callback_context
         if ctx.triggered_id == 'toast-trigger' and (not toast_data or toast_data.get('source') != 'bug_report'):
             raise PreventUpdate
-        
+
         if pathname != '/bug-report':
             raise PreventUpdate
 
@@ -95,7 +95,7 @@ def register_bug_report_callbacks(app):
     )
     def toggle_bug_detail_modal(item_clicks, close_clicks, user_info):
         ctx = callback_context
-        
+
         # 起動条件を厳格化
         if not ctx.triggered_id or (isinstance(ctx.triggered_id, dict) and not any(item_clicks)):
             if not (ctx.triggered_id == 'close-bug-detail-modal' and close_clicks):
@@ -104,9 +104,9 @@ def register_bug_report_callbacks(app):
         # ユーザーが管理者ならこのコールバックは動作しない
         if user_info and user_info.get('role') == 'admin':
             raise PreventUpdate
-        
+
         trigger_id = ctx.triggered_id
-        
+
         if trigger_id == 'close-bug-detail-modal':
             return False, no_update, no_update
 
@@ -114,7 +114,7 @@ def register_bug_report_callbacks(app):
             bug_id = trigger_id['index']
             reports = get_all_bug_reports()
             report = next((r for r in reports if r['id'] == bug_id), None)
-            
+
             if not report:
                 return False, "エラー", "報告が見つかりません。"
 
@@ -124,7 +124,7 @@ def register_bug_report_callbacks(app):
                 html.Hr(),
                 html.P(report['description'], style={'whiteSpace': 'pre-wrap'}),
             ]
-            
+
             if report['status'] == '対応済' and report['resolution_message']:
                 body.extend([
                     html.Hr(),
@@ -133,7 +133,7 @@ def register_bug_report_callbacks(app):
                 ])
 
             return True, report['title'], body
-        
+
         return no_update, no_update, no_update
 
     # --- 管理者向け編集モーダルの表示 ---
@@ -159,12 +159,12 @@ def register_bug_report_callbacks(app):
         # ユーザーが管理者でなければこのコールバックは動作しない
         if not user_info or user_info.get('role') != 'admin':
             raise PreventUpdate
-        
+
         trigger_id = ctx.triggered_id
-        
+
         if trigger_id == 'cancel-bug-admin-modal':
             return False, None, no_update, no_update, None
-            
+
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'bug-report-item':
             bug_id = trigger_id['index']
             reports = get_all_bug_reports()
@@ -177,7 +177,7 @@ def register_bug_report_callbacks(app):
                     dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light")
                 ])
                 return True, bug_id, report['status'], report.get('resolution_message', ''), details
-        
+
         return no_update, no_update, no_update, no_update, None
 
     # --- 管理者によるステータス更新 ---

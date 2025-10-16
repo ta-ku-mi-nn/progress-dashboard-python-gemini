@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 
 from data.nested_json_processor import (
-    get_master_textbook_list, add_or_update_student_progress, 
+    get_master_textbook_list, add_or_update_student_progress,
     get_student_info_by_id, get_all_subjects, get_student_progress_by_id,
     get_bulk_presets
 )
@@ -35,7 +35,7 @@ def register_plan_callbacks(app):
         # どのコンポーネントがコールバックをトリガーしたかを取得
         # .split('.')[0] を使って、パターンマッチングIDのベース部分を取得
         trigger_id_str = ctx.triggered[0]['prop_id'].split('.')[0]
-        
+
         # JSON形式のID文字列（パターンマッチング）かどうかを判定
         try:
             trigger_id = json.loads(trigger_id_str)
@@ -89,7 +89,7 @@ def register_plan_callbacks(app):
     def control_plan_steps(is_open, next_clicks, back_clicks, subject, current_step, selected_books):
         ctx = callback_context
         triggered_id = ctx.triggered_id
-        
+
         step = current_step
         show_dialog = False
 
@@ -104,7 +104,7 @@ def register_plan_callbacks(app):
                 show_dialog = True
             else:
                 step += 1
-        
+
         step = max(0, min(step, 2))
 
         if show_dialog:
@@ -112,7 +112,7 @@ def register_plan_callbacks(app):
 
         styles = [{'display': 'none'}] * 3
         styles[step] = {'display': 'block'}
-        
+
         back_style = {'display': 'inline-block'} if step > 0 else {'display': 'none'}
         next_style = {'display': 'inline-block'} if step < 2 else {'display': 'none'}
         save_style = {'display': 'inline-block'} if step == 2 else {'display': 'none'}
@@ -127,7 +127,7 @@ def register_plan_callbacks(app):
     def update_modal_title(step, subject, student_id):
         student_name = get_student_info_by_id(student_id).get('name', '') if student_id else ""
         base_title = f"{student_name}さん の学習計画"
-        
+
         if step == 0: return f"{base_title} - ステップ1: 科目選択"
         if step == 1: return f"{base_title} - ステップ2: 参考書選択 ({subject})"
         if step == 2: return f"{base_title} - ステップ3: 進捗入力 ({subject})"
@@ -145,12 +145,12 @@ def register_plan_callbacks(app):
     def handle_subject_selection(is_open, subject_clicks, student_id):
         ctx = callback_context
         triggered_id = ctx.triggered_id
-        
+
         all_subjects = get_all_subjects()
-        
+
         def create_buttons(active_subject=None):
-            return [dbc.Button(s, id={'type': 'plan-subject-btn', 'subject': s}, 
-                               color="primary", outline= (s != active_subject), className="m-1") 
+            return [dbc.Button(s, id={'type': 'plan-subject-btn', 'subject': s},
+                               color="primary", outline= (s != active_subject), className="m-1")
                     for s in all_subjects]
 
         if triggered_id == 'plan-update-modal' and is_open:
@@ -161,7 +161,7 @@ def register_plan_callbacks(app):
         if isinstance(triggered_id, dict) and triggered_id.get('type') == 'plan-subject-btn':
             subject = triggered_id['subject']
             progress = get_student_progress_by_id(student_id)
-            
+
             subject_progress = {}
             if subject in progress:
                 for level, books in progress[subject].items():
@@ -172,7 +172,7 @@ def register_plan_callbacks(app):
                                 'total': details.get('total_units', 1)
                             }
             return create_buttons(active_subject=subject), subject_progress, subject
-        
+
         return no_update, no_update, no_update
 
     @app.callback(
@@ -196,10 +196,10 @@ def register_plan_callbacks(app):
 
         if tid == 'plan-subject-store':
             return list(current_progress.keys())
-        
+
         if tid == 'plan-uncheck-all-btn':
             return []
-        
+
         if isinstance(tid, dict) and tid.get('type') == 'plan-book-checklist':
             selected_in_checklists = {book for sublist in checklist_vals if sublist for book in sublist}
             return sorted(list(selected_in_checklists))
@@ -207,7 +207,7 @@ def register_plan_callbacks(app):
         if isinstance(tid, dict) and tid.get('type') == 'plan-preset-btn':
             new_books = json.loads(tid['books'])
             return sorted(list(set((current_selection or []) + new_books)))
-        
+
         if tid == 'add-custom-book-btn' and custom_book_name:
             new_selection = (current_selection or []) + [custom_book_name]
             return sorted(list(set(new_selection)))
@@ -229,7 +229,7 @@ def register_plan_callbacks(app):
     def add_custom_book_to_store(n_clicks, name, level, duration, current_custom_books):
         if not n_clicks or not all([name, level, duration is not None]):
             raise PreventUpdate
-        
+
         updated_custom_books = current_custom_books or {}
         updated_custom_books[name] = {
             'level': level,
@@ -246,7 +246,7 @@ def register_plan_callbacks(app):
     )
     def update_textbook_checklist(search_term, subject, selected_books):
         if not subject: return []
-        
+
         textbooks_by_level = get_master_textbook_list(subject, search_term)
         if not textbooks_by_level: return dbc.Alert("この科目の参考書がありません。", color="info")
 
@@ -256,7 +256,7 @@ def register_plan_callbacks(app):
                 value=[b for b in (selected_books or []) if b in books],
                 id={'type': 'plan-book-checklist', 'level': level}
             ), title=f"レベル: {level} ({len(books)}冊)") for level, books in textbooks_by_level.items()]
-        
+
         return dbc.Accordion(items, start_collapsed=False, always_open=True, persistence=True, persistence_type='session', id='plan-accordion')
 
     @app.callback(Output('plan-preset-buttons-container', 'children'), Input('plan-subject-store', 'data'), prevent_initial_call=True)
@@ -264,7 +264,7 @@ def register_plan_callbacks(app):
         if not subject: return []
         presets = get_bulk_presets()
         if subject not in presets: return dbc.Alert("この科目のプリセットはありません。", color="info")
-        
+
         buttons = [dbc.Button(p, id={'type': 'plan-preset-btn', 'books': json.dumps(b)}, color="secondary", className="m-1") for p, b in presets[subject].items()]
         return buttons
 
@@ -276,14 +276,14 @@ def register_plan_callbacks(app):
     @app.callback(
         Output('plan-progress-input-container', 'children'),
         Input('plan-step-2', 'style'),
-        [State('plan-selected-books-store', 'data'), 
-         State('plan-subject-store', 'data'), 
+        [State('plan-selected-books-store', 'data'),
+         State('plan-subject-store', 'data'),
          State('plan-current-progress-store', 'data'),
          State('plan-custom-books-store', 'data')]
     )
     def create_progress_inputs(step2_style, selected_books, subject, current_progress, custom_books):
         if not selected_books or (step2_style and step2_style.get('display') == 'none'): return no_update
-            
+
         master_books = get_master_textbook_list(subject)
         inputs = []
         for book in sorted(selected_books):
@@ -294,7 +294,7 @@ def register_plan_callbacks(app):
 
             prog = (current_progress or {}).get(book, {})
             val = f"{prog.get('completed', '')}/{prog.get('total', '')}".strip('/')
-            
+
             inputs.append(html.Div([
                 html.H6(f"[{level}] {book}", className="mt-3"),
                 dbc.InputGroup([
@@ -304,7 +304,7 @@ def register_plan_callbacks(app):
                 dcc.Store(id={'type': 'plan-book-level-store', 'book': book}, data=level)
             ], className="mb-2"))
         return inputs
-        
+
     @app.callback(
         Output({'type': 'plan-progress-input', 'book': MATCH}, 'value'),
         Input({'type': 'plan-progress-done-btn', 'book': MATCH}, 'n_clicks'),
@@ -318,7 +318,7 @@ def register_plan_callbacks(app):
     def control_next_button_state(step, subject):
         if step == 0 and not subject: return True
         return False
-        
+
     @app.callback(
         [Output('plan-modal-alert', 'children', allow_duplicate=True),
          Output('plan-modal-alert', 'is_open', allow_duplicate=True),
@@ -340,13 +340,13 @@ def register_plan_callbacks(app):
             raise PreventUpdate
 
         trigger_id = ctx.triggered_id
-        
+
         student_info = get_student_info_by_id(student_id)
-        if not student_info: 
+        if not student_info:
             return dbc.Alert("生徒情報取得失敗。", color="danger"), True, no_update
 
         updates = []
-        
+
         if trigger_id == 'plan-empty-confirm-dialog':
             if not confirm_clicks:
                 raise PreventUpdate
@@ -358,12 +358,12 @@ def register_plan_callbacks(app):
         for book in books_to_unplan:
             level = next((lvl for lvl, b_list in get_master_textbook_list(subject).items() if book in b_list), "N/A")
             updates.append({'subject': subject, 'level': level, 'book_name': book, 'is_planned': False, 'completed_units': 0, 'total_units': 1, 'duration': None})
-        
+
         if trigger_id != 'plan-empty-confirm-dialog':
             for i, id_dict in enumerate(book_ids):
                 book_name = id_dict['book']
                 val = progress_values[i] if progress_values else ""
-                
+
                 completed, total = 0, 1
                 if val is None or val.strip() == "":
                     if current_progress and book_name in current_progress:

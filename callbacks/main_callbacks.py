@@ -76,13 +76,13 @@ def register_main_callbacks(app):
 
         # --- 生徒選択時の処理 ---
         subjects = get_subjects_for_student(student_id)
-        
+
         all_tabs = [dbc.Tab(label="総合", tab_id="総合")]
         if subjects:
             all_tabs.extend([dbc.Tab(label=subject, tab_id=subject) for subject in subjects])
 
         tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
-        
+
         actions = dbc.ButtonGroup([
             dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True),
             dbc.Button("レポート印刷", id="print-report-btn", color="info", outline=True, className="ms-2")

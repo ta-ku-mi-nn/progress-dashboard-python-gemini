@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (最終修正版) */
+/* assets/assets/printable.css (修正版) */
 
 @page {
     size: A4 portrait;
@@ -17,7 +17,7 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
-    
+
     * {
         box-sizing: border-box !important;
     }
@@ -27,26 +27,25 @@
     /* =================================== */
     #report-header,
     #report-header + hr,
-    #report-comment-input /* コメント入力欄を非表示に */ {
+    #report-comment-input {
         display: none !important;
     }
 
-    #printable-comment-output /* 印刷用のコメント表示エリアを表示に */ {
+    #printable-comment-output {
         display: block !important;
     }
-
 
     /* =================================== */
     /* レイアウト調整 */
     /* =================================== */
-    
+
     #report-dashboard-content > .row > .col-md-8,
     #report-dashboard-content > .row > .col-md-4 {
         flex: 0 0 100% !important;
         max-width: 100% !important;
         padding: 0 !important;
     }
-    
+
     /* 縦棒グラフ群(右列)のレイアウト */
     #subject-charts-row {
         display: flex !important;
@@ -57,7 +56,7 @@
         padding: 0 !important;
         page-break-inside: avoid !important;
     }
-    
+
     #subject-charts-row > * {
         flex: 0 0 25% !important;
         max-width: 25% !important;
@@ -65,12 +64,36 @@
         page-break-inside: avoid !important;
     }
 
-    /* ★★★ 修正: グラフの幅を強制的に100%にする ★★★ */
-    #report-dashboard-content .js-plotly-plot .svg-container,
-    #report-dashboard-content .js-plotly-plot svg.main-svg {
+    /* ★★★ 修正: グラフコンテナ全体のサイズ調整 ★★★ */
+    #report-dashboard-content .js-plotly-plot {
         width: 100% !important;
+        height: auto !important;
+        min-height: 200px !important; /* 最低限の高さを確保 */
     }
 
+    /* ★★★ 修正: SVGコンテナのサイズ調整 ★★★ */
+    #report-dashboard-content .js-plotly-plot .svg-container {
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+    }
+
+    #report-dashboard-content .js-plotly-plot svg.main-svg {
+        width: 100% !important;
+        height: auto !important;
+        max-height: 300px !important; /* 最大高さを設定して収まるように */
+    }
+
+    /* ★★★ 追加: Plotlyの内部要素も調整 ★★★ */
+    #report-dashboard-content .js-plotly-plot .plot-container {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    #report-dashboard-content .js-plotly-plot .plotly {
+        width: 100% !important;
+        height: 100% !important;
+    }
 
     /* =================================== */
     /* その他共通スタイル */
@@ -78,27 +101,27 @@
     .page-break {
         page-break-after: always;
     }
-    
-    /* ★★★ 修正: 印刷用コメント欄のスタイル ★★★ */
+
     #printable-comment-output {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
         color: #000 !important;
         padding: 10px;
-        min-height: 150px; /* 内容が少なくても最低限の高さを確保 */
-        white-space: pre-wrap; /* 改行やスペースをそのまま表示 */
-        word-wrap: break-word; /* 長い単語を折り返す */
+        min-height: 150px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
     }
 
-    .card, .js-plotly-plot { 
-        box-shadow: none !important; 
-        border: 1px solid #ddd !important; 
+    .card, .js-plotly-plot {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
     }
 
-    .row, .col, .card, h2, h4, .table { 
-        page-break-inside: avoid; 
+    .row, .col, .card, h2, h4, .table {
+        page-break-inside: avoid;
     }
-    h2, h4 { 
-        page-break-after: avoid; 
+
+    h2, h4 {
+        page-break-after: avoid;
     }
 }

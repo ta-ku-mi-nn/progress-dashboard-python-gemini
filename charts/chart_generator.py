@@ -13,7 +13,7 @@ def create_progress_chart(progress_data, subject):
         return go.Figure()
 
     subject_data = progress_data[subject]
-    
+
     records = []
     for level, books in subject_data.items():
         for book_name, details in books.items():
@@ -26,12 +26,12 @@ def create_progress_chart(progress_data, subject):
                 'completed_units': details.get('completed_units', 0),
                 'total_units': details.get('total_units', 1),
             })
-    
+
     if not records:
         return go.Figure()
 
     df = pd.DataFrame(records)
-    
+
     df_planned = df[df['is_planned']].copy()
 
     if df_planned.empty:
@@ -49,7 +49,7 @@ def create_progress_chart(progress_data, subject):
     for i, book in enumerate(df_planned['book_name'].unique()):
         book_df = df_planned[df_planned['book_name'] == book]
         color = colors[i % len(colors)]
-        
+
         fig.add_trace(go.Bar(
             y=['進捗'],
             x=book_df['achieved_duration'],
@@ -63,7 +63,7 @@ def create_progress_chart(progress_data, subject):
                 "全体: %{customdata[0]:.1f}h<extra></extra>"
             )
         ))
-        
+
         fig.add_trace(go.Bar(
             y=['進捗'],
             x=book_df['remaining_duration'],
@@ -89,17 +89,22 @@ def create_progress_chart(progress_data, subject):
         margin=dict(t=50, l=10, r=10, b=30),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
-    
+
     return fig
 
-# ★★★ ここから修正 ★★★
-def create_progress_stacked_bar_chart(df, title):
+def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
     """
     与えられたDataFrameから、「予定」と「達成済」の2段積み上げ棒グラフを生成する。
+
+    Args:
+        df: データフレーム
+        title: グラフタイトル
+        height: グラフの高さ（デフォルト250）
+        for_print: 印刷用の場合True（レイアウトを調整）
     """
     if df.empty:
         return None
-    
+
     df_planned = df[df['is_planned']].copy()
     if df_planned.empty:
         return None
@@ -108,19 +113,18 @@ def create_progress_stacked_bar_chart(df, title):
         lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
         axis=1
     )
-    
+
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
-    
+
     group_key = 'subject' if 'subject' in df_planned.columns else 'book_name'
 
     for i, group_name in enumerate(df_planned[group_key].unique()):
         group_df = df_planned[df_planned[group_key] == group_name]
         color = colors[i % len(colors)]
-        
+
         achieved_duration = group_df['achieved_duration'].sum()
 
-        # 「過去問」の場合、予定時間は0として扱う
         if group_name == '過去問':
             plot_total_duration = 0
         else:
@@ -132,7 +136,7 @@ def create_progress_stacked_bar_chart(df, title):
             legendgroup=group_name,
             hovertemplate=f"<b>{group_name}</b><br>達成済: {achieved_duration:.1f}h<extra></extra>"
         ))
-        
+
         fig.add_trace(go.Bar(
             y=['予定'], x=[plot_total_duration], name=group_name,
             orientation='h', marker=dict(color=color, opacity=0.6),
@@ -140,24 +144,40 @@ def create_progress_stacked_bar_chart(df, title):
             hovertemplate=f"<b>{group_name}</b><br>総時間: {plot_total_duration:.1f}h<extra></extra>"
         ))
 
-    fig.update_layout(
-        barmode='stack',
-        title_text=title,
-        xaxis_title="学習時間 (h)",
-        yaxis={'categoryorder':'array', 'categoryarray':['予定', '達成済']},
-        showlegend=False,
-        height=250,
-        margin=dict(t=50, l=60, r=20, b=40),
-    )
+    # ★★★ 修正: 印刷用の設定を追加 ★★★
+    if for_print:
+        layout_config = {
+            'barmode': 'stack',
+            'title_text': title,
+            'xaxis_title': "学習時間 (h)",
+            'yaxis': {'categoryorder':'array', 'categoryarray':['予定', '達成済']},
+            'showlegend': False,
+            'autosize': True,  # 自動サイズ調整を有効化
+            'height': 280,  # 印刷用に少し高めに設定
+            'margin': dict(t=50, l=60, r=20, b=40),
+            'paper_bgcolor': 'white',
+            'plot_bgcolor': 'white',
+        }
+    else:
+        layout_config = {
+            'barmode': 'stack',
+            'title_text': title,
+            'xaxis_title': "学習時間 (h)",
+            'yaxis': {'categoryorder':'array', 'categoryarray':['予定', '達成済']},
+            'showlegend': False,
+            'height': height,
+            'margin': dict(t=50, l=60, r=20, b=40),
+        }
+
+    fig.update_layout(**layout_config)
     return fig
-# ★★★ ここまで修正 ★★★
 
 def create_subject_achievement_bar(df, subject):
     """
     指定された科目の達成度を示す液体タンク風の縦棒グラフのFigureを生成する。
     """
     subject_df = df[df['subject'] == subject].copy()
-    
+
     subject_df['achieved_duration'] = subject_df.apply(
         lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
         axis=1
@@ -165,7 +185,7 @@ def create_subject_achievement_bar(df, subject):
 
     total_hours = subject_df[subject_df['is_planned']]['duration'].sum()
     done_hours = subject_df['achieved_duration'].sum()
-    
+
     achievement_rate = (done_hours / total_hours * 100) if total_hours > 0 else 0
 
     liquid_color = "rgba(40, 167, 69, 0.7)"
@@ -211,5 +231,5 @@ def create_subject_achievement_bar(df, subject):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
-    
+
     return fig

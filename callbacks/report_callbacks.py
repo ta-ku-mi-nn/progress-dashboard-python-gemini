@@ -14,7 +14,7 @@ def generate_past_exam_table_for_report(student_id):
     if not results:
         return dbc.Alert("この生徒の過去問結果はまだありません。", color="info")
     df = pd.DataFrame(results)
-    
+
     def calculate_percentage(row):
         correct, total = row['correct_answers'], row['total_questions']
         return f"{(correct / total * 100):.1f}%" if pd.notna(correct) and pd.notna(total) and total > 0 else ""
@@ -25,10 +25,10 @@ def generate_past_exam_table_for_report(student_id):
         if pd.notna(total): return f"{int(req)}/{int(total)}"
         return f"{int(req)}" if pd.notna(req) else ""
     df['所要時間(分)'] = df.apply(format_time, axis=1)
-    
+
     table_df = df[['date', 'university_name', 'year', 'subject', '正答率']]
     table_df.columns = ['日付', '大学名', '年度', '科目', '正答率']
-    
+
     return dbc.Table.from_dataframe(table_df, striped=True, bordered=True, hover=True, responsive=True, size='sm')
 
 def register_report_callbacks(app):
@@ -41,7 +41,7 @@ def register_report_callbacks(app):
             if (n_clicks > 0 && student_id) {
                 window.open(`/report/${student_id}`);
             }
-            return ""; 
+            return "";
         }
         """,
         Output('dummy-clientside-output', 'children'),
@@ -53,8 +53,8 @@ def register_report_callbacks(app):
     # 2. レポートページが開かれたら、内容を生成して各セクションに配置する
     @app.callback(
         [Output('report-dashboard-content', 'children'),
-         Output('report-past-exam-content', 'children'),
-         Output('report-creation-date', 'children')],
+        Output('report-past-exam-content', 'children'),
+        Output('report-creation-date', 'children')],
         Input('url', 'pathname')
     )
     def generate_custom_report_content(pathname):
@@ -65,11 +65,11 @@ def register_report_callbacks(app):
         except (ValueError, IndexError):
             return dbc.Alert("無効なURLです。", color="danger"), "", ""
 
-        # --- 各パーツを生成 ---
-        dashboard_content = generate_dashboard_content(student_id, '総合')
+        # ★★★ 修正: for_print=Trueを渡す ★★★
+        dashboard_content = generate_dashboard_content(student_id, '総合', for_print=True)
         past_exam_table = generate_past_exam_table_for_report(student_id)
         creation_date = f"作成日: {datetime.now().strftime('%Y年%m月%d日')}"
-        
+
         return dashboard_content, past_exam_table, creation_date
 
     # 3. レポートページの印刷ボタンで印刷ダイアログを開く
@@ -86,7 +86,7 @@ def register_report_callbacks(app):
         Input('final-print-btn', 'n_clicks'),
         prevent_initial_call=True
     )
-    
+
     # --- ★★★ ここから修正 ★★★ ---
     # 4. コメント入力欄の内容を、印刷用のDivにリアルタイムで反映させる
     app.clientside_callback(

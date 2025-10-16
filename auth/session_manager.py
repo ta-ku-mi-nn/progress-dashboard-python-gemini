@@ -20,7 +20,7 @@ class SessionManager:
         """
         self.db_path = db_path
         self.session_duration = timedelta(hours=8)  # セッション有効期間
-    
+
     def create_session(self, user_id: int) -> str:
         """
         新しいセッションを作成
@@ -52,7 +52,7 @@ class SessionManager:
             conn.commit()
 
         return session_id
-    
+
     def validate_session(self, session_id: str) -> Optional[int]:
         """
         セッションを検証
@@ -87,7 +87,7 @@ class SessionManager:
                 self.destroy_session(session_id)
 
             return None
-    
+
     def destroy_session(self, session_id: str) -> bool:
         """
         セッションを破棄
@@ -108,7 +108,7 @@ class SessionManager:
 
             conn.commit()
             return cursor.rowcount > 0
-    
+
     def destroy_user_sessions(self, user_id: int) -> bool:
         """
         ユーザーの全セッションを破棄

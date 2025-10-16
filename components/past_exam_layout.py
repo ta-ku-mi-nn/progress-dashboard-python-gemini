@@ -6,7 +6,7 @@ from datetime import date
 
 def create_past_exam_layout():
     """過去問管理ページのメインレイアウトを生成する"""
-    
+
     return html.Div([
         # 編集/削除対象のIDを保持するStore
         dcc.Store(id='editing-past-exam-id-store'),
@@ -33,7 +33,7 @@ def create_past_exam_layout():
 
         # 結果テーブル表示エリア
         dcc.Loading(html.Div(id="past-exam-table-container")),
-        
+
         # 入力・編集用モーダル
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle(id="past-exam-modal-title")),
@@ -81,7 +81,7 @@ def create_past_exam_layout():
                 dbc.Button("保存", id="save-past-exam-modal-btn", color="primary"),
             ]),
         ], id="past-exam-modal", is_open=False),
-        
+
         # 削除確認ダイアログ
         dcc.ConfirmDialog(
             id='delete-past-exam-confirm',
