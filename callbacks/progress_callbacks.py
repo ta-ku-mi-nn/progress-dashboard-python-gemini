@@ -107,7 +107,7 @@ def create_initial_progress_layout(student_id):
         className="mt-5"
     )
 
-def generate_dashboard_content(student_id, active_tab):
+def generate_dashboard_content(student_id, active_tab, for_print=False):
     """指定された生徒とタブに基づいてダッシュボードのコンテンツを生成する"""
     if not student_id or not active_tab:
         return None
@@ -154,7 +154,7 @@ def generate_dashboard_content(student_id, active_tab):
                  df_all = past_exam_record
 
 
-        stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
+        stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間', for_print=for_print)
         
         left_col = html.Div([
             dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
@@ -195,7 +195,7 @@ def generate_dashboard_content(student_id, active_tab):
                 })
         
         df_subject = pd.DataFrame(subject_records)
-        fig = create_progress_stacked_bar_chart(df_subject, f'<b>{active_tab}</b> の学習進捗')
+        fig = create_progress_stacked_bar_chart(df_subject, f'<b>{active_tab}</b> の学習進捗', for_print=for_print)
         summary_cards = create_summary_cards(df_subject)
 
         left_col = html.Div([

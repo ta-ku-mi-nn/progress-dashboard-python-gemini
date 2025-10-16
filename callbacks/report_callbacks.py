@@ -43,7 +43,7 @@ def register_report_callbacks(app):
         }
         """,
         Output('dummy-clientside-output', 'children'),
-        Input('print-report-btn', 'n_clicks'),
+        Input('download-report-btn', 'n_clicks'),
         State('student-selection-store', 'data'),
         prevent_initial_call=True
     )
