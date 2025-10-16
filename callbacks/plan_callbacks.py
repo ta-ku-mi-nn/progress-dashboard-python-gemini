@@ -16,24 +16,31 @@ from data.nested_json_processor import (
 def register_plan_callbacks(app):
     """学習計画モーダルに関連するコールバックを登録します。"""
 
+    # --- ★★★ ここから修正 ★★★
     @app.callback(
         Output('plan-update-modal', 'is_open'),
         [Input('bulk-register-btn', 'n_clicks'),
+         Input('initial-bulk-register-btn-mirror', 'n_clicks'), # 変更点: Inputを追加
          Input('plan-cancel-btn', 'n_clicks'),
          Input('toast-trigger', 'data')],
         State('plan-update-modal', 'is_open'),
         prevent_initial_call=True
     )
-    def toggle_plan_modal(open_clicks, cancel_clicks, toast_data, is_open):
+    def toggle_plan_modal(open_clicks, mirror_clicks, cancel_clicks, toast_data, is_open): # 変更点: 引数を追加
         ctx = callback_context
-        if ctx.triggered_id == 'toast-trigger':
+        triggered_id = ctx.triggered_id
+
+        if triggered_id == 'toast-trigger':
             if toast_data and toast_data.get('source') == 'plan':
                 return False
             return no_update
         
-        if open_clicks or cancel_clicks:
+        # 変更点: いずれかのボタンがクリックされたらモーダルの開閉を切り替える
+        if triggered_id in ['bulk-register-btn', 'initial-bulk-register-btn-mirror', 'plan-cancel-btn']:
             return not is_open
+            
         return is_open
+    # --- ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('plan-step-0', 'style'),
@@ -239,7 +246,6 @@ def register_plan_callbacks(app):
         if not selected_books: return dbc.Alert("参考書が選択されていません。", color="secondary", className="p-2")
         return dbc.ListGroup([dbc.ListGroupItem(b, className="p-2") for b in sorted(selected_books)], flush=True)
 
-    # --- ★★★ ここから修正 ★★★
     @app.callback(
         Output('plan-progress-input-container', 'children'),
         Input('plan-step-2', 'style'),
@@ -292,7 +298,6 @@ def register_plan_callbacks(app):
             inputs.append(input_row)
             
         return inputs
-    # --- ★★★ ここまで修正 ★★★
         
     @app.callback(
         Output({'type': 'plan-progress-input', 'book': MATCH}, 'value'),

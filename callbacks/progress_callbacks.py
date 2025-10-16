@@ -80,7 +80,6 @@ def create_welcome_layout():
         className="mt-5",
     )
 
-# --- ★★★ ここから修正 ★★★
 def create_initial_progress_layout(student_id):
     """進捗データが全くない生徒向けの初期レイアウトを生成する"""
     student_info = get_student_info_by_id(student_id)
@@ -113,7 +112,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         return None
 
     progress_data = get_student_progress_by_id(student_id)
-    # 修正: 最初の条件分岐を調整
     if not progress_data:
         return create_initial_progress_layout(student_id)
 
@@ -135,7 +133,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         
         df_all = pd.DataFrame(all_records) if all_records else pd.DataFrame()
         
-        # 修正: df_allが空の場合も考慮
         if df_all.empty and past_exam_hours == 0:
              return create_initial_progress_layout(student_id)
 
@@ -162,7 +159,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         ])
         
         bar_charts = []
-        # is_planned が True の科目に絞り込んでからグラフを生成
         planned_subjects = df_all[df_all['is_planned'] == True]['subject'].unique()
         for subject in sorted([s for s in planned_subjects if s != '過去問']):
             fig = create_subject_achievement_bar(df_all, subject)
@@ -232,26 +228,9 @@ def register_progress_callbacks(app):
 
         return generate_dashboard_content(student_id, active_tab)
 
-    # 変更箇所: 新規追加したレイアウト内のボタンからもモーダルを開けるようにする
-    app.clientside_callback(
-        """
-        function(n1, n2) {
-            // どちらかのボタンが押されたら、もう一方のn_clicksを1増やすことでモーダルを開くコールバックをトリガーする
-            const triggered = window.dash_clientside.callback_context.triggered.map(t => t.prop_id);
-            if (triggered.includes("bulk-register-btn.n_clicks")) {
-                return window.dash_clientside.no_update;
-            } else if (triggered.includes("initial-bulk-register-btn-mirror.n_clicks")) {
-                return (n1 || 0) + 1;
-            }
-            return window.dash_clientside.no_update;
-        }
-        """,
-        Output('bulk-register-btn', 'n_clicks'),
-        Input('bulk-register-btn', 'n_clicks'),
-        Input('initial-bulk-register-btn-mirror', 'n_clicks'),
-        prevent_initial_call=True
-    )
-# --- ★★★ ここまで修正 ★★★
+    # --- ★★★ ここから修正 ★★★
+    # 競合の原因となっていた clientside_callback を削除
+    # --- ★★★ ここまで修正 ★★★
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
