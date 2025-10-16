@@ -113,9 +113,15 @@ def main():
         for item in progress_items:
             new_student_id = student_id_map.get(item['student_id'])
             if new_student_id:
+                # ★★★ ここからが修正箇所 ★★★
+                # 整数をbool型に変換
+                is_planned_bool = bool(item['is_planned'])
+                is_done_bool = bool(item['is_done'])
+                # ★★★ ここまでが修正箇所 ★★★
+
                 progress_to_insert.append((
                     new_student_id, item['subject'], item['level'], item['book_name'],
-                    item['duration'], item['is_planned'], item['is_done'],
+                    item['duration'], is_planned_bool, is_done_bool, # 変換後の変数を使用
                     item['completed_units'], item['total_units']
                 ))
         if progress_to_insert:
@@ -132,7 +138,8 @@ def main():
         homework_to_insert = []
         for item in homework_items:
             new_student_id = student_id_map.get(item['student_id'])
-            new_master_textbook_id = master_textbook_id_map.get(item['master_textbook_id'])
+            # master_textbook_idがNoneの場合も考慮
+            new_master_textbook_id = master_textbook_id_map.get(item['master_textbook_id']) if item['master_textbook_id'] is not None else None
             if new_student_id:
                 homework_to_insert.append((
                     new_student_id, new_master_textbook_id, item['custom_textbook_name'],
@@ -197,11 +204,9 @@ def main():
             sqlite_cur.execute(f"SELECT * FROM {table}")
             rows = sqlite_cur.fetchall()
             if rows:
-                # pandasを使うのが簡単
                 df = pd.DataFrame([dict(row) for row in rows])
                 if 'id' in df.columns:
                     df = df.drop(columns=['id'])
-                # SQLAlchemyエンジン経由で書き込み
                 engine = create_engine(POSTGRES_URL_EXTERNAL)
                 df.to_sql(table, engine, if_exists='append', index=False)
                 print(f"    -> {len(df)} 件のデータを '{table}' に移行しました。")

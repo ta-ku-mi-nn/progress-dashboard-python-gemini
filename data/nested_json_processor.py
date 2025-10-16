@@ -8,6 +8,8 @@ import uuid
 import pandas as pd
 from datetime import datetime, timedelta
 from config.settings import APP_CONFIG
+import psycopg2
+from psycopg2.extras import DictCursor, execute_values
 
 DATABASE_URL = APP_CONFIG['data']['database_url']
 
@@ -208,35 +210,55 @@ def get_master_textbook_list(subject, search_term=""):
             sorted_textbooks[level] = textbooks_by_level[level]
     return sorted_textbooks
 
-def add_or_update_student_progress(school, student_name, progress_updates):
+def add_or_update_student_progress(student_id, progress_updates):
+    """
+    生徒の進捗情報を一括で更新または追加（UPSERT）する。
+    PostgreSQLのON CONFLICT句を使用。
+    """
     conn = get_db_connection()
     try:
-        with conn.cursor(cursor_factory=DictCursor) as cur:
-            cur.execute('SELECT id FROM students WHERE name = %s AND school = %s', (student_name, school))
-            student_id_row = cur.fetchone()
-            if not student_id_row:
-                raise ValueError(f"生徒が見つかりません: {school} - {student_name}")
-            student_id = student_id_row['id']
+        with conn.cursor() as cur:
+            # UPSERT用のデータリストを作成
+            data_to_upsert = []
             for update in progress_updates:
-                cur.execute(
-                    "SELECT id FROM progress WHERE student_id = %s AND subject = %s AND level = %s AND book_name = %s",
-                    (student_id, update['subject'], update['level'], update['book_name'])
-                )
-                existing = cur.fetchone()
-                
+                # 'is_done'フラグを計算
                 is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
-                duration = update.get('duration', None)
                 
-                if existing:
-                    cur.execute(
-                        "UPDATE progress SET is_planned = %s, is_done = %s, completed_units = %s, total_units = %s, duration = %s WHERE id = %s",
-                        (update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), duration, existing['id'])
-                    )
-                else:
-                    cur.execute(
-                        "INSERT INTO progress (student_id, subject, level, book_name, is_planned, is_done, completed_units, total_units, duration) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                        (student_id, update['subject'], update['level'], update['book_name'], update['is_planned'], is_done, update.get('completed_units', 0), update.get('total_units', 1), duration)
-                    )
+                # is_plannedがFalseの場合、進捗をリセット
+                if not update['is_planned']:
+                    update['completed_units'] = 0
+                    update['total_units'] = 1
+                    is_done = False
+
+                data_to_upsert.append((
+                    student_id,
+                    update['subject'],
+                    update['level'],
+                    update['book_name'],
+                    update.get('duration'),
+                    bool(update['is_planned']), # bool型に変換
+                    is_done,
+                    update.get('completed_units', 0),
+                    update.get('total_units', 1)
+                ))
+
+            # INSERT ... ON CONFLICT を使ったUPSERTクエリ
+            upsert_query = """
+                INSERT INTO progress (
+                    student_id, subject, level, book_name, duration,
+                    is_planned, is_done, completed_units, total_units
+                ) VALUES %s
+                ON CONFLICT (student_id, subject, level, book_name) DO UPDATE SET
+                    duration = EXCLUDED.duration,
+                    is_planned = EXCLUDED.is_planned,
+                    is_done = EXCLUDED.is_done,
+                    completed_units = EXCLUDED.completed_units,
+                    total_units = EXCLUDED.total_units;
+            """
+            
+            # execute_valuesで効率的にUPSERTを実行
+            execute_values(cur, upsert_query, data_to_upsert)
+
         conn.commit()
         return True, f"{len(progress_updates)}件の進捗を更新しました。"
     except (Exception, psycopg2.Error) as e:
@@ -244,7 +266,8 @@ def add_or_update_student_progress(school, student_name, progress_updates):
         conn.rollback()
         return False, "進捗の更新に失敗しました。"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_all_subjects():
     """データベースからすべての科目を指定された順序で取得する"""
