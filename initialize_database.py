@@ -21,6 +21,8 @@ JSON_FILE = 'bulk_buttons.json'
 def get_db_connection():
     """PostgreSQLデータベース接続を取得します。"""
     conn = psycopg2.connect(DATABASE_URL)
+    # Autocommitを有効にして、各コマンドが即座に実行されるようにする
+    # conn.autocommit = True
     return conn
 
 def drop_all_tables(conn):
@@ -198,7 +200,7 @@ def create_all_tables(conn):
 def setup_initial_data(conn):
     """ユーザー、生徒、サンプル進捗などの初期データを投入します。"""
     print("--- 初期データのセットアップを開始 ---")
-    with conn.cursor() as cur:
+    with conn.cursor(cursor_factory=DictCursor) as cur:
         # ユーザーの作成
         users_to_create = [
             ('tokyo_admin', generate_password_hash('admin'), 'admin', '東京校'),
