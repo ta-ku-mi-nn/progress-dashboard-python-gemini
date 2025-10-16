@@ -73,21 +73,17 @@ def register_main_callbacks(app):
     @app.callback(
         [Output('subject-tabs-container', 'children'),
          Output('dashboard-actions-container', 'children'),
-         # --- ★★★ ここから修正 ★★★
          Output('dashboard-content-container', 'children', allow_duplicate=True)],
-         # --- ★★★ ここまで修正 ★★★
         Input('student-selection-store', 'data'),
         [State('url', 'pathname'),
          State('auth-store', 'data')],
-        prevent_initial_call=True # 変更箇所
+        prevent_initial_call=True
     )
     def update_dashboard_on_student_select(student_id, pathname, user_info):
         """生徒が選択されたら、タブ、アクションボタン、初期コンテンツを生成する"""
         if not student_id or pathname != '/':
-            # 生徒が選択されていない場合は「How to use」を表示
             return None, None, create_welcome_layout()
 
-        # --- 生徒選択時の処理 ---
         student_info = get_student_info_by_id(student_id)
         subjects = get_subjects_for_student(student_id)
         
@@ -97,6 +93,8 @@ def register_main_callbacks(app):
 
         tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
         
+        # --- ★★★ ここから修正 ★★★
+        # 権限チェックを行い、ボタンの表示を制御
         action_buttons = []
         if can_access_student(user_info, student_info):
             action_buttons.append(dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True))
@@ -104,8 +102,8 @@ def register_main_callbacks(app):
         action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
 
         actions = dbc.ButtonGroup(action_buttons)
+        # --- ★★★ ここまで修正 ★★★
 
-        # 初期表示として「総合」タブの内容を生成
         initial_content = generate_dashboard_content(student_id, '総合')
 
         return tabs, actions, initial_content

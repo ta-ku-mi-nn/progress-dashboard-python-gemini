@@ -1,3 +1,5 @@
+# utils/permissions.py
+
 def is_admin(user_info):
     """
     ユーザー情報を受け取り、管理者（admin）かどうかを判定します。
@@ -21,10 +23,15 @@ def can_access_student(user_info, student_info):
     if is_admin(user_info):
         return True
 
+    # --- ★★★ ここから修正 ★★★
     # 一般ユーザーの場合、担当講師か確認
     username = user_info.get('username')
     if username:
-        if student_info.get('メイン講師') == username or student_info.get('サブ講師') == username:
+        # メイン講師リストまたはサブ講師リストにユーザー名が含まれているかを確認
+        is_main = username in student_info.get('main_instructors', [])
+        is_sub = username in student_info.get('sub_instructors', [])
+        if is_main or is_sub:
             return True
+    # --- ★★★ ここまで修正 ★★★
 
     return False
