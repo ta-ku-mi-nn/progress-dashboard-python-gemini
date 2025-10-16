@@ -16,31 +16,38 @@ from data.nested_json_processor import (
 def register_plan_callbacks(app):
     """学習計画モーダルに関連するコールバックを登録します。"""
 
-    # --- ★★★ ここから修正 ★★★
+    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('plan-update-modal', 'is_open'),
         [Input('bulk-register-btn', 'n_clicks'),
-         Input('initial-bulk-register-btn-mirror', 'n_clicks'), # 変更点: Inputを追加
+         Input('initial-bulk-register-btn-mirror', 'n_clicks'),
          Input('plan-cancel-btn', 'n_clicks'),
          Input('toast-trigger', 'data')],
         State('plan-update-modal', 'is_open'),
         prevent_initial_call=True
     )
-    def toggle_plan_modal(open_clicks, mirror_clicks, cancel_clicks, toast_data, is_open): # 変更点: 引数を追加
+    def toggle_plan_modal(open_clicks, mirror_clicks, cancel_clicks, toast_data, is_open):
         ctx = callback_context
-        triggered_id = ctx.triggered_id
+        if not ctx.triggered:
+            raise PreventUpdate
 
+        triggered_id = ctx.triggered_id
+        
+        # toast通知でモーダルを閉じる処理
         if triggered_id == 'toast-trigger':
             if toast_data and toast_data.get('source') == 'plan':
                 return False
             return no_update
         
-        # 変更点: いずれかのボタンがクリックされたらモーダルの開閉を切り替える
-        if triggered_id in ['bulk-register-btn', 'initial-bulk-register-btn-mirror', 'plan-cancel-btn']:
+        # いずれかのボタンがクリックされたらモーダルの開閉状態を反転させる
+        # prevent_initial_call=True と n_clicks > 0 のチェックで、レイアウト生成時の誤作動を防ぐ
+        if (ctx.triggered_id == 'bulk-register-btn' and open_clicks) or \
+           (ctx.triggered_id == 'initial-bulk-register-btn-mirror' and mirror_clicks) or \
+           (ctx.triggered_id == 'plan-cancel-btn' and cancel_clicks):
             return not is_open
-            
-        return is_open
-    # --- ★★★ ここまで修正 ★★★
+        
+        return no_update
+    # ★★★ ここまで修正 ★★★
 
     @app.callback(
         [Output('plan-step-0', 'style'),

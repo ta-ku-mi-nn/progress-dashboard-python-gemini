@@ -228,10 +228,6 @@ def register_progress_callbacks(app):
 
         return generate_dashboard_content(student_id, active_tab)
 
-    # --- ★★★ ここから修正 ★★★
-    # 競合の原因となっていた clientside_callback を削除
-    # --- ★★★ ここまで修正 ★★★
-
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
     if df.empty and past_exam_hours == 0:

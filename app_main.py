@@ -95,6 +95,11 @@ app.layout = html.Div([
     dcc.Store(id='toast-trigger', storage_type='memory'),
     dcc.Store(id='item-to-delete-store', storage_type='memory'),
 
+    # ★★★ ここから修正 ★★★
+    # エラー回避のため、IDが存在するように非表示でボタンを配置
+    dbc.Button(id="initial-bulk-register-btn-mirror", style={"display": "none"}),
+    # ★★★ ここまで修正 ★★★
+
     html.Div(id='dummy-clientside-output', style={'display': 'none'}),
     dcc.Store(id='report-content-store', storage_type='session'),
     html.Div(id='navbar-container'),
@@ -113,7 +118,6 @@ app.layout = html.Div([
     create_user_profile_modal(),
     create_password_change_modal(),
     dcc.Download(id="download-pdf-report"),
-    # ★★★ ここにバックアップ用のDownloadコンポーネントを移動 ★★★
     dcc.Download(id="download-backup")
 ])
 
