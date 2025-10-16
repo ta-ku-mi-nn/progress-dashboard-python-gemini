@@ -95,7 +95,7 @@ def create_progress_chart(progress_data, subject):
 def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
     """
     与えられたDataFrameから、「予定」と「達成済」の2段積み上げ棒グラフを生成する。
-
+    
     Args:
         df: データフレーム
         title: グラフタイトル
@@ -144,35 +144,36 @@ def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
             hovertemplate=f"<b>{group_name}</b><br>総時間: {plot_total_duration:.1f}h<extra></extra>"
         ))
 
-    # ★★★ 修正: 印刷用の設定を大幅に変更 ★★★
+    # ★★★ 修正: Plotlyの新しい記法に対応 ★★★
     if for_print:
+        # 印刷用: 固定サイズで表示
         layout_config = {
             'barmode': 'stack',
             'title': {
                 'text': title,
-                'font': {'size': 14}  # タイトルサイズを小さく
+                'font': {'size': 14}
             },
             'xaxis': {
-                'title': "学習時間 (h)",
-                'titlefont': {'size': 10},
-                'tickfont': {'size': 9},
-                'fixedrange': True,  # ズーム無効化
+                'title': {
+                    'text': "学習時間 (h)",
+                    'font': {'size': 11}  # ★ 修正: titleの中にfontを入れる
+                },
+                'tickfont': {'size': 10},
             },
             'yaxis': {
                 'categoryorder': 'array',
                 'categoryarray': ['予定', '達成済'],
-                'tickfont': {'size': 10},
-                'fixedrange': True,
+                'tickfont': {'size': 11},
             },
             'showlegend': False,
-            'autosize': True,
-            'width': None,  # 幅を自動調整
-            'height': 250,  # 高さを少し抑える
-            'margin': dict(t=40, l=50, r=10, b=35),  # マージンを最小化
+            'width': 700,  # 固定幅を設定（A4用紙に収まるサイズ）
+            'height': 250,
+            'margin': dict(t=45, l=55, r=15, b=40),
             'paper_bgcolor': 'white',
             'plot_bgcolor': 'white',
         }
     else:
+        # 通常表示用: レスポンシブ
         layout_config = {
             'barmode': 'stack',
             'title_text': title,
@@ -182,14 +183,8 @@ def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
             'height': height,
             'margin': dict(t=50, l=60, r=20, b=40),
         }
-
+    
     fig.update_layout(**layout_config)
-
-    # ★★★ 追加: 印刷用にグラフのサイズを固定 ★★★
-    if for_print:
-        fig.update_xaxes(automargin=True)
-        fig.update_yaxes(automargin=True)
-
     return fig
 
 def create_subject_achievement_bar(df, subject):
