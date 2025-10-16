@@ -221,15 +221,23 @@ def setup_initial_data(conn):
         print(f"  - {len(students_to_create)} 人の生徒を作成しました。")
 
         # 講師と生徒の関連付け
-        students_df = pd.read_sql("SELECT id, school FROM students", conn)
-        users_df = pd.read_sql("SELECT id, school, role FROM users", conn)
+        # ★★★ ここからがエラー修正箇所 ★★★
+        # pandasを使わずに直接DBから辞書のリストとして取得
+        cur.execute("SELECT id, school FROM students")
+        students_list = [dict(row) for row in cur.fetchall()]
+        cur.execute("SELECT id, school, role FROM users")
+        users_list = [dict(row) for row in cur.fetchall()]
         
         instructors_to_add = []
-        for _, student in students_df.iterrows():
-            main_instructor = users_df[(users_df['school'] == student['school']) & (users_df['role'] == 'admin')]
-            if not main_instructor.empty:
-                main_instructor_id = main_instructor.iloc[0]['id']
-                instructors_to_add.append((student['id'], main_instructor_id, 1))
+        for student in students_list:
+            # メイン講師 (admin) を設定
+            main_instructor = next((user for user in users_list if user['school'] == student['school'] and user['role'] == 'admin'), None)
+            if main_instructor:
+                # Pythonの `int` 型でIDを扱う
+                main_instructor_id = int(main_instructor['id'])
+                student_id = int(student['id'])
+                instructors_to_add.append((student_id, main_instructor_id, 1))
+        # ★★★ ここまでがエラー修正箇所 ★★★
         
         execute_values(cur, "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES %s", instructors_to_add)
         print(f"  - {len(instructors_to_add)} 件の講師・生徒関係を作成しました。")
