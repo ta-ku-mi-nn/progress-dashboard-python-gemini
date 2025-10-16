@@ -8,7 +8,7 @@ from dash.exceptions import PreventUpdate
 from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
-# ( ... create_welcome_layout と generate_dashboard_content は変更なし ... )
+# ( ... create_welcome_layout は変更なし ... )
 def create_welcome_layout():
     """初期画面に表示する「How to use」レイアウトを生成します。"""
     return dbc.Row(
@@ -80,21 +80,42 @@ def create_welcome_layout():
         className="mt-5",
     )
 
+# --- ★★★ ここから修正 ★★★
+def create_initial_progress_layout(student_id):
+    """進捗データが全くない生徒向けの初期レイアウトを生成する"""
+    student_info = get_student_info_by_id(student_id)
+    student_name = student_info.get('name', '選択された生徒')
+    return dbc.Row(
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.H4(f"📝 {student_name}さんの学習計画を作成しましょう", className="card-title"),
+                    html.P(
+                        "まだ学習計画が登録されていません。上の「進捗を更新」ボタンをクリックして、最初の学習計画を作成してみましょう。",
+                        className="card-text",
+                    ),
+                    html.Hr(),
+                    dbc.Button("進捗を更新する", id="initial-bulk-register-btn-mirror", color="primary", className="mt-2"),
+                ]),
+                className="text-center",
+                color="light"
+            ),
+            width=12,
+            lg=8
+        ),
+        justify="center",
+        className="mt-5"
+    )
 
-def generate_dashboard_content(student_id, active_tab, for_print=False):
-    """指定された生徒とタブに基づいてダッシュボードのコンテンツを生成する
-    
-    Args:
-        student_id: 生徒ID
-        active_tab: アクティブなタブ
-        for_print: 印刷用レポートの場合True
-    """
+def generate_dashboard_content(student_id, active_tab):
+    """指定された生徒とタブに基づいてダッシュボードのコンテンツを生成する"""
     if not student_id or not active_tab:
         return None
 
     progress_data = get_student_progress_by_id(student_id)
-    if not progress_data and active_tab != '総合':
-        return dbc.Alert("この生徒の進捗データはまだありません。「進捗を更新」から作成してください。", color="info")
+    # 修正: 最初の条件分岐を調整
+    if not progress_data:
+        return create_initial_progress_layout(student_id)
 
     if active_tab == '総合':
         all_records = []
@@ -109,13 +130,17 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                         'completed_units': details.get('completed_units', 0),
                         'total_units': details.get('total_units', 1),
                     })
-
+        
         past_exam_hours = get_total_past_exam_time(student_id)
-
+        
         df_all = pd.DataFrame(all_records) if all_records else pd.DataFrame()
+        
+        # 修正: df_allが空の場合も考慮
+        if df_all.empty and past_exam_hours == 0:
+             return create_initial_progress_layout(student_id)
 
         summary_cards = create_summary_cards(df_all, past_exam_hours)
-
+        
         if past_exam_hours > 0:
             past_exam_record = pd.DataFrame([{
                 'subject': '過去問', 'book_name': '過去問演習',
@@ -123,32 +148,21 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                 'is_planned': True, 'is_done': True,
                 'completed_units': 1, 'total_units': 1,
             }])
-            df_all = pd.concat([df_all, past_exam_record], ignore_index=True)
+            if not df_all.empty:
+                 df_all = pd.concat([df_all, past_exam_record], ignore_index=True)
+            else:
+                 df_all = past_exam_record
 
-        if df_all.empty:
-            return dbc.Alert("予定されている学習がありません。", color="info")
 
-        # ★★★ 修正: for_printパラメータを渡す ★★★
-        stacked_bar_fig = create_progress_stacked_bar_chart(
-            df_all, 
-            '全科目の合計学習時間',
-            for_print=for_print
-        )
-
-        # ★★★ 修正: 印刷用の場合はconfigを調整 ★★★
-        graph_config = {'displayModeBar': False, 'responsive': True}
-        graph_style = {'height': '280px', 'width': '100%'} if for_print else {'height': '250px'}
+        stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間')
         
         left_col = html.Div([
-            dcc.Graph(
-                figure=stacked_bar_fig,
-                style=graph_style,
-                config=graph_config
-            ) if stacked_bar_fig else html.Div(),
+            dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
             summary_cards
         ])
-
+        
         bar_charts = []
+        # is_planned が True の科目に絞り込んでからグラフを生成
         planned_subjects = df_all[df_all['is_planned'] == True]['subject'].unique()
         for subject in sorted([s for s in planned_subjects if s != '過去問']):
             fig = create_subject_achievement_bar(df_all, subject)
@@ -158,14 +172,13 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                 id={'type': 'subject-achievement-bar', 'subject': subject}
             )
             bar_charts.append(dbc.Col(bar_chart_component, width=12, md=6, lg=4, className="mb-3"))
-        right_col = dbc.Row(bar_charts, id="subject-charts-row")
-
+        right_col = dbc.Row(bar_charts)
+        
         return dbc.Row([
             dbc.Col(left_col, md=8),
             dbc.Col(right_col, md=4),
         ])
     else:
-        # 科目別表示の場合
         if active_tab not in progress_data:
             return dbc.Alert(f"「{active_tab}」の進捗データがありません。", color="info")
 
@@ -180,72 +193,71 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                     'completed_units': details.get('completed_units', 0),
                     'total_units': details.get('total_units', 1),
                 })
-
-        df_subject = pd.DataFrame(subject_records)
         
-        # ★★★ 修正: for_printパラメータを渡す ★★★
-        fig = create_progress_stacked_bar_chart(
-            df_subject, 
-            f'<b>{active_tab}</b> の学習進捗',
-            for_print=for_print
-        )
+        df_subject = pd.DataFrame(subject_records)
+        fig = create_progress_stacked_bar_chart(df_subject, f'<b>{active_tab}</b> の学習進捗')
         summary_cards = create_summary_cards(df_subject)
 
-        graph_config = {'displayModeBar': False, 'responsive': False, 'staticPlot': True} if for_print else {'displayModeBar': False, 'responsive': True}
-        graph_style = {'height': '280px', 'width': '100%', 'max-width': '100%', 'overflow': 'hidden'} if for_print else {'height': '250px'}
-
         left_col = html.Div([
-            dcc.Graph(
-                figure=fig,
-                style=graph_style,
-                config=graph_config
-            ) if fig else dbc.Alert("予定されている学習がありません。", color="info"),
+            dcc.Graph(figure=fig, style={'height': '250px'}) if fig else dbc.Alert("予定されている学習はありません。", color="info"),
             summary_cards
-        ], style={'width': '100%', 'max-width': '100%', 'overflow': 'hidden'} if for_print else {}
-        )
+        ])
 
         student_info = get_student_info_by_id(student_id)
         right_col = create_progress_table(progress_data, student_info, active_tab)
-
+        
         return dbc.Row([
             dbc.Col(left_col, md=8),
             dbc.Col(right_col, md=4),
         ])
 
-
-# ★★★ 既存のコールバック関数を修正 ★★★
 def register_progress_callbacks(app):
     """進捗表示に関連するコールバックを登録します。"""
 
     @app.callback(
-        Output('dashboard-content-container', 'children'),
-        [Input('student-selection-store', 'data'),
-         Input('subject-tabs', 'active_tab'),
+        Output('dashboard-content-container', 'children', allow_duplicate=True),
+        [Input('subject-tabs', 'active_tab'),
          Input('toast-trigger', 'data')],
+        State('student-selection-store', 'data'),
         prevent_initial_call=True
     )
-    def update_dashboard_content(student_id, active_tab, toast_data):
+    def update_dashboard_on_tab_click_or_save(active_tab, toast_data, student_id):
         ctx = callback_context
-        triggered_id = ctx.triggered_id
+        if not ctx.triggered:
+            raise PreventUpdate
 
-        if not student_id:
-            return create_welcome_layout()
-
-        if triggered_id == 'student-selection-store':
-            active_tab = '総合'
-
-        if triggered_id == 'toast-trigger':
+        if ctx.triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'plan':
                 raise PreventUpdate
 
-        if active_tab is None:
-            raise PreventUpdate
+        return generate_dashboard_content(student_id, active_tab)
 
-        # ★★★ 修正: 通常表示ではfor_print=Falseを渡す ★★★
-        return generate_dashboard_content(student_id, active_tab, for_print=False)
+    # 変更箇所: 新規追加したレイアウト内のボタンからもモーダルを開けるようにする
+    app.clientside_callback(
+        """
+        function(n1, n2) {
+            // どちらかのボタンが押されたら、もう一方のn_clicksを1増やすことでモーダルを開くコールバックをトリガーする
+            const triggered = window.dash_clientside.callback_context.triggered.map(t => t.prop_id);
+            if (triggered.includes("bulk-register-btn.n_clicks")) {
+                return window.dash_clientside.no_update;
+            } else if (triggered.includes("initial-bulk-register-btn-mirror.n_clicks")) {
+                return (n1 || 0) + 1;
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output('bulk-register-btn', 'n_clicks'),
+        Input('bulk-register-btn', 'n_clicks'),
+        Input('initial-bulk-register-btn-mirror', 'n_clicks'),
+        prevent_initial_call=True
+    )
+# --- ★★★ ここまで修正 ★★★
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
+    if df.empty and past_exam_hours == 0:
+        return None
+
     df_planned = df[df['is_planned']].copy()
     if df_planned.empty and past_exam_hours == 0:
         return None
@@ -254,22 +266,22 @@ def create_summary_cards(df, past_exam_hours=0):
         lambda row: row['duration'] * (row.get('completed_units', 0) / row.get('total_units', 1)) if row.get('total_units', 1) > 0 else 0,
         axis=1
     )
-
+    
     planned_hours = df_planned['duration'].sum()
     achieved_reference_hours = df_planned['achieved_duration'].sum()
-
+    
     total_achieved_hours = achieved_reference_hours + past_exam_hours
-
+    
     achievement_rate = (achieved_reference_hours / planned_hours * 100) if planned_hours > 0 else 0
     completed_books = df_planned[df_planned['is_done']].shape[0]
-
+    
     cards = dbc.Row([
         dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{total_achieved_hours:.1f} h", className="card-title"), html.P("達成済時間", className="card-text small text-muted")])), width=6, className="mb-3"),
         dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{planned_hours:.1f} h", className="card-title"), html.P("予定総時間（参考書）", className="card-text small text-muted")])), width=6, className="mb-3"),
         dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{achievement_rate:.1f} %", className="card-title"), html.P("達成率（参考書）", className="card-text small text-muted")])), width=6, className="mb-3"),
         dbc.Col(dbc.Card(dbc.CardBody([html.H5(f"{completed_books} 冊", className="card-title"), html.P("完了参考書", className="card-text small text-muted")])), width=6, className="mb-3"),
     ], className="mt-4")
-
+    
     return cards
 
 def create_progress_table(progress_data, student_info, active_tab):
@@ -290,24 +302,24 @@ def create_progress_table(progress_data, student_info, active_tab):
 
             status_badge = dbc.Badge(
                 "完了", color="success") if details.get('達成済') else (
-                dbc.Badge("学習中", color="primary") if details.get('予定') else
+                dbc.Badge("学習中", color="primary") if details.get('予定') else 
                 dbc.Badge("未着手", color="secondary")
             )
-
+            
             table_rows.append(html.Tr([
                 html.Td(level),
                 html.Td(book_name),
                 html.Td(status_badge)
             ]))
-
+    
     if not table_rows:
         return dbc.Alert("予定されている学習はありません。", color="info", className="mt-4")
-
+        
     table_body = [html.Tbody(table_rows)]
-
+    
     student_name = student_info.get('name', 'N/A')
     main_instructors = ", ".join(student_info.get('main_instructors', []))
-
+    
     return html.Div([
         html.H4(f"{active_tab} の進捗詳細"),
         html.P(f"（{student_name}さん / メイン講師: {main_instructors}）", className="text-muted small"),
