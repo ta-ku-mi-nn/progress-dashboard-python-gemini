@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (修正版) */
+/* assets/assets/printable.css (追加修正版) */
 
 @page {
     size: A4 portrait;
@@ -16,6 +16,7 @@
         font-size: 9pt;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+        overflow-x: hidden !important; /* ★追加: 横スクロールを防ぐ */
     }
 
     * {
@@ -64,35 +65,51 @@
         page-break-inside: avoid !important;
     }
 
-    /* ★★★ 修正: グラフコンテナ全体のサイズ調整 ★★★ */
+    /* ★★★ 修正: グラフコンテナ全体のサイズとoverflow制御 ★★★ */
     #report-dashboard-content .js-plotly-plot {
         width: 100% !important;
+        max-width: 100% !important; /* ★追加 */
         height: auto !important;
-        min-height: 200px !important; /* 最低限の高さを確保 */
+        min-height: 200px !important;
+        overflow: hidden !important; /* ★追加: はみ出しを防ぐ */
     }
 
     /* ★★★ 修正: SVGコンテナのサイズ調整 ★★★ */
     #report-dashboard-content .js-plotly-plot .svg-container {
         width: 100% !important;
+        max-width: 100% !important; /* ★追加 */
         height: 100% !important;
         position: relative !important;
+        overflow: hidden !important; /* ★追加 */
     }
 
     #report-dashboard-content .js-plotly-plot svg.main-svg {
         width: 100% !important;
+        max-width: 100% !important; /* ★追加 */
         height: auto !important;
-        max-height: 300px !important; /* 最大高さを設定して収まるように */
+        max-height: 300px !important;
     }
 
     /* ★★★ 追加: Plotlyの内部要素も調整 ★★★ */
     #report-dashboard-content .js-plotly-plot .plot-container {
         width: 100% !important;
+        max-width: 100% !important; /* ★追加 */
         height: 100% !important;
     }
 
     #report-dashboard-content .js-plotly-plot .plotly {
         width: 100% !important;
+        max-width: 100% !important; /* ★追加 */
         height: 100% !important;
+    }
+
+    /* ★★★ 追加: グラフの親要素も制御 ★★★ */
+    #report-dashboard-content > div,
+    #report-dashboard-content .row,
+    #report-dashboard-content .col-md-8 > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
     }
 
     /* =================================== */

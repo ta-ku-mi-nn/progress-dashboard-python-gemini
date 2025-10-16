@@ -191,8 +191,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         )
         summary_cards = create_summary_cards(df_subject)
 
-        graph_config = {'displayModeBar': False, 'responsive': True}
-        graph_style = {'height': '280px', 'width': '100%'} if for_print else {'height': '250px'}
+        graph_config = {'displayModeBar': False, 'responsive': False, 'staticPlot': True} if for_print else {'displayModeBar': False, 'responsive': True}
+        graph_style = {'height': '280px', 'width': '100%', 'max-width': '100%', 'overflow': 'hidden'} if for_print else {'height': '250px'}
 
         left_col = html.Div([
             dcc.Graph(
@@ -201,7 +201,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                 config=graph_config
             ) if fig else dbc.Alert("予定されている学習がありません。", color="info"),
             summary_cards
-        ])
+        ], style={'width': '100%', 'max-width': '100%', 'overflow': 'hidden'} if for_print else {}
+        )
 
         student_info = get_student_info_by_id(student_id)
         right_col = create_progress_table(progress_data, student_info, active_tab)

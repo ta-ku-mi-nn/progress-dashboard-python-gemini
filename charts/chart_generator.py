@@ -144,17 +144,31 @@ def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
             hovertemplate=f"<b>{group_name}</b><br>総時間: {plot_total_duration:.1f}h<extra></extra>"
         ))
 
-    # ★★★ 修正: 印刷用の設定を追加 ★★★
+    # ★★★ 修正: 印刷用の設定を大幅に変更 ★★★
     if for_print:
         layout_config = {
             'barmode': 'stack',
-            'title_text': title,
-            'xaxis_title': "学習時間 (h)",
-            'yaxis': {'categoryorder':'array', 'categoryarray':['予定', '達成済']},
+            'title': {
+                'text': title,
+                'font': {'size': 14}  # タイトルサイズを小さく
+            },
+            'xaxis': {
+                'title': "学習時間 (h)",
+                'titlefont': {'size': 10},
+                'tickfont': {'size': 9},
+                'fixedrange': True,  # ズーム無効化
+            },
+            'yaxis': {
+                'categoryorder': 'array',
+                'categoryarray': ['予定', '達成済'],
+                'tickfont': {'size': 10},
+                'fixedrange': True,
+            },
             'showlegend': False,
-            'autosize': True,  # 自動サイズ調整を有効化
-            'height': 280,  # 印刷用に少し高めに設定
-            'margin': dict(t=50, l=60, r=20, b=40),
+            'autosize': True,
+            'width': None,  # 幅を自動調整
+            'height': 250,  # 高さを少し抑える
+            'margin': dict(t=40, l=50, r=10, b=35),  # マージンを最小化
             'paper_bgcolor': 'white',
             'plot_bgcolor': 'white',
         }
@@ -170,6 +184,12 @@ def create_progress_stacked_bar_chart(df, title, height=250, for_print=False):
         }
 
     fig.update_layout(**layout_config)
+
+    # ★★★ 追加: 印刷用にグラフのサイズを固定 ★★★
+    if for_print:
+        fig.update_xaxes(automargin=True)
+        fig.update_yaxes(automargin=True)
+
     return fig
 
 def create_subject_achievement_bar(df, subject):
