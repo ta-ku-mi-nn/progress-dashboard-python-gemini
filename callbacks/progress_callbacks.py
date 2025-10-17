@@ -94,7 +94,9 @@ def create_initial_progress_layout(student_id):
                         className="card-text",
                     ),
                     html.Hr(),
-                    dbc.Button("進捗を更新する", id="initial-bulk-register-btn-mirror", color="primary", className="mt-2"),
+                    # ★★★ ここから修正 ★★★
+                    dbc.Button("進捗を更新する", id={'type': 'open-plan-modal', 'index': 'mirror'}, color="primary", className="mt-2"),
+                    # ★★★ ここまで修正 ★★★
                 ]),
                 className="text-center",
                 color="light"

@@ -19,31 +19,32 @@ def register_plan_callbacks(app):
     # ★★★ ここから修正 ★★★
     @app.callback(
         Output('plan-update-modal', 'is_open'),
-        [Input('bulk-register-btn', 'n_clicks'),
-         Input('initial-bulk-register-btn-mirror', 'n_clicks'),
+        [Input({'type': 'open-plan-modal', 'index': ALL}, 'n_clicks'),
          Input('plan-cancel-btn', 'n_clicks'),
          Input('toast-trigger', 'data')],
         State('plan-update-modal', 'is_open'),
         prevent_initial_call=True
     )
-    def toggle_plan_modal(open_clicks, mirror_clicks, cancel_clicks, toast_data, is_open):
+    def toggle_plan_modal(open_clicks, cancel_clicks, toast_data, is_open):
         ctx = callback_context
         if not ctx.triggered:
             raise PreventUpdate
 
+        # `n_clicks` が None の場合を除外して、いずれかのボタンがクリックされたかを確認
+        open_button_clicked = any(n_clicks for n_clicks in open_clicks)
+
+        # トリガーとなったコンポーネントのIDを取得
         triggered_id = ctx.triggered_id
-        
+
         # toast通知でモーダルを閉じる処理
         if triggered_id == 'toast-trigger':
             if toast_data and toast_data.get('source') == 'plan':
                 return False
             return no_update
         
-        # いずれかのボタンがクリックされたらモーダルの開閉状態を反転させる
-        # prevent_initial_call=True と n_clicks > 0 のチェックで、レイアウト生成時の誤作動を防ぐ
-        if (ctx.triggered_id == 'bulk-register-btn' and open_clicks) or \
-           (ctx.triggered_id == 'initial-bulk-register-btn-mirror' and mirror_clicks) or \
-           (ctx.triggered_id == 'plan-cancel-btn' and cancel_clicks):
+        # open-plan-modal ボタンか cancel ボタンが押されたらモーダルを開閉
+        if (isinstance(triggered_id, dict) and triggered_id.get('type') == 'open-plan-modal' and open_button_clicked) or \
+           (triggered_id == 'plan-cancel-btn' and cancel_clicks):
             return not is_open
         
         return no_update
@@ -342,10 +343,8 @@ def register_plan_callbacks(app):
 
         trigger_id = ctx.triggered_id
         
-        # ★★★ ここからが修正箇所 ★★★
         if not student_id: 
             return dbc.Alert("生徒が選択されていません。", color="danger"), True, no_update
-        # ★★★ ここまでが修正箇所 ★★★
 
         updates = []
         
@@ -395,9 +394,7 @@ def register_plan_callbacks(app):
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': '更新する内容がありません。', 'source': 'plan'}
             return None, False, toast_data
 
-        # ★★★ ここからが修正箇所 ★★★
         success, message = add_or_update_student_progress(student_id, updates)
-        # ★★★ ここまでが修正箇所 ★★★
 
         if success:
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': '学習計画を更新しました。', 'source': 'plan'}
