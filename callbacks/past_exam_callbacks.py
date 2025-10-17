@@ -1,6 +1,6 @@
 # callbacks/past_exam_callbacks.py
 
-from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH
+from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, dcc
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -388,16 +388,16 @@ def register_past_exam_callbacks(app):
                 html.Td(r.get('announcement_date', '')), # 日付表示
                 html.Td(
                     # --- 合否ドロップダウン ---
-                    dbc.DropdownMenu(
+                    dcc.Dropdown(  # dbc.DropdownMenu から dcc.Dropdown に変更
                         id={'type': 'acceptance-result-dropdown', 'index': result_id},
-                        children=[
-                            dbc.DropdownMenuItem('未選択', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': ''}),
-                            dbc.DropdownMenuItem('合格', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': '合格'}),
-                            dbc.DropdownMenuItem('不合格', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': '不合格'})
+                        options=[
+                            {'label': '未選択', 'value': ''},
+                            {'label': '合格', 'value': '合格'},
+                            {'label': '不合格', 'value': '不合格'}
                         ],
-                        value=r.get('result', ''), # 現在の値 or 空文字
+                        value=r.get('result', ''), # value プロパティは dcc.Dropdown で有効です
                         clearable=False,
-                        style={'minWidth': '100px'} # ドロップダウンの幅
+                        style={'minWidth': '100px'}
                     )
                 ),
                 html.Td([
