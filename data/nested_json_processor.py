@@ -1055,3 +1055,103 @@ def get_student_level_statistics(school):
             stats[subject][level] = count
 
     return stats
+
+def add_acceptance_result(student_id, data):
+    """新しい大学合否結果を追加する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO university_acceptance (
+                    student_id, university_name, faculty_name, department_name, exam_system, result
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    student_id,
+                    data['university_name'],
+                    data['faculty_name'],
+                    data.get('department_name'),
+                    data.get('exam_system'),
+                    data.get('result') # 初期値はNoneかもしれない
+                )
+            )
+        conn.commit()
+        return True, "大学合否結果を追加しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"追加中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def get_acceptance_results_for_student(student_id):
+    """特定の生徒の大学合否結果をすべて取得する"""
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=DictCursor) as cur:
+        cur.execute(
+            """
+            SELECT id, university_name, faculty_name, department_name, exam_system, result
+            FROM university_acceptance
+            WHERE student_id = %s
+            ORDER BY university_name, faculty_name
+            """,
+            (student_id,)
+        )
+        results = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in results]
+
+def update_acceptance_result(result_id, data):
+    """既存の大学合否結果を更新する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 更新するフィールドを動的に構築（resultのみ更新する場合も考慮）
+            set_clauses = []
+            params = []
+            if 'university_name' in data:
+                set_clauses.append("university_name = %s")
+                params.append(data['university_name'])
+            if 'faculty_name' in data:
+                set_clauses.append("faculty_name = %s")
+                params.append(data['faculty_name'])
+            if 'department_name' in data:
+                set_clauses.append("department_name = %s")
+                params.append(data['department_name'])
+            if 'exam_system' in data:
+                set_clauses.append("exam_system = %s")
+                params.append(data['exam_system'])
+            if 'result' in data:
+                 # resultが空文字列やNoneの場合、NULLとしてDBに保存
+                 result_value = data['result'] if data['result'] else None
+                 set_clauses.append("result = %s")
+                 params.append(result_value)
+
+            if not set_clauses:
+                return False, "更新するデータがありません。"
+
+            query = f"UPDATE university_acceptance SET {', '.join(set_clauses)} WHERE id = %s"
+            params.append(result_id)
+
+            cur.execute(query, tuple(params))
+        conn.commit()
+        return True, "大学合否結果を更新しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"更新中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
+
+def delete_acceptance_result(result_id):
+    """指定されたIDの大学合否結果を削除する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM university_acceptance WHERE id = %s", (result_id,))
+        conn.commit()
+        return True, "大学合否結果を削除しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"削除中にエラーが発生しました: {e}"
+    finally:
+        conn.close()
