@@ -158,53 +158,53 @@ def display_page(pathname, auth_store_data):
             dcc.ConfirmDialog(id='delete-student-confirm', message='本当にこの生徒を削除しますか？'),
             dcc.ConfirmDialog(id='delete-textbook-confirm', message='本当にこの参考書を削除しますか？'),
             dcc.ConfirmDialog(id='delete-preset-confirm', message='本当にこのプリセットを削除しますか？'),
-            dbc.ListGroup([
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("👥 ユーザー管理", className="mb-1"),
-                        html.P("ユーザーの追加・一覧・編集・削除を行います。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    html.Div([
+            
+            dbc.Row([
+                # --- 左列 ---
+                dbc.Col([
+                    dbc.Card([dbc.CardBody([
+                        html.H5("👥 ユーザー管理", className="card-title"),
+                        html.P("ユーザーの追加・一覧・編集・削除を行います。", className="card-text small text-muted"),
                         dbc.Button("ユーザー一覧", id="user-list-btn", className="me-2"),
                         dbc.Button("新規ユーザー作成", id="new-user-btn", color="success")
-                    ])
-                ]),
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("🧑‍🎓 生徒管理", className="mb-1"),
-                        html.P("生徒情報の登録、編集、削除を行います。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="warning")
-                ]),
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("📚 参考書マスター管理", className="mb-1"),
-                        html.P("学習計画で使用する参考書のマスターデータを管理します。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="dark")
-                ]),
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("📦 一括登録設定", className="mb-1"),
-                        html.P("学習計画の一括登録用プリセットを作成・編集します。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary")
-                ]),
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("📢 更新履歴の管理", className="mb-1"),
-                        html.P("アプリケーションの更新履歴を追加します。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("更新履歴を追加", id="add-changelog-btn", color="info")
-                ]),
-                dbc.ListGroupItem([
-                    html.Div([
-                        html.H5("💾 データバックアップ", className="mb-1"),
-                        html.P("データベースの全データをJSONファイルとしてダウンロードします。", className="mb-1 small text-muted"),
-                    ], className="d-flex w-100 justify-content-between"),
-                    dbc.Button("バックアップを実行", id="backup-btn", color="primary")
-                ]),
+                    ])], className="mb-3"),
+
+                    dbc.Card([dbc.CardBody([
+                        html.H5("🧑‍🎓 生徒管理", className="card-title"),
+                        html.P("生徒情報の登録、編集、削除を行います。", className="card-text small text-muted"),
+                        dbc.Button("生徒を編集", id="open-student-management-modal-btn", color="warning")
+                    ])], className="mb-3"),
+
+                    dbc.Card([dbc.CardBody([
+                        html.H5("📚 参考書マスター管理", className="card-title"),
+                        html.P("学習計画で使用する参考書のマスターデータを管理します。", className="card-text small text-muted"),
+                        dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="dark")
+                    ])], className="mb-3"),
+
+                ], md=6),
+
+                # --- 右列 ---
+                dbc.Col([
+                    dbc.Card([dbc.CardBody([
+                        html.H5("📦 一括登録設定", className="card-title"),
+                        html.P("学習計画の一括登録用プリセットを作成・編集します。", className="card-text small text-muted"),
+                        dbc.Button("プリセットを編集", id="open-bulk-preset-modal-btn", color="secondary")
+                    ])], className="mb-3"),
+
+                    dbc.Card([dbc.CardBody([
+                        html.H5("📢 更新履歴の管理", className="card-title"),
+                        html.P("アプリケーションの更新履歴を追加します。", className="card-text small text-muted"),
+                        dbc.Button("更新履歴を追加", id="add-changelog-btn", color="info")
+                    ])], className="mb-3"),
+                    
+                    dbc.Card([dbc.CardBody([
+                        html.H5("💾 データバックアップ", className="card-title"),
+                        html.P("データベースの全データをJSONファイルとしてダウンロードします。", className="card-text small text-muted"),
+                        dbc.Button("バックアップを実行", id="backup-btn", color="primary")
+                    ])], className="mb-3"),
+                ], md=6),
             ]),
+
             html.Div(id="admin-statistics", className="mt-4"),
             create_master_textbook_modal(), create_textbook_edit_modal(),
             create_student_management_modal(), create_student_edit_modal(),
