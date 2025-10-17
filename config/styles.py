@@ -18,7 +18,7 @@ APP_INDEX_STRING = '''
             font-weight: 400;
             line-height: 1.6;
         }
-        
+
         /* ★★★ ここから修正 ★★★ */
         /* ローディング画面のアニメーション */
         ._dash-loading {
@@ -28,6 +28,7 @@ APP_INDEX_STRING = '''
             transform: translate(-50%, -50%);
             z-index: 9999;
             display: flex;
+            flex-direction: column; /* アイコンとテキストを縦に並べる */
             justify-content: center;
             align-items: center;
             width: 100vw;
@@ -35,6 +36,17 @@ APP_INDEX_STRING = '''
             background-color: rgba(255, 255, 255, 0.8);
         }
 
+        /* テキストメッセージ */
+        ._dash-loading::before {
+            content: '画面が変わらなかったらページをリロード(F5)するかキャッシュをクリア(Ctrl+Shift+R)してください';
+            font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+            font-size: 1rem;
+            color: #555;
+            font-weight: 500;
+            margin-top: 20px; /* アイコンとの間に余白を追加 */
+        }
+
+        /* スピナー（回転する円） */
         ._dash-loading::after {
             content: '';
             display: inline-block;

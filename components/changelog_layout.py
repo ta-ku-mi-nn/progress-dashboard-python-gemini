@@ -2,6 +2,7 @@
 
 from dash import html
 import dash_bootstrap_components as dbc
+import pandas as pd
 from data.nested_json_processor import get_all_changelog_entries
 
 def create_changelog_layout():
@@ -12,7 +13,6 @@ def create_changelog_layout():
     if not entries:
         return dbc.Alert("更新履歴はありません。", color="info")
 
-    # ▼ ここから追加 ▼
     # バージョン番号で降順にソートする
     # 'v'プレフィックスを削除し、'.'で分割して数値のリストに変換して比較
     sorted_entries = sorted(
@@ -20,35 +20,38 @@ def create_changelog_layout():
         key=lambda e: [int(part) for part in e['version'].lstrip('v').split('.')],
         reverse=True
     )
-    # ▲ ここまで追加 ▲
 
-    timeline_items = []
-    # イテレートする対象をソート済みのリストに変更
-    for entry in sorted_entries:
-        timeline_items.append(
-            html.Div(
-                dbc.Accordion
-                (
-                    dbc.AccordionItem(
-                        [
-                            html.P(entry['description'])
-                        ],
-                        title=f"v{entry['version']} - {entry['title']} - リリース日: {entry['release_date']}"
-                    ),
-                ),
-                # dbc.Alert(
-                #     [
-                #         html.H4(f"v{entry['version']} - {entry['title']}", className="mb-1"),
-                #         html.Small(f"リリース日: {entry['release_date']}", className="text-muted"),
-                #         html.P(entry['description'], className="mt-2")
-                #     ], color="info"
-                # ),
+    # テーブルのヘッダーを作成
+    table_header = [
+        html.Thead(html.Tr([
+            html.Th("バージョン"),
+            html.Th("リリース日"),
+            html.Th("タイトル"),
+            html.Th("詳細")
+        ]))
+    ]
 
-                className="mb-4"
-            )
-        )
+    # テーブルのボディ（各行）を作成
+    table_body = [
+        html.Tbody([
+            html.Tr([
+                html.Td(f"v{entry['version']}"),
+                html.Td(entry['release_date']),
+                html.Td(entry['title']),
+                html.Td(entry['description'])
+            ]) for entry in sorted_entries
+        ])
+    ]
 
+    # レイアウトを返す
     return html.Div([
         html.H2("更新履歴", className="my-4"),
-        *timeline_items
+        dbc.Table(
+            table_header + table_body,
+            bordered=True,
+            striped=True,
+            hover=True,
+            responsive=True,
+            className="mt-4"
+        )
     ])
