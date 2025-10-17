@@ -221,7 +221,6 @@ def add_or_update_student_progress(student_id, progress_updates):
             # UPSERT用のデータリストを作成
             data_to_upsert = []
             for update in progress_updates:
-                # 'is_done'フラグを計算
                 is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
                 
                 # is_plannedがFalseの場合、進捗をリセット
@@ -236,7 +235,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                     update['level'],
                     update['book_name'],
                     update.get('duration'),
-                    bool(update['is_planned']), # bool型に変換
+                    bool(update['is_planned']),
                     is_done,
                     update.get('completed_units', 0),
                     update.get('total_units', 1)
@@ -256,8 +255,8 @@ def add_or_update_student_progress(student_id, progress_updates):
                     total_units = EXCLUDED.total_units;
             """
             
-            # execute_valuesで効率的にUPSERTを実行
-            execute_values(cur, upsert_query, data_to_upsert)
+            if data_to_upsert:
+                execute_values(cur, upsert_query, data_to_upsert)
 
         conn.commit()
         return True, f"{len(progress_updates)}件の進捗を更新しました。"

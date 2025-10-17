@@ -1,3 +1,5 @@
+# initialize_database.py
+
 import os
 import pandas as pd
 import json
@@ -89,6 +91,7 @@ def create_all_tables(conn):
             )
         ''')
 
+        # ★★★ ここからが修正箇所 ★★★
         # progressテーブル (UNIQUE制約を追加)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS progress (
@@ -104,6 +107,87 @@ def create_all_tables(conn):
                 total_units INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
                 UNIQUE (student_id, subject, level, book_name)
+            )
+        ''')
+        # ★★★ ここまでが修正箇所 ★★★
+
+        # homeworkテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS homework (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER NOT NULL,
+                master_textbook_id INTEGER REFERENCES master_textbooks(id),
+                custom_textbook_name TEXT,
+                subject TEXT NOT NULL,
+                task TEXT NOT NULL,
+                task_date TEXT NOT NULL,
+                task_group_id TEXT,
+                status TEXT NOT NULL DEFAULT '未着手',
+                other_info TEXT,
+                FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE
+            )
+        ''')
+
+        # bulk_presetsテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS bulk_presets (
+                id SERIAL PRIMARY KEY,
+                subject TEXT NOT NULL,
+                preset_name TEXT NOT NULL,
+                UNIQUE(subject, preset_name)
+            )
+        ''')
+
+        # bulk_preset_booksテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS bulk_preset_books (
+                id SERIAL PRIMARY KEY,
+                preset_id INTEGER NOT NULL,
+                book_name TEXT NOT NULL,
+                FOREIGN KEY (preset_id) REFERENCES bulk_presets (id) ON DELETE CASCADE
+            )
+        ''')
+
+        # past_exam_resultsテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS past_exam_results (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                university_name TEXT NOT NULL,
+                faculty_name TEXT,
+                exam_system TEXT,
+                year INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                time_required INTEGER,
+                total_time_allowed INTEGER,
+                correct_answers INTEGER,
+                total_questions INTEGER,
+                FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE
+            )
+        ''')
+    
+        # bug_reportsテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS bug_reports (
+                id SERIAL PRIMARY KEY,
+                reporter_username TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT '未対応',
+                resolution_message TEXT
+            )
+        ''')
+    
+        # changelogテーブル
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS changelog (
+                id SERIAL PRIMARY KEY,
+                version TEXT NOT NULL,
+                release_date TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL
             )
         ''')
 
@@ -215,7 +299,6 @@ if __name__ == '__main__':
         print("エラー: 環境変数 'DATABASE_URL' が設定されていません。")
         exit()
     
-    # ★★★ ここからが修正箇所 ★★★
     print("="*60)
     print("データベース初期化モードを選択してください:")
     print("1: 【新規デプロイ用】テーブル作成＋デモデータ投入")
@@ -235,7 +318,6 @@ if __name__ == '__main__':
     if response != 'yes':
         print("\n処理を中断しました。")
         exit()
-    # ★★★ ここまでが修正箇所 ★★★
 
     connection = None
     try:
