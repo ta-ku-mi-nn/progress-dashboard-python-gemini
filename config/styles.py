@@ -18,6 +18,41 @@ APP_INDEX_STRING = '''
             font-weight: 400;
             line-height: 1.6;
         }
+        
+        /* ★★★ ここから修正 ★★★ */
+        /* ローディング画面のアニメーション */
+        ._dash-loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        ._dash-loading::after {
+            content: '';
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #0d6efd; /* Bootstrapのプライマリカラー */
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        /* ★★★ ここまで修正 ★★★ */
+
 
         /* タブの文字色を黒に設定 */
         .nav-tabs .nav-link {
