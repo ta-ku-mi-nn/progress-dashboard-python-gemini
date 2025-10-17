@@ -495,7 +495,6 @@ def register_past_exam_callbacks(app):
 
     # --- 大学合否カレンダー(旧ガントチャート)の更新 ---
     @app.callback(
-        Output('acceptance-gantt-chart', 'figure'), # OutputのIDは変更しない (レイアウト側でGraphをDivに変えたため、figureではなくchildrenを更新する必要がある) → IDはそのままに、childrenを更新する形に変更します
         Output('acceptance-calendar-container', 'children'), # OutputをDivのchildrenに変更
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
