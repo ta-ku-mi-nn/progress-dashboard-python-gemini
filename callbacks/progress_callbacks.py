@@ -172,8 +172,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         right_col = dbc.Row(bar_charts)
         
         return dbc.Row([
-            dbc.Col(left_col, md=6),
-            dbc.Col(right_col, md=6),
+            dbc.Col(left_col, md=8),
+            dbc.Col(right_col, md=4),
         ])
     else:
         if active_tab not in progress_data:
@@ -204,8 +204,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         right_col = create_progress_table(progress_data, student_info, active_tab)
         
         return dbc.Row([
-            dbc.Col(left_col, md=8),
-            dbc.Col(right_col, md=4),
+            dbc.Col(left_col, md=6),
+            dbc.Col(right_col, md=6),
         ])
 
 def register_progress_callbacks(app):
