@@ -131,14 +131,27 @@ def get_student_info_by_id(student_id):
     return student_info
 
 def get_student_progress_by_id(student_id):
-    """生徒IDに基づいて生徒の進捗データを取得する"""
+    """生徒IDに基づいて生徒の進捗データを取得し、偏差値に応じて所要時間を調整する"""
+    # ★★★ ここから修正 ★★★
+    student_info = get_student_info_by_id(student_id)
+    student_deviation = student_info.get('deviation_value')
+
+    level_deviation_map = {
+        '基礎徹底': 50,
+        '日大': 60,
+        'MARCH': 70,
+        '早慶': 75
+    }
+    # ★★★ ここまで修正 ★★★
+
     conn = get_db_connection()
     with conn.cursor(cursor_factory=DictCursor) as cur:
+        # DBから取得するdurationは元の値 (COALESCEで取得)
         cur.execute(
             """
-            SELECT 
-                p.subject, p.level, p.book_name, 
-                COALESCE(p.duration, m.duration, 0) as duration,
+            SELECT
+                p.subject, p.level, p.book_name,
+                COALESCE(p.duration, m.duration, 0) as base_duration, -- 元のdurationをbase_durationとして取得
                 p.is_planned, p.is_done,
                 COALESCE(p.completed_units, 0) as completed_units,
                 COALESCE(p.total_units, 1) as total_units
@@ -149,15 +162,30 @@ def get_student_progress_by_id(student_id):
         )
         progress_records = cur.fetchall()
     conn.close()
+
     progress_data = {}
     for row in progress_records:
         subject, level, book_name = row['subject'], row['level'], row['book_name']
+        base_duration = row['base_duration'] # 元の所要時間
+
+        # ★★★ ここから修正 ★★★
+        adjusted_duration = base_duration # デフォルトは元の値
+        if student_deviation is not None and level in level_deviation_map:
+            level_deviation = level_deviation_map[level]
+            # 計算式を適用
+            factor = ((level_deviation - student_deviation) * 0.025 + 1)
+            adjusted_duration = factor * base_duration
+            # 結果が負にならないように調整
+            adjusted_duration = max(0, adjusted_duration)
+        # ★★★ ここまで修正 ★★★
+
         if subject not in progress_data:
             progress_data[subject] = {}
         if level not in progress_data[subject]:
             progress_data[subject][level] = {}
+
         progress_data[subject][level][book_name] = {
-            '所要時間': row['duration'],
+            '所要時間': adjusted_duration, # 計算後の値を入れる
             '予定': bool(row['is_planned']),
             '達成済': bool(row['is_done']),
             'completed_units': row['completed_units'],
