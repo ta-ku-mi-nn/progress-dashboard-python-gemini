@@ -25,12 +25,6 @@ def register_past_exam_callbacks(app):
     """過去問管理ページのコールバックを登録する"""
 
     # --- 既存の過去問管理タブ関連のコールバック (変更なし) ---
-    # @app.callback(...) def handle_modal_opening(...)
-    # @app.callback(...) def save_past_exam_result(...)
-    # @app.callback(...) def display_delete_confirmation(...)
-    # @app.callback(...) def execute_delete(...)
-    # @app.callback(...) def update_past_exam_table(...)
-    # --- (省略, 全文は前回の回答を参照) ---
     @app.callback(
         [Output('past-exam-modal', 'is_open'),
          Output('past-exam-modal-title', 'children'),
@@ -505,24 +499,84 @@ def register_past_exam_callbacks(app):
         ctx = callback_context
 
         # カレンダータブが表示されていない場合は更新しない
-        if active_tab != 'tab-gantt' or not target_month:
-            # ↓↓↓ html.Div の children なので、空リストを返す ↓↓↓
-            return no_update, [] # figureは更新しない、childrenを空にする
-            # ↑↑↑ ここまで変更 ↑↑↑
+        # ★★★ ここから修正 ★★★
+        if active_tab != 'tab-gantt':
+            #raise PreventUpdate # 更新を完全に停止
+             return [] # または空リストを返す
+        # ★★★ ここまで修正 ★★★
 
         # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
         if ctx.triggered_id == 'toast-trigger' and toast_data:
             if "大学合否結果" not in toast_data.get('message', ''):
                  raise PreventUpdate
 
+        # target_month がない場合(初期表示など)は現在の年月を使用
+        if not target_month:
+            target_month = date.today().strftime('%Y-%m')
+
         if not student_id:
             # ↓↓↓ HTML生成関数を呼び出すように変更 ↓↓↓
             calendar_html = create_html_calendar([], target_month)
-            return no_update, calendar_html # figureは更新しない
+            return calendar_html # HTMLコンポーネントを返す
             # ↑↑↑ ここまで変更 ↑↑↑
 
         acceptance_data = get_acceptance_results_for_student(student_id)
         # ↓↓↓ HTML生成関数を呼び出すように変更 ↓↓↓
         calendar_html = create_html_calendar(acceptance_data, target_month)
-        return no_update, calendar_html # figureは更新しない
+        return calendar_html # HTMLコンポーネントを返す
         # ↑↑↑ ここまで変更 ↑↑↑
+
+    # カレンダーの表示年月を更新するコールバック
+    @app.callback(
+        Output('current-calendar-month-store', 'data'),
+        [Input('prev-month-btn', 'n_clicks'),
+         Input('next-month-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab')], # タブ切り替え時にも初期化
+        State('current-calendar-month-store', 'data')
+    )
+    def update_calendar_month(prev_clicks, next_clicks, active_tab, current_month_str):
+        ctx = callback_context
+        trigger_id = ctx.triggered_id
+
+        # カレンダータブがアクティブになった時に初期化
+        if trigger_id == 'past-exam-tabs' and active_tab == 'tab-gantt':
+            return date.today().strftime('%Y-%m')
+
+        # タブ移動以外、または current_month_str がない場合は何もしない
+        if trigger_id == 'past-exam-tabs' or not current_month_str:
+            if not current_month_str: # 初回表示などで current_month_str がない場合
+                 return date.today().strftime('%Y-%m')
+            raise PreventUpdate
+
+        try:
+            current_month = datetime.strptime(current_month_str, '%Y-%m').date()
+        except (ValueError, TypeError):
+            current_month = date.today() # 不正な値なら今日にリセット
+
+        if trigger_id == 'prev-month-btn':
+            # 前月に移動
+            first_day_current_month = current_month.replace(day=1)
+            last_day_prev_month = first_day_current_month - timedelta(days=1)
+            new_month = last_day_prev_month.replace(day=1)
+            return new_month.strftime('%Y-%m')
+        elif trigger_id == 'next-month-btn':
+            # 次月に移動
+            days_in_month = calendar.monthrange(current_month.year, current_month.month)[1]
+            first_day_next_month = current_month.replace(day=1) + timedelta(days=days_in_month)
+            return first_day_next_month.strftime('%Y-%m')
+
+        return no_update # ボタンが押されていない場合は更新しない
+
+    # 表示年月を表示するコールバック
+    @app.callback(
+        Output('current-month-display', 'children'),
+        Input('current-calendar-month-store', 'data')
+    )
+    def display_current_month(month_str):
+        if not month_str:
+            month_str = date.today().strftime('%Y-%m')
+        try:
+            dt = datetime.strptime(month_str, '%Y-%m')
+            return f"{dt.year}年 {dt.month}月"
+        except (ValueError, TypeError):
+            return "年月表示エラー"
