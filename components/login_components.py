@@ -77,9 +77,9 @@ def create_user_profile_modal():
         children=[
             dbc.ModalHeader(dbc.ModalTitle("ユーザープロファイル")),
             dbc.ModalBody([
-                html.P(html.B("ユーザー名: "), html.P(id="profile-username")),
-                html.P(html.B("役割: "), html.P(id="profile-role")),
-                html.P(html.B("所属校舎: "), html.P(id="profile-school")),
+                html.P([html.B("ユーザー名: "), html.P(id="profile-username")]),
+                html.P([html.B("役割: "), html.P(id="profile-role")]),
+                html.P([html.B("所属校舎: "), html.P(id="profile-school")]),
                 html.Hr(),
                 html.P(html.B("担当生徒:")),
                 html.Div(id="profile-assigned-students", style={'maxHeight': '200px', 'overflowY': 'auto'})
