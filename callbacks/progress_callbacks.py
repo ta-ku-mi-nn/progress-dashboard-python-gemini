@@ -172,8 +172,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         right_col = dbc.Row(bar_charts)
         
         return dbc.Row([
-            dbc.Col(left_col, md=8),
-            dbc.Col(right_col, md=4),
+            dbc.Col(left_col, md=6),
+            dbc.Col(right_col, md=6),
         ])
     else:
         if active_tab not in progress_data:
@@ -356,8 +356,6 @@ def create_progress_table(progress_data, student_info, active_tab):
     main_instructors = ", ".join(student_info.get('main_instructors', []))
     
     return html.Div([
-        html.H4(f"{active_tab} の進捗詳細"),
-        html.P(f"（{student_name}さん / メイン講師: {main_instructors}）", className="text-muted small"),
         dbc.Table(table_header + table_body, bordered=False, striped=True, hover=True, responsive=True, className="mt-3")
     ])
 # ★★★ ここまで修正 ★★★
