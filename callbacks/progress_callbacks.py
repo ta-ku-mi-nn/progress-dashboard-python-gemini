@@ -1,11 +1,12 @@
 # callbacks/progress_callbacks.py
 
-from dash import Input, Output, State, dcc, html, no_update, callback_context
+from dash import Input, Output, State, dcc, html, no_update, callback_context, ALL, MATCH
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash.exceptions import PreventUpdate
+from datetime import datetime
 
-from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time
+from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time, add_or_update_student_progress
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 # ( ... create_welcome_layout は変更なし ... )
@@ -94,9 +95,7 @@ def create_initial_progress_layout(student_id):
                         className="card-text",
                     ),
                     html.Hr(),
-                    # ★★★ ここから修正 ★★★
                     dbc.Button("進捗を更新する", id={'type': 'open-plan-modal', 'index': 'mirror'}, color="primary", className="mt-2"),
-                    # ★★★ ここまで修正 ★★★
                 ]),
                 className="text-center",
                 color="light"
@@ -237,6 +236,43 @@ def register_progress_callbacks(app):
             return no_update
         
         return generate_dashboard_content(student_id, active_tab)
+        
+    # ★★★ ここから修正 ★★★
+    @app.callback(
+        Output('toast-trigger', 'data', allow_duplicate=True),
+        Input({'type': 'mark-done-btn', 'subject': ALL, 'level': ALL, 'book': ALL}, 'n_clicks'),
+        State('student-selection-store', 'data'),
+        prevent_initial_call=True
+    )
+    def mark_book_as_done(n_clicks, student_id):
+        ctx = callback_context
+        if not any(n_clicks) or not student_id:
+            raise PreventUpdate
+            
+        triggered_id = ctx.triggered_id
+        subject = triggered_id.get('subject')
+        level = triggered_id.get('level')
+        book_name = triggered_id.get('book')
+
+        update_data = [{
+            'subject': subject,
+            'level': level,
+            'book_name': book_name,
+            'is_planned': True,
+            'completed_units': 1,
+            'total_units': 1,
+            'duration': None # 既存の値を維持するためNone
+        }]
+        
+        success, message = add_or_update_student_progress(student_id, update_data)
+        
+        if success:
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"「{book_name}」を達成済にしました。", 'source': 'plan'}
+            return toast_data
+        else:
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"エラー: {message}"}
+            return toast_data
+    # ★★★ ここまで修正 ★★★
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
@@ -269,6 +305,7 @@ def create_summary_cards(df, past_exam_hours=0):
     
     return cards
 
+# ★★★ ここから修正 ★★★
 def create_progress_table(progress_data, student_info, active_tab):
     """進捗詳細テーブルのコンポーネントを生成するヘルパー関数"""
     subject_data = progress_data.get(active_tab, {})
@@ -276,7 +313,7 @@ def create_progress_table(progress_data, student_info, active_tab):
         return None
 
     table_header = [html.Thead(html.Tr([
-        html.Th("レベル"), html.Th("参考書名"), html.Th("ステータス")
+        html.Th("レベル"), html.Th("参考書名"), html.Th("ステータス", style={'width': '120px'}), html.Th("操作", style={'width': '80px'})
     ]))]
 
     table_rows = []
@@ -285,16 +322,29 @@ def create_progress_table(progress_data, student_info, active_tab):
             if not details.get('予定'):
                 continue
 
-            status_badge = dbc.Badge(
-                "完了", color="success") if details.get('達成済') else (
-                dbc.Badge("学習中", color="primary") if details.get('予定') else 
-                dbc.Badge("未着手", color="secondary")
-            )
+            completed = details.get('completed_units', 0)
+            total = details.get('total_units', 1)
+            is_done = details.get('達成済', False)
             
+            # 達成率を計算
+            achievement_rate = (completed / total) if total > 0 else 0
+
+            # ステータスバッジの決定
+            if achievement_rate >= 1 or is_done:
+                status_badge = dbc.Badge("達成済", color="success")
+                done_button = dbc.Button("達成", size="sm", disabled=True)
+            elif achievement_rate > 0:
+                status_badge = dbc.Badge("取組中", color="primary")
+                done_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
+            else:
+                status_badge = dbc.Badge("未達成", color="secondary")
+                done_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
+
             table_rows.append(html.Tr([
                 html.Td(level),
                 html.Td(book_name),
-                html.Td(status_badge)
+                html.Td(status_badge),
+                html.Td(done_button)
             ]))
     
     if not table_rows:
@@ -310,3 +360,4 @@ def create_progress_table(progress_data, student_info, active_tab):
         html.P(f"（{student_name}さん / メイン講師: {main_instructors}）", className="text-muted small"),
         dbc.Table(table_header + table_body, bordered=False, striped=True, hover=True, responsive=True, className="mt-3")
     ])
+# ★★★ ここまで修正 ★★★
