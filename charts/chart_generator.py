@@ -243,3 +243,43 @@ def create_subject_achievement_bar(df, subject):
     )
 
     return fig
+
+def create_level_statistics_chart(stats_data, subject):
+    """
+    科目ごとのレベル達成人数を示す棒グラフを生成する。
+    """
+    if not stats_data or subject not in stats_data:
+        fig = go.Figure()
+        fig.update_layout(
+            title=f'<b>{subject}</b> のレベル達成状況',
+            annotations=[{
+                'text': 'データがありません',
+                'xref': 'paper', 'yref': 'paper',
+                'x': 0.5, 'y': 0.5, 'showarrow': False
+            }]
+        )
+        return fig
+
+    subject_data = stats_data[subject]
+    levels = ['日大', 'MARCH', '早慶']
+    counts = [subject_data.get(level, 0) for level in levels]
+
+    fig = go.Figure(data=[
+        go.Bar(
+            x=levels,
+            y=counts,
+            text=counts,
+            textposition='auto',
+            marker_color=['#0d6efd', '#ffc107', '#dc3545']
+        )
+    ])
+
+    fig.update_layout(
+        title_text=f'<b>{subject}</b> のレベル達成人数',
+        xaxis_title="レベル",
+        yaxis_title="生徒数",
+        height=400,
+        margin=dict(t=50, l=10, r=10, b=30),
+    )
+
+    return fig

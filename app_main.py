@@ -56,7 +56,8 @@ from callbacks.report_callbacks import register_report_callbacks
 from callbacks.plan_callbacks import register_plan_callbacks
 from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
-
+from components.statistics_layout import create_statistics_layout # 追加
+from callbacks.statistics_callbacks import register_statistics_callbacks # 追加
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -138,6 +139,11 @@ def display_page(pathname, auth_store_data):
     if pathname == '/past-exam':
         page_content = create_past_exam_layout()
         return page_content, navbar
+    
+    if pathname == '/statistics': # このブロックを追加
+        if user_info.get('role') != 'admin':
+            return create_access_denied_layout(), navbar
+        return create_statistics_layout(user_info), navbar
 
     if pathname == '/howto':
         return create_howto_layout(user_info), navbar
@@ -278,6 +284,7 @@ register_homework_callbacks(app)
 register_plan_callbacks(app)
 register_past_exam_callbacks(app)
 register_bug_report_callbacks(app)
+register_statistics_callbacks(app) # この行を追加
 
 
 if __name__ == '__main__':

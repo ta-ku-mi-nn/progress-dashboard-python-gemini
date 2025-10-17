@@ -966,3 +966,50 @@ def add_changelog_entry(version, title, description):
         return False, f"登録中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def get_student_level_statistics(school):
+    """
+    校舎ごとに、各科目のレベル（日大、MARCH、早慶）に到達している生徒数を集計する。
+    1冊でも該当レベルの参考書を '達成済' にしていれば、そのレベルに到達しているとみなす。
+    """
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=DictCursor) as cur:
+        # is_doneがTrueの進捗データのみを取得
+        query = """
+            SELECT
+                s.id as student_id,
+                p.subject,
+                p.level
+            FROM progress p
+            JOIN students s ON p.student_id = s.id
+            WHERE s.school = %s AND p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶');
+        """
+        cur.execute(query, (school,))
+        progress_data = cur.fetchall()
+    conn.close()
+
+    if not progress_data:
+        return {}
+
+    df = pd.DataFrame(progress_data)
+
+    # 生徒ごとに、科目とレベルの組み合わせでユニークにする
+    df_unique_students = df.drop_duplicates(subset=['student_id', 'subject', 'level'])
+
+    # 科目とレベルでグループ化し、生徒数をカウント
+    level_counts = df_unique_students.groupby(['subject', 'level']).size().reset_index(name='student_count')
+
+    # 結果を整形
+    stats = {}
+    for _, row in level_counts.iterrows():
+        subject = row['subject']
+        level = row['level']
+        count = row['student_count']
+
+        if subject not in stats:
+            stats[subject] = {'日大': 0, 'MARCH': 0, '早慶': 0}
+
+        if level in stats[subject]:
+            stats[subject][level] = count
+
+    return stats
