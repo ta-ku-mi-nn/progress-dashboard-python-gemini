@@ -210,23 +210,18 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
 def register_progress_callbacks(app):
     """進捗表示に関連するコールバックを登録します。"""
 
-    @app.callback(
-        Output('dashboard-content-container', 'children', allow_duplicate=True),
-        [Input('subject-tabs', 'active_tab'),
-         Input('toast-trigger', 'data')],
-        State('student-selection-store', 'data'),
-        prevent_initial_call=True
-    )
-    def update_dashboard_on_tab_click_or_save(active_tab, toast_data, student_id):
-        ctx = callback_context
-        if not ctx.triggered:
-            raise PreventUpdate
-
-        if ctx.triggered_id == 'toast-trigger':
-            if not toast_data or toast_data.get('source') != 'plan':
-                raise PreventUpdate
-
-        return generate_dashboard_content(student_id, active_tab)
+    # ★★★ 修正箇所 ★★★
+    # main_callbacks.py に機能を統合したため、以下のコールバックを完全に削除します。
+    # @app.callback(
+    #     Output('dashboard-content-container', 'children', allow_duplicate=True),
+    #     [Input('subject-tabs', 'active_tab'),
+    #      Input('toast-trigger', 'data')],
+    #     State('student-selection-store', 'data'),
+    #     prevent_initial_call=True
+    # )
+    # def update_dashboard_on_tab_click_or_save(active_tab, toast_data, student_id):
+    #     ...
+    pass # このファイルにはコールバックがなくなるため pass を記述
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""

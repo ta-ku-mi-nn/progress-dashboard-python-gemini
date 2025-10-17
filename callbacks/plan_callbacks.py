@@ -342,9 +342,10 @@ def register_plan_callbacks(app):
 
         trigger_id = ctx.triggered_id
         
-        student_info = get_student_info_by_id(student_id)
-        if not student_info: 
-            return dbc.Alert("生徒情報取得失敗。", color="danger"), True, no_update
+        # ★★★ ここからが修正箇所 ★★★
+        if not student_id: 
+            return dbc.Alert("生徒が選択されていません。", color="danger"), True, no_update
+        # ★★★ ここまでが修正箇所 ★★★
 
         updates = []
         
@@ -363,7 +364,7 @@ def register_plan_callbacks(app):
         if trigger_id != 'plan-empty-confirm-dialog':
             for i, id_dict in enumerate(book_ids):
                 book_name = id_dict['book']
-                val = progress_values[i] if progress_values else ""
+                val = progress_values[i] if progress_values and i < len(progress_values) else ""
                 
                 completed, total = 0, 1
                 if val is None or val.strip() == "":
@@ -394,7 +395,9 @@ def register_plan_callbacks(app):
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': '更新する内容がありません。', 'source': 'plan'}
             return None, False, toast_data
 
-        success, message = add_or_update_student_progress(student_info['school'], student_info['name'], updates)
+        # ★★★ ここからが修正箇所 ★★★
+        success, message = add_or_update_student_progress(student_id, updates)
+        # ★★★ ここまでが修正箇所 ★★★
 
         if success:
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': '学習計画を更新しました。', 'source': 'plan'}

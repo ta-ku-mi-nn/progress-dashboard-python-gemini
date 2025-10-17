@@ -3,7 +3,7 @@
 import sqlite3
 import os
 import pandas as pd
-from dash import Input, Output, State, dcc, html, no_update
+from dash import Input, Output, State, dcc, html, no_update, callback_context
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user
@@ -73,40 +73,55 @@ def register_main_callbacks(app):
     @app.callback(
         [Output('subject-tabs-container', 'children'),
          Output('dashboard-actions-container', 'children'),
-         Output('dashboard-content-container', 'children', allow_duplicate=True)],
-        Input('student-selection-store', 'data'),
+         Output('dashboard-content-container', 'children')],
+        [Input('student-selection-store', 'data'),
+         Input('subject-tabs', 'active_tab'),
+         Input('toast-trigger', 'data')],
         [State('url', 'pathname'),
          State('auth-store', 'data')],
         prevent_initial_call=True
     )
-    def update_dashboard_on_student_select(student_id, pathname, user_info):
-        """生徒が選択されたら、タブ、アクションボタン、初期コンテンツを生成する"""
+    def update_dashboard_layout_and_content(student_id, active_tab, toast_data, pathname, user_info):
+        """生徒選択、タブ切替、データ更新のすべてをこのコールバックで一元管理する"""
+        
+        ctx = callback_context
+        triggered_id = ctx.triggered_id
+        
         if not student_id or pathname != '/':
             return None, None, create_welcome_layout()
 
-        student_info = get_student_info_by_id(student_id)
-        subjects = get_subjects_for_student(student_id)
-        
-        all_tabs = [dbc.Tab(label="総合", tab_id="総合")]
-        if subjects:
-            all_tabs.extend([dbc.Tab(label=subject, tab_id=subject) for subject in subjects])
+        # 生徒が変更された場合 (トリガーが student-selection-store)
+        if triggered_id == 'student-selection-store':
+            student_info = get_student_info_by_id(student_id)
+            subjects = get_subjects_for_student(student_id)
+            
+            all_tabs = [dbc.Tab(label="総合", tab_id="総合")]
+            if subjects:
+                all_tabs.extend([dbc.Tab(label=subject, tab_id=subject) for subject in subjects])
 
-        tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
-        
-        # --- ★★★ ここから修正 ★★★
-        # 権限チェックを行い、ボタンの表示を制御
-        action_buttons = []
-        if can_access_student(user_info, student_info):
-            action_buttons.append(dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True))
-        
-        action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
+            tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
+            
+            action_buttons = []
+            if can_access_student(user_info, student_info):
+                action_buttons.append(dbc.Button("進捗を更新", id="bulk-register-btn", color="primary", outline=True))
+            
+            action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
 
-        actions = dbc.ButtonGroup(action_buttons)
-        # --- ★★★ ここまで修正 ★★★
+            actions = dbc.ButtonGroup(action_buttons)
+            
+            # 新しい生徒が選択されたので、必ず「総合」タブの内容を表示
+            dashboard_content = generate_dashboard_content(student_id, '総合')
 
-        initial_content = generate_dashboard_content(student_id, '総合')
+            return tabs, actions, dashboard_content
 
-        return tabs, actions, initial_content
+        # タブが変更されたか、データが更新された場合
+        if triggered_id == 'subject-tabs' or (triggered_id == 'toast-trigger' and toast_data and toast_data.get('source') == 'plan'):
+            # タブやアクションボタンは変更しない
+            # 現在のアクティブタブの内容でダッシュボードを更新する
+            dashboard_content = generate_dashboard_content(student_id, active_tab)
+            return no_update, no_update, dashboard_content
+
+        return no_update, no_update, no_update
 
     @app.callback(
         Output('student-selection-store', 'data'),
