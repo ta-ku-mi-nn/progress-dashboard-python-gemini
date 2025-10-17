@@ -1,5 +1,6 @@
 # components/past_exam_layout.py
 from dash import dcc, html
+# dash_table は不要になったので削除
 import dash_bootstrap_components as dbc
 from datetime import date
 
@@ -89,8 +90,7 @@ def create_past_exam_layout():
         ),
     ])
 
-    # --- 新しい大学合否タブの内容 ---
-# --- 新しい大学合否タブの内容 ---
+    # --- 既存の大学合否タブの内容 ---
     acceptance_tab_content = html.Div([
         dcc.Store(id='editing-acceptance-id-store'),
         dbc.Row([
@@ -100,12 +100,8 @@ def create_past_exam_layout():
                 className="text-end"
             )
         ], align="center", className="my-4"),
-
-        # 結果テーブル表示エリア (ローディングのみ残す)
-        dcc.Loading(html.Div(id="acceptance-table-container")),
-
-        # 入力・編集用モーダル (日付入力追加)
-        dbc.Modal([
+        dcc.Loading(html.Div(id="acceptance-table-container")), # テーブル表示エリア
+        dbc.Modal([ # 合否モーダル (日付入力含む)
             dbc.ModalHeader(dbc.ModalTitle(id="acceptance-modal-title")),
             dbc.ModalBody([
                 dbc.Alert(id="acceptance-modal-alert", is_open=False),
@@ -125,7 +121,6 @@ def create_past_exam_layout():
                     dbc.Col(dbc.Label("受験方式（任意）"), width=4),
                     dbc.Col(dbc.Input(id='acceptance-system', type='text'), width=8)
                 ], className="mb-3"),
-                # ↓↓↓ 以下を追加 ↓↓↓
                 dbc.Row([
                     dbc.Col(dbc.Label("受験日"), width=4),
                     dbc.Col(dcc.DatePickerSingle(id='acceptance-exam-date', date=None, display_format='YYYY-MM-DD'), width=8)
@@ -134,30 +129,36 @@ def create_past_exam_layout():
                     dbc.Col(dbc.Label("合格発表日"), width=4),
                     dbc.Col(dcc.DatePickerSingle(id='acceptance-announcement-date', date=None, display_format='YYYY-MM-DD'), width=8)
                 ], className="mb-3"),
-                # ↑↑↑ ここまで追加 ↑↑↑
             ]),
             dbc.ModalFooter([
                 dbc.Button("キャンセル", id="cancel-acceptance-modal-btn", color="secondary"),
                 dbc.Button("保存", id="save-acceptance-modal-btn", color="primary"),
             ]),
         ], id="acceptance-modal", is_open=False),
-
-        # 削除確認ダイアログ (変更なし)
-        dcc.ConfirmDialog(
+        dcc.ConfirmDialog( # 合否削除確認 (内容は変更なし)
             id='delete-acceptance-confirm',
             message='本当にこの合否結果を削除しますか？\nこの操作は取り消せません。',
         ),
     ])
 
-    # --- タブ構造 (変更なし) ---
+    # --- 新しいガントチャートタブの内容 ---
+    gantt_tab_content = html.Div([
+        html.H4("受験スケジュール", className="my-4"),
+        dcc.Loading(
+            dcc.Graph(id="acceptance-gantt-chart", style={'height': '600px'}) # 高さを調整
+        )
+    ])
+
+    # --- タブ構造 ---
     return html.Div([
-        html.H2("過去問・合否管理", className="my-4"), # ページタイトル
+        html.H2("過去問・合否管理", className="my-4"),
         dbc.Tabs(
             [
                 dbc.Tab(past_exam_tab_content, label="過去問管理", tab_id="tab-past-exam"),
                 dbc.Tab(acceptance_tab_content, label="大学合否", tab_id="tab-acceptance"),
+                dbc.Tab(gantt_tab_content, label="受験スケジュール", tab_id="tab-gantt"), # ガントチャートタブを追加
             ],
             id="past-exam-tabs",
-            active_tab="tab-past-exam",
+            active_tab="tab-past-exam", # デフォルトは過去問タブ
         )
     ])

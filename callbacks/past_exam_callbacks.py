@@ -1,23 +1,34 @@
 # callbacks/past_exam_callbacks.py
-
 from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, dcc
+# dash_table は不要になったので削除
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime, date
+import plotly.graph_objects as go # go をインポート
 
+# --- 既存のimport ---
 from data.nested_json_processor import (
     get_past_exam_results_for_student, add_past_exam_result,
     update_past_exam_result, delete_past_exam_result,
-    add_acceptance_result, get_acceptance_results_for_student,
-    update_acceptance_result, delete_acceptance_result
+    add_acceptance_result,
+    get_acceptance_results_for_student,
+    update_acceptance_result,
+    delete_acceptance_result
 )
-
+# ↓↓↓ 以下を追加 ↓↓↓
+from charts.chart_generator import create_acceptance_gantt_chart
 
 def register_past_exam_callbacks(app):
     """過去問管理ページのコールバックを登録する"""
 
-    # モーダルを開く処理（新規追加と編集の両方に対応）
+    # --- 既存の過去問管理タブ関連のコールバック (変更なし) ---
+    # @app.callback(...) def handle_modal_opening(...)
+    # @app.callback(...) def save_past_exam_result(...)
+    # @app.callback(...) def display_delete_confirmation(...)
+    # @app.callback(...) def execute_delete(...)
+    # @app.callback(...) def update_past_exam_table(...)
+    # --- (省略) ---
     @app.callback(
         [Output('past-exam-modal', 'is_open'),
          Output('past-exam-modal-title', 'children'),
@@ -100,7 +111,7 @@ def register_past_exam_callbacks(app):
         if not n_clicks or not student_id:
             raise PreventUpdate
 
-        if not all([date, university, year, subject, total]):
+        if not all([date, university, year, subject, total is not None]): # totalもチェック
             return dbc.Alert("日付、大学名、年度、科目、問題数は必須です。", color="warning"), True, no_update, no_update
 
         time_required, total_time_allowed = None, None
@@ -173,6 +184,13 @@ def register_past_exam_callbacks(app):
          Input('past-exam-subject-filter', 'value')],
     )
     def update_past_exam_table(student_id, toast_data, selected_university, selected_subject):
+        ctx = callback_context
+        # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
+        if ctx.triggered_id == 'toast-trigger' and toast_data:
+            # 関係するメッセージかを判定 (より具体的に判定した方が良い場合もある)
+            if "過去問の結果" not in toast_data.get('message', ''):
+                 raise PreventUpdate
+
         if not student_id:
             return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4"), [], []
 
@@ -184,36 +202,59 @@ def register_past_exam_callbacks(app):
         subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())] if not df.empty else []
 
         if df.empty:
-            return dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4"), [], []
+            return dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4"), university_options, subject_options # オプションは返す
 
+        # フィルター適用
+        df_filtered = df.copy()
         if selected_university:
-            df = df[df['university_name'] == selected_university]
+            df_filtered = df_filtered[df_filtered['university_name'] == selected_university]
         if selected_subject:
-            df = df[df['subject'] == selected_subject]
+            df_filtered = df_filtered[df_filtered['subject'] == selected_subject]
+
+        if df_filtered.empty:
+             return dbc.Alert("フィルターに一致する過去問結果はありません。", color="warning", className="mt-4"), university_options, subject_options
 
         def calculate_percentage(row):
             correct, total = row['correct_answers'], row['total_questions']
             return f"{(correct / total * 100):.1f}%" if pd.notna(correct) and pd.notna(total) and total > 0 else ""
-        df['正答率'] = df.apply(calculate_percentage, axis=1)
+        df_filtered['正答率'] = df_filtered.apply(calculate_percentage, axis=1)
 
         def format_time(row):
             req, total = row['time_required'], row['total_time_allowed']
-            if pd.notna(total): return f"{int(req)}/{int(total)}"
+            if pd.notna(req) and pd.notna(total): return f"{int(req)}/{int(total)}"
             return f"{int(req)}" if pd.notna(req) else ""
-        df['所要時間(分)'] = df.apply(format_time, axis=1)
+        df_filtered['所要時間(分)'] = df_filtered.apply(format_time, axis=1)
 
-        df['操作'] = df.apply(lambda row: html.Div([
-            dbc.Button("編集", id={'type': 'edit-past-exam-btn', 'index': row['id']}, size="sm", className="me-1"),
-            dbc.Button("削除", id={'type': 'delete-past-exam-btn', 'index': row['id']}, color="danger", size="sm", outline=True)
-        ]), axis=1)
+        table_header = [html.Thead(html.Tr([
+            html.Th("日付"), html.Th("大学名"), html.Th("学部名"),
+            html.Th("入試方式"), html.Th("年度"), html.Th("科目"),
+            html.Th("所要時間(分)"), html.Th("正答率"), html.Th("操作")
+        ]))]
 
-        table_df = df[['date', 'university_name', 'faculty_name', 'exam_system', 'year', 'subject', '所要時間(分)', '正答率', '操作']]
-        table_df.columns = ['日付', '大学名', '学部名', '入試方式', '年度', '科目', '所要時間(分)', '正答率', '操作']
+        table_body = []
+        for _, row in df_filtered.iterrows():
+            table_row = html.Tr([
+                html.Td(row['date']),
+                html.Td(row['university_name']),
+                html.Td(row.get('faculty_name', '')),
+                html.Td(row.get('exam_system', '')),
+                html.Td(row['year']),
+                html.Td(row['subject']),
+                html.Td(row['所要時間(分)']),
+                html.Td(row['正答率']),
+                html.Td([
+                    dbc.Button("編集", id={'type': 'edit-past-exam-btn', 'index': row['id']}, size="sm", className="me-1"),
+                    dbc.Button("削除", id={'type': 'delete-past-exam-btn', 'index': row['id']}, color="danger", size="sm", outline=True)
+                ])
+            ])
+            table_body.append(table_row)
 
-        table = dbc.Table.from_dataframe(table_df, striped=True, bordered=True, hover=True, responsive=True)
+        table = dbc.Table(table_header + [html.Tbody(table_body)], striped=True, bordered=True, hover=True, responsive=True)
         return table, university_options, subject_options
-    
-    # 大学合否モーダルを開く処理
+
+    # --- 大学合否タブ関連のコールバック ---
+
+    # 大学合否モーダルを開く処理 (日付フィールド追加)
     @app.callback(
         [Output('acceptance-modal', 'is_open'),
          Output('acceptance-modal-title', 'children'),
@@ -239,11 +280,9 @@ def register_past_exam_callbacks(app):
         trigger_id = ctx.triggered_id
 
         if trigger_id == 'cancel-acceptance-modal-btn':
-            # 出力に日付フィールドの no_update を追加
             return False, no_update, None, "", "", "", "", None, None, False
 
         if trigger_id == 'open-acceptance-modal-btn':
-            # 出力に日付フィールドの初期値 (None) を追加
             return True, "大学合否結果の追加", None, "", "", "", "", None, None, False
 
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-acceptance-btn':
@@ -252,10 +291,8 @@ def register_past_exam_callbacks(app):
             result_to_edit = next((r for r in results if r['id'] == result_id), None)
 
             if result_to_edit:
-                # 日付データの読み込みを追加
                 exam_date = result_to_edit.get('exam_date')
                 announcement_date = result_to_edit.get('announcement_date')
-                # date 型に変換しようとするが、不正な場合は None のまま
                 try: exam_date = date.fromisoformat(exam_date) if exam_date else None
                 except ValueError: exam_date = None
                 try: announcement_date = date.fromisoformat(announcement_date) if announcement_date else None
@@ -265,11 +302,10 @@ def register_past_exam_callbacks(app):
                     True, "大学合否結果の編集", result_id,
                     result_to_edit['university_name'], result_to_edit['faculty_name'],
                     result_to_edit.get('department_name', ''), result_to_edit.get('exam_system', ''),
-                    exam_date, # 日付データを渡す
-                    announcement_date, # 日付データを渡す
+                    exam_date,
+                    announcement_date,
                     False
                 )
-        # デフォルトでは日付フィールドもクリア
         return False, no_update, None, "", "", "", "", None, None, False
 
 
@@ -308,12 +344,13 @@ def register_past_exam_callbacks(app):
         if result_id:  # 更新
             success, message = update_acceptance_result(result_id, result_data)
         else: # 新規追加
-            # 新規追加時は result は未選択 (None) で追加
             result_data['result'] = None
             success, message = add_acceptance_result(student_id, result_data)
 
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+            # メッセージに合否結果が含まれるように調整
+            toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message}
             return "", False, toast_data, False
         else:
             return dbc.Alert(message, color="danger"), True, no_update, no_update
@@ -350,15 +387,18 @@ def register_past_exam_callbacks(app):
         return toast_data
 
 
-    # 大学合否テーブルの描画と更新
+    # 大学合否テーブルの描画と更新 (dbc.Table に変更)
     @app.callback(
         Output('acceptance-table-container', 'children'),
         [Input('student-selection-store', 'data'),
-         Input('toast-trigger', 'data')] # 保存・削除後に再描画
+         Input('toast-trigger', 'data')] # 保存・削除・合否更新後に再描画
     )
     def update_acceptance_table(student_id, toast_data):
         ctx = callback_context
-        # ... (toast_trigger のチェックは変更なし) ...
+        # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
+        if ctx.triggered_id == 'toast-trigger' and toast_data:
+            if "大学合否結果" not in toast_data.get('message', ''):
+                 raise PreventUpdate
 
         if not student_id:
             return []
@@ -371,8 +411,8 @@ def register_past_exam_callbacks(app):
             html.Thead(html.Tr([
                 html.Th("大学名"), html.Th("学部名"), html.Th("学科名"),
                 html.Th("受験方式"), html.Th("受験日"), html.Th("発表日"),
-                html.Th("合否", style={'width': '150px'}), # 幅を指定
-                html.Th("操作", style={'width': '120px'}) # 幅を指定
+                html.Th("合否", style={'width': '150px'}),
+                html.Th("操作", style={'width': '120px'})
             ]))
         ]
 
@@ -384,24 +424,22 @@ def register_past_exam_callbacks(app):
                 html.Td(r['faculty_name']),
                 html.Td(r.get('department_name', '')),
                 html.Td(r.get('exam_system', '')),
-                html.Td(r.get('exam_date', '')), # 日付表示
-                html.Td(r.get('announcement_date', '')), # 日付表示
+                html.Td(r.get('exam_date', '')),
+                html.Td(r.get('announcement_date', '')),
                 html.Td(
-                    # --- 合否ドロップダウン ---
-                    dcc.Dropdown(  # dbc.DropdownMenu から dcc.Dropdown に変更
+                    dcc.Dropdown(
                         id={'type': 'acceptance-result-dropdown', 'index': result_id},
                         options=[
                             {'label': '未選択', 'value': ''},
                             {'label': '合格', 'value': '合格'},
                             {'label': '不合格', 'value': '不合格'}
                         ],
-                        value=r.get('result', ''), # value プロパティは dcc.Dropdown で有効です
+                        value=r.get('result') if r.get('result') is not None else '', # DBのNULLは空文字''に変換
                         clearable=False,
                         style={'minWidth': '100px'}
                     )
                 ),
                 html.Td([
-                    # --- 編集・削除ボタン ---
                     dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': result_id}, size="sm", className="me-1"),
                     dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': result_id}, color="danger", size="sm", outline=True)
                 ])
@@ -411,7 +449,7 @@ def register_past_exam_callbacks(app):
         return dbc.Table(table_header + [html.Tbody(table_body)], striped=True, bordered=True, hover=True, responsive=True)
 
 
-    # --- 合否ドロップダウンの変更をDBに反映 (新規追加) ---
+    # 合否ドロップダウンの変更をDBに反映
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input({'type': 'acceptance-result-dropdown', 'index': ALL}, 'value'),
@@ -425,15 +463,45 @@ def register_past_exam_callbacks(app):
 
         triggered_id_dict = ctx.triggered_id
         result_id = triggered_id_dict['index']
-        new_result = ctx.triggered[0]['value'] # 変更後の値
-
-        # どのドロップダウンが変更されたか特定
-        # `dropdown_ids` は [{'type': 'acceptance-result-dropdown', 'index': 1}, ...] のようなリスト
-        # `dropdown_values` は ['合格', '', '不合格', ...] のようなリスト
-        # triggered_id_dict['index'] を使って更新対象のIDは分かっているので、
-        # triggered[0]['value'] で直接変更後の値を取得できる
+        new_result = ctx.triggered[0]['value'] # 変更後の値 (空文字''は未選択)
 
         success, message = update_acceptance_result(result_id, {'result': new_result})
 
+        # トーストメッセージに詳細を追加
+        if success:
+            # 更新されたレコードの情報を取得してメッセージに追加（オプション）
+            results = get_acceptance_results_for_student(State('student-selection-store', 'data')) # 最新データを再取得
+            updated_record = next((r for r in results if r['id'] == result_id), None)
+            if updated_record:
+                 status_text = new_result if new_result else "未選択"
+                 message = f"'{updated_record['university_name']} {updated_record['faculty_name']}' の合否を '{status_text}' に更新しました。"
+            else:
+                 message = "合否情報を更新しました。" # レコードが見つからない場合
+
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
         return toast_data
+
+    # --- 大学合否ガントチャートの更新 ---
+    @app.callback(
+        Output('acceptance-gantt-chart', 'figure'),
+        [Input('student-selection-store', 'data'),
+         Input('toast-trigger', 'data'),
+         Input('past-exam-tabs', 'active_tab')] # タブの切り替えもトリガーに
+    )
+    def update_acceptance_gantt(student_id, toast_data, active_tab):
+        ctx = callback_context
+
+        # ガントチャートタブが表示されていない場合は更新しない
+        if active_tab != 'tab-gantt':
+            return go.Figure() # 空の Figure を返す
+
+        # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
+        if ctx.triggered_id == 'toast-trigger' and toast_data:
+            if "大学合否結果" not in toast_data.get('message', ''):
+                 raise PreventUpdate
+
+        if not student_id:
+            return create_acceptance_gantt_chart([]) # 空データでメッセージ付きグラフ生成
+
+        acceptance_data = get_acceptance_results_for_student(student_id)
+        return create_acceptance_gantt_chart(acceptance_data)
