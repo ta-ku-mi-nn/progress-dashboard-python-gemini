@@ -228,10 +228,15 @@ def add_or_update_student_progress(student_id, progress_updates):
             # UPSERT用のデータリストを作成
             data_to_upsert = []
             for update in progress_updates:
-                is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
-                
+                # 'is_done'が明示的に指定されているかをチェック
+                if 'is_done' in update:
+                    is_done = update['is_done']
+                else:
+                    # 指定されていない場合は、従来通り計算
+                    is_done = update.get('completed_units', 0) >= update.get('total_units', 1)
+
                 # is_plannedがFalseの場合、進捗をリセット
-                if not update['is_planned']:
+                if not update.get('is_planned', True):
                     update['completed_units'] = 0
                     update['total_units'] = 1
                     is_done = False
@@ -242,7 +247,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                     update['level'],
                     update['book_name'],
                     update.get('duration'),
-                    bool(update['is_planned']),
+                    bool(update.get('is_planned', True)),
                     is_done,
                     update.get('completed_units', 0),
                     update.get('total_units', 1)
@@ -255,7 +260,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                     is_planned, is_done, completed_units, total_units
                 ) VALUES %s
                 ON CONFLICT (student_id, subject, level, book_name) DO UPDATE SET
-                    duration = EXCLUDED.duration,
+                    duration = COALESCE(EXCLUDED.duration, progress.duration),
                     is_planned = EXCLUDED.is_planned,
                     is_done = EXCLUDED.is_done,
                     completed_units = EXCLUDED.completed_units,

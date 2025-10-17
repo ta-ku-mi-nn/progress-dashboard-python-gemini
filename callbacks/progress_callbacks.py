@@ -9,7 +9,7 @@ from datetime import datetime
 from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time, add_or_update_student_progress
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
-# ( ... create_welcome_layout は変更なし ... )
+# ( ... create_welcome_layout と create_initial_progress_layout は変更ありません ... )
 def create_welcome_layout():
     """初期画面に表示する「How to use」レイアウトを生成します。"""
     return dbc.Row(
@@ -237,14 +237,13 @@ def register_progress_callbacks(app):
         
         return generate_dashboard_content(student_id, active_tab)
         
-    # ★★★ ここから修正 ★★★
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input({'type': 'mark-done-btn', 'subject': ALL, 'level': ALL, 'book': ALL}, 'n_clicks'),
         State('student-selection-store', 'data'),
         prevent_initial_call=True
     )
-    def mark_book_as_done(n_clicks, student_id):
+    def toggle_book_done_status(n_clicks, student_id):
         ctx = callback_context
         if not any(n_clicks) or not student_id:
             raise PreventUpdate
@@ -254,25 +253,47 @@ def register_progress_callbacks(app):
         level = triggered_id.get('level')
         book_name = triggered_id.get('book')
 
-        update_data = [{
-            'subject': subject,
-            'level': level,
-            'book_name': book_name,
-            'is_planned': True,
-            'completed_units': 1,
-            'total_units': 1,
-            'duration': None # 既存の値を維持するためNone
-        }]
+        # 現在の進捗データを取得
+        progress_data = get_student_progress_by_id(student_id)
+        current_book_details = progress_data.get(subject, {}).get(level, {}).get(book_name, {})
+        is_currently_done = current_book_details.get('達成済', False)
+
+        # 達成状態をトグル
+        if is_currently_done:
+            # 達成済みなら未達成に戻す
+            update_data = [{
+                'subject': subject,
+                'level': level,
+                'book_name': book_name,
+                'is_planned': True,
+                'completed_units': 0, # 未達成に戻すので進捗をリセット
+                'total_units': 1,
+                'is_done': False, # is_doneをFalseに
+                'duration': None
+            }]
+            message = f"「{book_name}」の達成を解除しました。"
+        else:
+            # 未達成なら達成済にする
+            update_data = [{
+                'subject': subject,
+                'level': level,
+                'book_name': book_name,
+                'is_planned': True,
+                'completed_units': 1,
+                'total_units': 1,
+                'is_done': True, # is_doneをTrueに
+                'duration': None
+            }]
+            message = f"「{book_name}」を達成済にしました。"
         
-        success, message = add_or_update_student_progress(student_id, update_data)
+        success, db_message = add_or_update_student_progress(student_id, update_data)
         
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"「{book_name}」を達成済にしました。", 'source': 'plan'}
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'plan'}
             return toast_data
         else:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"エラー: {message}"}
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"エラー: {db_message}"}
             return toast_data
-    # ★★★ ここまで修正 ★★★
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
@@ -340,22 +361,22 @@ def create_progress_table(progress_data, student_info, active_tab):
             # 達成率を計算
             achievement_rate = (completed / total) if total > 0 else 0
 
-            # ステータスバッジの決定
+            # ステータスバッジとアクションボタンの決定
             if achievement_rate >= 1 or is_done:
                 status_badge = dbc.Badge("達成済", color="success")
-                done_button = dbc.Button("達成", size="sm", disabled=True)
+                action_button = dbc.Button("解除", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="danger", outline=True)
             elif achievement_rate > 0:
                 status_badge = dbc.Badge("取組中", color="primary")
-                done_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
+                action_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
             else:
                 status_badge = dbc.Badge("未達成", color="secondary")
-                done_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
+                action_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
 
             table_rows.append(html.Tr([
                 html.Td(level),
                 html.Td(book_name),
                 html.Td(status_badge),
-                html.Td(done_button)
+                html.Td(action_button)
             ]))
     
     if not table_rows:
@@ -369,4 +390,3 @@ def create_progress_table(progress_data, student_info, active_tab):
     return html.Div([
         dbc.Table(table_header + table_body, bordered=False, striped=True, hover=True, responsive=True, className="mt-3")
     ])
-# ★★★ ここまで修正 ★★★
