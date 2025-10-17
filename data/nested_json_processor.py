@@ -1056,6 +1056,25 @@ def get_student_level_statistics(school):
 
     return stats
 
+def get_acceptance_results_for_student(student_id):
+    """特定の生徒の大学合否結果をすべて取得する"""
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=DictCursor) as cur:
+        cur.execute(
+            """
+            SELECT id, university_name, faculty_name, department_name, exam_system, result,
+                   exam_date, announcement_date  -- 日付列を追加
+            FROM university_acceptance
+            WHERE student_id = %s
+            ORDER BY exam_date DESC, university_name, faculty_name -- 受験日で降順ソートに変更
+            """,
+            (student_id,)
+        )
+        results = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in results]
+
+# --- add_acceptance_result を修正 ---
 def add_acceptance_result(student_id, data):
     """新しい大学合否結果を追加する"""
     conn = get_db_connection()
@@ -1064,8 +1083,9 @@ def add_acceptance_result(student_id, data):
             cur.execute(
                 """
                 INSERT INTO university_acceptance (
-                    student_id, university_name, faculty_name, department_name, exam_system, result
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                    student_id, university_name, faculty_name, department_name, exam_system, result,
+                    exam_date, announcement_date -- 日付列を追加
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) -- VALUES にも追加
                 """,
                 (
                     student_id,
@@ -1073,7 +1093,9 @@ def add_acceptance_result(student_id, data):
                     data['faculty_name'],
                     data.get('department_name'),
                     data.get('exam_system'),
-                    data.get('result') # 初期値はNoneかもしれない
+                    data.get('result'),
+                    data.get('exam_date'), # 日付データを取得
+                    data.get('announcement_date') # 日付データを取得
                 )
             )
         conn.commit()
@@ -1084,31 +1106,15 @@ def add_acceptance_result(student_id, data):
     finally:
         conn.close()
 
-def get_acceptance_results_for_student(student_id):
-    """特定の生徒の大学合否結果をすべて取得する"""
-    conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute(
-            """
-            SELECT id, university_name, faculty_name, department_name, exam_system, result
-            FROM university_acceptance
-            WHERE student_id = %s
-            ORDER BY university_name, faculty_name
-            """,
-            (student_id,)
-        )
-        results = cur.fetchall()
-    conn.close()
-    return [dict(row) for row in results]
-
+# --- update_acceptance_result を修正 ---
 def update_acceptance_result(result_id, data):
     """既存の大学合否結果を更新する"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # 更新するフィールドを動的に構築（resultのみ更新する場合も考慮）
             set_clauses = []
             params = []
+            # ... (既存のフィールドの処理は変更なし) ...
             if 'university_name' in data:
                 set_clauses.append("university_name = %s")
                 params.append(data['university_name'])
@@ -1117,15 +1123,22 @@ def update_acceptance_result(result_id, data):
                 params.append(data['faculty_name'])
             if 'department_name' in data:
                 set_clauses.append("department_name = %s")
-                params.append(data['department_name'])
+                params.append(data.get('department_name')) # Noneを許容
             if 'exam_system' in data:
                 set_clauses.append("exam_system = %s")
-                params.append(data['exam_system'])
+                params.append(data.get('exam_system')) # Noneを許容
             if 'result' in data:
-                 # resultが空文字列やNoneの場合、NULLとしてDBに保存
                  result_value = data['result'] if data['result'] else None
                  set_clauses.append("result = %s")
                  params.append(result_value)
+            # ↓↓↓ 以下を追加 ↓↓↓
+            if 'exam_date' in data:
+                set_clauses.append("exam_date = %s")
+                params.append(data.get('exam_date')) # Noneを許容
+            if 'announcement_date' in data:
+                set_clauses.append("announcement_date = %s")
+                params.append(data.get('announcement_date')) # Noneを許容
+            # ↑↑↑ ここまで追加 ↑↑↑
 
             if not set_clauses:
                 return False, "更新するデータがありません。"

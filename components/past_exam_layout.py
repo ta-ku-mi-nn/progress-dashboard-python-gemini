@@ -1,5 +1,5 @@
 # components/past_exam_layout.py
-from dash import dcc, html, dash_table
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 from datetime import date
 
@@ -90,22 +90,21 @@ def create_past_exam_layout():
     ])
 
     # --- 新しい大学合否タブの内容 ---
+# --- 新しい大学合否タブの内容 ---
     acceptance_tab_content = html.Div([
-        # 編集/削除対象のIDを保持するStore (新規追加)
         dcc.Store(id='editing-acceptance-id-store'),
-
         dbc.Row([
-            dbc.Col(html.H4("大学合否記録")), # H2からH4に変更
+            dbc.Col(html.H4("大学合否記録")),
             dbc.Col(
                 dbc.Button("合否結果を追加する", id="open-acceptance-modal-btn", color="success"),
                 className="text-end"
             )
         ], align="center", className="my-4"),
 
-        # 結果テーブル表示エリア (新規追加)
+        # 結果テーブル表示エリア (ローディングのみ残す)
         dcc.Loading(html.Div(id="acceptance-table-container")),
 
-        # 入力・編集用モーダル (新規追加)
+        # 入力・編集用モーダル (日付入力追加)
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle(id="acceptance-modal-title")),
             dbc.ModalBody([
@@ -126,7 +125,16 @@ def create_past_exam_layout():
                     dbc.Col(dbc.Label("受験方式（任意）"), width=4),
                     dbc.Col(dbc.Input(id='acceptance-system', type='text'), width=8)
                 ], className="mb-3"),
-                # 合否ドロップダウンはテーブル内に配置するため、モーダルには含めない
+                # ↓↓↓ 以下を追加 ↓↓↓
+                dbc.Row([
+                    dbc.Col(dbc.Label("受験日"), width=4),
+                    dbc.Col(dcc.DatePickerSingle(id='acceptance-exam-date', date=None, display_format='YYYY-MM-DD'), width=8)
+                ], className="mb-3"),
+                dbc.Row([
+                    dbc.Col(dbc.Label("合格発表日"), width=4),
+                    dbc.Col(dcc.DatePickerSingle(id='acceptance-announcement-date', date=None, display_format='YYYY-MM-DD'), width=8)
+                ], className="mb-3"),
+                # ↑↑↑ ここまで追加 ↑↑↑
             ]),
             dbc.ModalFooter([
                 dbc.Button("キャンセル", id="cancel-acceptance-modal-btn", color="secondary"),
@@ -134,15 +142,14 @@ def create_past_exam_layout():
             ]),
         ], id="acceptance-modal", is_open=False),
 
-        # 削除確認ダイアログ (新規追加)
+        # 削除確認ダイアログ (変更なし)
         dcc.ConfirmDialog(
             id='delete-acceptance-confirm',
             message='本当にこの合否結果を削除しますか？\nこの操作は取り消せません。',
         ),
     ])
 
-
-    # --- タブ構造 ---
+    # --- タブ構造 (変更なし) ---
     return html.Div([
         html.H2("過去問・合否管理", className="my-4"), # ページタイトル
         dbc.Tabs(
@@ -151,6 +158,6 @@ def create_past_exam_layout():
                 dbc.Tab(acceptance_tab_content, label="大学合否", tab_id="tab-acceptance"),
             ],
             id="past-exam-tabs",
-            active_tab="tab-past-exam", # デフォルトで過去問タブを開く
+            active_tab="tab-past-exam",
         )
     ])

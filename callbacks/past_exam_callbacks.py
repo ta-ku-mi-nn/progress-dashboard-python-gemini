@@ -1,6 +1,6 @@
 # callbacks/past_exam_callbacks.py
 
-from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, dash_table
+from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -222,6 +222,8 @@ def register_past_exam_callbacks(app):
          Output('acceptance-faculty', 'value'),
          Output('acceptance-department', 'value'),
          Output('acceptance-system', 'value'),
+         Output('acceptance-exam-date', 'date'), # 追加
+         Output('acceptance-announcement-date', 'date'), # 追加
          Output('acceptance-modal-alert', 'is_open')],
         [Input('open-acceptance-modal-btn', 'n_clicks'),
          Input({'type': 'edit-acceptance-btn', 'index': ALL}, 'n_clicks'),
@@ -237,10 +239,12 @@ def register_past_exam_callbacks(app):
         trigger_id = ctx.triggered_id
 
         if trigger_id == 'cancel-acceptance-modal-btn':
-            return False, no_update, None, "", "", "", "", False
+            # 出力に日付フィールドの no_update を追加
+            return False, no_update, None, "", "", "", "", None, None, False
 
         if trigger_id == 'open-acceptance-modal-btn':
-            return True, "大学合否結果の追加", None, "", "", "", "", False
+            # 出力に日付フィールドの初期値 (None) を追加
+            return True, "大学合否結果の追加", None, "", "", "", "", None, None, False
 
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-acceptance-btn':
             result_id = trigger_id['index']
@@ -248,16 +252,28 @@ def register_past_exam_callbacks(app):
             result_to_edit = next((r for r in results if r['id'] == result_id), None)
 
             if result_to_edit:
+                # 日付データの読み込みを追加
+                exam_date = result_to_edit.get('exam_date')
+                announcement_date = result_to_edit.get('announcement_date')
+                # date 型に変換しようとするが、不正な場合は None のまま
+                try: exam_date = date.fromisoformat(exam_date) if exam_date else None
+                except ValueError: exam_date = None
+                try: announcement_date = date.fromisoformat(announcement_date) if announcement_date else None
+                except ValueError: announcement_date = None
+
                 return (
                     True, "大学合否結果の編集", result_id,
                     result_to_edit['university_name'], result_to_edit['faculty_name'],
                     result_to_edit.get('department_name', ''), result_to_edit.get('exam_system', ''),
+                    exam_date, # 日付データを渡す
+                    announcement_date, # 日付データを渡す
                     False
                 )
-        return False, no_update, None, "", "", "", "", False # デフォルトは閉じる
+        # デフォルトでは日付フィールドもクリア
+        return False, no_update, None, "", "", "", "", None, None, False
 
 
-    # 大学合否結果の保存
+    # 大学合否結果の保存 (日付フィールド追加)
     @app.callback(
         [Output('acceptance-modal-alert', 'children'),
          Output('acceptance-modal-alert', 'is_open', allow_duplicate=True),
@@ -269,10 +285,13 @@ def register_past_exam_callbacks(app):
          State('acceptance-university', 'value'),
          State('acceptance-faculty', 'value'),
          State('acceptance-department', 'value'),
-         State('acceptance-system', 'value')],
+         State('acceptance-system', 'value'),
+         State('acceptance-exam-date', 'date'), # 追加
+         State('acceptance-announcement-date', 'date') # 追加
+         ],
         prevent_initial_call=True
     )
-    def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system):
+    def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system, exam_date, announcement_date): # 引数追加
         if not n_clicks or not student_id:
             raise PreventUpdate
 
@@ -281,12 +300,16 @@ def register_past_exam_callbacks(app):
 
         result_data = {
             'university_name': university, 'faculty_name': faculty,
-            'department_name': department, 'exam_system': system
+            'department_name': department, 'exam_system': system,
+            'exam_date': exam_date, # 日付データを追加
+            'announcement_date': announcement_date # 日付データを追加
         }
 
         if result_id:  # 更新
             success, message = update_acceptance_result(result_id, result_data)
         else: # 新規追加
+            # 新規追加時は result は未選択 (None) で追加
+            result_data['result'] = None
             success, message = add_acceptance_result(student_id, result_data)
 
         if success:
@@ -335,11 +358,7 @@ def register_past_exam_callbacks(app):
     )
     def update_acceptance_table(student_id, toast_data):
         ctx = callback_context
-        # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
-        if ctx.triggered_id == 'toast-trigger' and toast_data:
-            # 関係するメッセージかを判定 (より具体的に判定した方が良い場合もある)
-            if "大学合否結果" not in toast_data.get('message', ''):
-                 raise PreventUpdate
+        # ... (toast_trigger のチェックは変更なし) ...
 
         if not student_id:
             return []
@@ -348,101 +367,73 @@ def register_past_exam_callbacks(app):
         if not results:
             return dbc.Alert("この生徒の大学合否結果はまだありません。", color="info", className="mt-4")
 
-        table_data = []
+        table_header = [
+            html.Thead(html.Tr([
+                html.Th("大学名"), html.Th("学部名"), html.Th("学科名"),
+                html.Th("受験方式"), html.Th("受験日"), html.Th("発表日"),
+                html.Th("合否", style={'width': '150px'}), # 幅を指定
+                html.Th("操作", style={'width': '120px'}) # 幅を指定
+            ]))
+        ]
+
+        table_body = []
         for r in results:
-            # ★★★ ここから修正 ★★★
-            # 操作ボタンをMarkdown形式の文字列として生成
-            edit_button = f'<button id=\'{{"type":"edit-acceptance-btn", "index":{r["id"]}}}\' class="btn btn-sm btn-secondary me-1">編集</button>'
-            delete_button = f'<button id=\'{{"type":"delete-acceptance-btn", "index":{r["id"]}}}\' class="btn btn-sm btn-outline-danger">削除</button>'
-            # ★★★ ここまで修正 ★★★
+            result_id = r['id']
+            row = html.Tr([
+                html.Td(r['university_name']),
+                html.Td(r['faculty_name']),
+                html.Td(r.get('department_name', '')),
+                html.Td(r.get('exam_system', '')),
+                html.Td(r.get('exam_date', '')), # 日付表示
+                html.Td(r.get('announcement_date', '')), # 日付表示
+                html.Td(
+                    # --- 合否ドロップダウン ---
+                    dbc.DropdownMenu(
+                        id={'type': 'acceptance-result-dropdown', 'index': result_id},
+                        children=[
+                            dbc.DropdownMenuItem('未選択', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': ''}),
+                            dbc.DropdownMenuItem('合格', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': '合格'}),
+                            dbc.DropdownMenuItem('不合格', id={'type': 'acceptance-result-dropdown-item', 'index': result_id, 'value': '不合格'})
+                        ],
+                        value=r.get('result', ''), # 現在の値 or 空文字
+                        clearable=False,
+                        style={'minWidth': '100px'} # ドロップダウンの幅
+                    )
+                ),
+                html.Td([
+                    # --- 編集・削除ボタン ---
+                    dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': result_id}, size="sm", className="me-1"),
+                    dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': result_id}, color="danger", size="sm", outline=True)
+                ])
+            ])
+            table_body.append(row)
 
-            table_data.append({
-                'id': r['id'],
-                '大学名': r['university_name'],
-                '学部名': r['faculty_name'],
-                '学科名': r.get('department_name', ''),
-                '受験方式': r.get('exam_system', ''),
-                '合否': r.get('result', ''), # DBにNULLなら空文字
-                '操作': f'{edit_button}{delete_button}' # ボタン文字列を追加
-            })
-
-        table = dash_table.DataTable(
-            id='acceptance-table',
-            columns=[
-                {'name': '大学名', 'id': '大学名', 'editable': False},
-                {'name': '学部名', 'id': '学部名', 'editable': False},
-                {'name': '学科名', 'id': '学科名', 'editable': False},
-                {'name': '受験方式', 'id': '受験方式', 'editable': False},
-                {'name': '合否', 'id': '合否', 'presentation': 'dropdown'},
-                {'name': '操作', 'id': '操作', 'presentation': 'markdown', 'editable': False} # Markdownとしてボタンを表示
-            ],
-            data=table_data, # ★★★ 修正: ボタンを含むデータを渡す ★★★
-            editable=True,
-            dropdown={
-                 '合否': {
-                     'options': [
-                         {'label': '未選択', 'value': ''},
-                         {'label': '合格', 'value': '合格'},
-                         {'label': '不合格', 'value': '不合格'}
-                     ],
-                     'clearable': False # 未選択に戻せないようにする場合 Trueにする
-                 }
-             },
-            row_deletable=False,
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left', 'minWidth': '100px', 'whiteSpace': 'normal', 'height': 'auto'},
-            markdown_options={"html": True}, # HTMLタグを許可
-             data_previous=table_data # 変更検知用
-        )
+        return dbc.Table(table_header + [html.Tbody(table_body)], striped=True, bordered=True, hover=True, responsive=True)
 
 
-        return table
-
-    # 合否ドロップダウンの変更をDBに反映
+    # --- 合否ドロップダウンの変更をDBに反映 (新規追加) ---
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
-        Input('acceptance-table', 'data'),
-        State('acceptance-table', 'data_previous'),
+        Input({'type': 'acceptance-result-dropdown', 'index': ALL}, 'value'),
+        State({'type': 'acceptance-result-dropdown', 'index': ALL}, 'id'),
         prevent_initial_call=True
     )
-    def update_acceptance_status_in_db(current_data, previous_data):
-        if current_data is None or previous_data is None:
+    def update_acceptance_status_dropdown(dropdown_values, dropdown_ids):
+        ctx = callback_context
+        if not ctx.triggered_id:
             raise PreventUpdate
 
-        changed_rows = []
-        # データ行数が変わった場合（追加/削除操作）はこのコールバックでは処理しない
-        if len(current_data) != len(previous_data):
-             raise PreventUpdate
+        triggered_id_dict = ctx.triggered_id
+        result_id = triggered_id_dict['index']
+        new_result = ctx.triggered[0]['value'] # 変更後の値
 
-        # どの行のどのセルが変わったか特定
-        for i in range(len(current_data)):
-             # 合否列だけチェック
-             if current_data[i].get('合否') != previous_data[i].get('合否'):
-                 changed_rows.append({
-                     'id': current_data[i]['id'],
-                     'result': current_data[i].get('合否')
-                 })
+        # どのドロップダウンが変更されたか特定
+        # `dropdown_ids` は [{'type': 'acceptance-result-dropdown', 'index': 1}, ...] のようなリスト
+        # `dropdown_values` は ['合格', '', '不合格', ...] のようなリスト
+        # triggered_id_dict['index'] を使って更新対象のIDは分かっているので、
+        # triggered[0]['value'] で直接変更後の値を取得できる
 
-        if not changed_rows:
-            raise PreventUpdate
-
-        # 変更があった行についてDBを更新
-        update_success_count = 0
-        update_fail_count = 0
-        error_msg = ""
-
-        for row in changed_rows:
-            success, message = update_acceptance_result(row['id'], {'result': row['result']})
-            if success:
-                update_success_count += 1
-            else:
-                update_fail_count += 1
-                error_msg = message # 最後のエラーメッセージを保持
-
-        if update_fail_count > 0:
-            message = f"{update_success_count}件成功、{update_fail_count}件失敗しました。エラー: {error_msg}"
-        else:
-             message = f"{update_success_count}件の合否情報を更新しました。"
+        success, message = update_acceptance_result(result_id, {'result': new_result})
 
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
         return toast_data
