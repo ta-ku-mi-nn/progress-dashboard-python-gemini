@@ -204,8 +204,8 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         right_col = create_progress_table(progress_data, student_info, active_tab)
         
         return dbc.Row([
-            dbc.Col(left_col, md=6),
-            dbc.Col(right_col, md=6),
+            dbc.Col(left_col, md=7),
+            dbc.Col(right_col, md=5),
         ])
 
 def register_progress_callbacks(app):
