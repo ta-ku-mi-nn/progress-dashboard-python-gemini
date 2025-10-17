@@ -8,12 +8,18 @@ def create_report_layout(student_name):
 
     # 印刷時には非表示になる、操作用のヘッダー
     action_header = html.Div([
-        html.H1(f"{student_name}さん の学習進捗レポート"),
-        html.P("内容を確認し、コメントを入力してから印刷してください。"),
-        dbc.Button(
-            [html.I(className="fas fa-print me-2"), "この内容を印刷"],
-            id="final-print-btn", color="success", size="lg", className="mt-2"
-        ),
+        dbc.Row([
+            dbc.Col(
+                html.H3(f"{student_name}さん の学習進捗レポート"),
+                html.P("内容を確認し、コメントを入力してから印刷してください。"),
+            ),
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="fas fa-print me-2"), "この内容を印刷"],
+                    id="final-print-btn", color="success", size="lg", className="mt-2"
+                ),
+            ),
+        ]),
         html.Hr(),
     ], id="report-header", className="my-4")
 
