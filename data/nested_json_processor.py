@@ -974,7 +974,7 @@ def get_student_level_statistics(school):
     """
     conn = get_db_connection()
     with conn.cursor(cursor_factory=DictCursor) as cur:
-        # is_doneがTrueの進捗データのみを取得
+        # (クエリ部分は変更なし)
         query = """
             SELECT
                 s.id as student_id,
@@ -991,15 +991,24 @@ def get_student_level_statistics(school):
     if not progress_data:
         return {}
 
-    df = pd.DataFrame(progress_data)
+    # ★★★ ここからが修正点 ★★★
+    # データベースから取得したデータを、より安全な辞書のリスト形式に変換
+    progress_list = [dict(row) for row in progress_data]
+    df = pd.DataFrame(progress_list)
+    # ★★★ ここまでが修正点 ★★★
 
     # 生徒ごとに、科目とレベルの組み合わせでユニークにする
-    df_unique_students = df.drop_duplicates(subset=['student_id', 'subject', 'level'])
+    # df.columnsをチェックして、必要な列が存在するか確認
+    required_columns = ['student_id', 'subject', 'level']
+    if not all(col in df.columns for col in required_columns):
+        # 必要な列が不足している場合は、空の統計データを返す
+        return {}
 
-    # 科目とレベルでグループ化し、生徒数をカウント
+    df_unique_students = df.drop_duplicates(subset=required_columns)
+
+    # (以降の処理は変更なし)
     level_counts = df_unique_students.groupby(['subject', 'level']).size().reset_index(name='student_count')
 
-    # 結果を整形
     stats = {}
     for _, row in level_counts.iterrows():
         subject = row['subject']
