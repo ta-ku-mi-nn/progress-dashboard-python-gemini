@@ -305,7 +305,6 @@ def create_summary_cards(df, past_exam_hours=0):
     
     return cards
 
-# ★★★ ここから修正 ★★★
 def create_progress_table(progress_data, student_info, active_tab):
     """進捗詳細テーブルのコンポーネントを生成するヘルパー関数"""
     subject_data = progress_data.get(active_tab, {})
@@ -317,7 +316,19 @@ def create_progress_table(progress_data, student_info, active_tab):
     ]))]
 
     table_rows = []
-    for level, books in sorted(subject_data.items()):
+    
+    # 並び順を定義
+    level_order = ['基礎徹底', '日大', 'MARCH', '早慶']
+    
+    # 存在するレベルを定義した順序でソート
+    sorted_levels = sorted(
+        subject_data.keys(),
+        key=lambda x: level_order.index(x) if x in level_order else len(level_order)
+    )
+
+    # ソートされた順序でループ処理
+    for level in sorted_levels:
+        books = subject_data[level]
         for book_name, details in books.items():
             if not details.get('予定'):
                 continue
