@@ -1,11 +1,11 @@
 # callbacks/past_exam_callbacks.py
+
 from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, dcc
-# dash_table は不要になったので削除
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
-from datetime import datetime, date
-import plotly.graph_objects as go # go をインポート
+from datetime import datetime, date, timedelta
+import calendar # calendar をインポート
 
 # --- 既存のimport ---
 from data.nested_json_processor import (
@@ -16,8 +16,10 @@ from data.nested_json_processor import (
     update_acceptance_result,
     delete_acceptance_result
 )
-# ↓↓↓ 以下を追加 ↓↓↓
-from charts.chart_generator import create_acceptance_gantt_chart
+# ↓↓↓ plotly.graph_objects の import を削除し、新しい生成関数を import ↓↓↓
+# import plotly.graph_objects as go
+from charts.calendar_generator import create_html_calendar # 新しい関数をインポート
+# ↑↑↑ ここまで変更 ↑↑↑
 
 def register_past_exam_callbacks(app):
     """過去問管理ページのコールバックを登録する"""
@@ -28,7 +30,7 @@ def register_past_exam_callbacks(app):
     # @app.callback(...) def display_delete_confirmation(...)
     # @app.callback(...) def execute_delete(...)
     # @app.callback(...) def update_past_exam_table(...)
-    # --- (省略) ---
+    # --- (省略, 全文は前回の回答を参照) ---
     @app.callback(
         [Output('past-exam-modal', 'is_open'),
          Output('past-exam-modal-title', 'children'),
@@ -187,7 +189,6 @@ def register_past_exam_callbacks(app):
         ctx = callback_context
         # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
         if ctx.triggered_id == 'toast-trigger' and toast_data:
-            # 関係するメッセージかを判定 (より具体的に判定した方が良い場合もある)
             if "過去問の結果" not in toast_data.get('message', ''):
                  raise PreventUpdate
 
@@ -202,7 +203,7 @@ def register_past_exam_callbacks(app):
         subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())] if not df.empty else []
 
         if df.empty:
-            return dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4"), university_options, subject_options # オプションは返す
+            return dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4"), university_options, subject_options
 
         # フィルター適用
         df_filtered = df.copy()
@@ -251,6 +252,7 @@ def register_past_exam_callbacks(app):
 
         table = dbc.Table(table_header + [html.Tbody(table_body)], striped=True, bordered=True, hover=True, responsive=True)
         return table, university_options, subject_options
+
 
     # --- 大学合否タブ関連のコールバック ---
 
@@ -348,7 +350,6 @@ def register_past_exam_callbacks(app):
             success, message = add_acceptance_result(student_id, result_data)
 
         if success:
-            # メッセージに合否結果が含まれるように調整
             toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message}
             return "", False, toast_data, False
@@ -454,9 +455,11 @@ def register_past_exam_callbacks(app):
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input({'type': 'acceptance-result-dropdown', 'index': ALL}, 'value'),
         State({'type': 'acceptance-result-dropdown', 'index': ALL}, 'id'),
+        # ↓↓↓ State を追加 ↓↓↓
+        State('student-selection-store', 'data'),
         prevent_initial_call=True
     )
-    def update_acceptance_status_dropdown(dropdown_values, dropdown_ids):
+    def update_acceptance_status_dropdown(dropdown_values, dropdown_ids, student_id): # 引数 student_id を追加
         ctx = callback_context
         if not ctx.triggered_id:
             raise PreventUpdate
@@ -469,31 +472,44 @@ def register_past_exam_callbacks(app):
 
         # トーストメッセージに詳細を追加
         if success:
-            # 更新されたレコードの情報を取得してメッセージに追加（オプション）
-            results = get_acceptance_results_for_student(State('student-selection-store', 'data')) # 最新データを再取得
-            updated_record = next((r for r in results if r['id'] == result_id), None)
-            if updated_record:
-                 status_text = new_result if new_result else "未選択"
-                 message = f"'{updated_record['university_name']} {updated_record['faculty_name']}' の合否を '{status_text}' に更新しました。"
+            # ↓↓↓ student_id を使うように修正 ↓↓↓
+            if student_id: # student_id が取得できている場合のみ実行
+                results = get_acceptance_results_for_student(student_id) # 最新データを再取得
+                updated_record = next((r for r in results if r['id'] == result_id), None)
+                if updated_record:
+                     status_text = new_result if new_result else "未選択"
+                     message = f"'{updated_record['university_name']} {updated_record['faculty_name']}' の合否を '{status_text}' に更新しました。"
+                else:
+                     message = "合否情報を更新しました。" # レコードが見つからない場合
             else:
-                 message = "合否情報を更新しました。" # レコードが見つからない場合
+                 message = "合否情報を更新しました。" # student_idがない場合
+            # ↑↑↑ ここまで修正 ↑↑↑
+        else:
+            # エラーメッセージをそのまま表示
+             message = f"合否情報の更新に失敗しました: {message}"
+
 
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
         return toast_data
 
-    # --- 大学合否ガントチャートの更新 ---
+
+    # --- 大学合否カレンダー(旧ガントチャート)の更新 ---
     @app.callback(
-        Output('acceptance-gantt-chart', 'figure'),
+        Output('acceptance-gantt-chart', 'figure'), # OutputのIDは変更しない (レイアウト側でGraphをDivに変えたため、figureではなくchildrenを更新する必要がある) → IDはそのままに、childrenを更新する形に変更します
+        Output('acceptance-calendar-container', 'children'), # OutputをDivのchildrenに変更
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
-         Input('past-exam-tabs', 'active_tab')] # タブの切り替えもトリガーに
+         Input('current-calendar-month-store', 'data')], # 表示年月StoreをInputに
+        State('past-exam-tabs', 'active_tab') # Stateで現在のタブを取得
     )
-    def update_acceptance_gantt(student_id, toast_data, active_tab):
+    def update_acceptance_calendar(student_id, toast_data, target_month, active_tab): # 引数 target_month を追加
         ctx = callback_context
 
-        # ガントチャートタブが表示されていない場合は更新しない
-        if active_tab != 'tab-gantt':
-            return go.Figure() # 空の Figure を返す
+        # カレンダータブが表示されていない場合は更新しない
+        if active_tab != 'tab-gantt' or not target_month:
+            # ↓↓↓ html.Div の children なので、空リストを返す ↓↓↓
+            return no_update, [] # figureは更新しない、childrenを空にする
+            # ↑↑↑ ここまで変更 ↑↑↑
 
         # toast_triggerがトリガーだが、今回の更新と関係ないトーストなら更新しない
         if ctx.triggered_id == 'toast-trigger' and toast_data:
@@ -501,7 +517,13 @@ def register_past_exam_callbacks(app):
                  raise PreventUpdate
 
         if not student_id:
-            return create_acceptance_gantt_chart([]) # 空データでメッセージ付きグラフ生成
+            # ↓↓↓ HTML生成関数を呼び出すように変更 ↓↓↓
+            calendar_html = create_html_calendar([], target_month)
+            return no_update, calendar_html # figureは更新しない
+            # ↑↑↑ ここまで変更 ↑↑↑
 
         acceptance_data = get_acceptance_results_for_student(student_id)
-        return create_acceptance_gantt_chart(acceptance_data)
+        # ↓↓↓ HTML生成関数を呼び出すように変更 ↓↓↓
+        calendar_html = create_html_calendar(acceptance_data, target_month)
+        return no_update, calendar_html # figureは更新しない
+        # ↑↑↑ ここまで変更 ↑↑↑

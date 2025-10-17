@@ -3,6 +3,7 @@ from dash import dcc, html
 # dash_table は不要になったので削除
 import dash_bootstrap_components as dbc
 from datetime import date
+import datetime # datetime をインポート
 
 def create_past_exam_layout():
     """過去問管理ページのメインレイアウトを生成する"""
@@ -141,12 +142,27 @@ def create_past_exam_layout():
         ),
     ])
 
-    # --- 新しいガントチャートタブの内容 ---
-    gantt_tab_content = html.Div([
-        html.H4("受験スケジュール", className="my-4"),
+    # --- 新しい「受験スケジュール」タブの内容 (カレンダー表示用) ---
+    calendar_tab_content = html.Div([
+        dcc.Store(id='current-calendar-month-store'), # 表示年月を保持 (YYYY-MM形式)
+        dbc.Row([
+            dbc.Col(html.H4("受験カレンダー"), width='auto'),
+            dbc.Col(
+                dbc.ButtonGroup([
+                    dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary", size="sm"),
+                    dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary", size="sm")
+                ]),
+                width='auto',
+                className="ms-auto" # 右寄せ
+            )
+        ], align="center", className="my-4"),
+        html.H5(id="current-month-display", className="text-center mb-3"), # 表示年月を表示
+
+        # ↓↓↓ dcc.Graph から html.Div に変更 ↓↓↓
         dcc.Loading(
-            dcc.Graph(id="acceptance-gantt-chart", style={'height': '600px'}) # 高さを調整
+            html.Div(id="acceptance-calendar-container", style={'overflowX': 'auto'}) # カレンダーテーブルのコンテナ, 横スクロール可能に
         )
+        # ↑↑↑ ここまで変更 ↑↑↑
     ])
 
     # --- タブ構造 ---
@@ -156,7 +172,7 @@ def create_past_exam_layout():
             [
                 dbc.Tab(past_exam_tab_content, label="過去問管理", tab_id="tab-past-exam"),
                 dbc.Tab(acceptance_tab_content, label="大学合否", tab_id="tab-acceptance"),
-                dbc.Tab(gantt_tab_content, label="受験スケジュール", tab_id="tab-gantt"), # ガントチャートタブを追加
+                dbc.Tab(calendar_tab_content, label="受験スケジュール", tab_id="tab-gantt"), # コンテンツ変数を変更
             ],
             id="past-exam-tabs",
             active_tab="tab-past-exam", # デフォルトは過去問タブ

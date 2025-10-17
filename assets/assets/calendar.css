@@ -1,0 +1,100 @@
+/* assets/calendar.css */
+
+.horizontal-calendar {
+    width: 100%; /* 親要素に合わせる */
+    min-width: 1200px; /* 横スクロールを促す最小幅 (日付の数に応じて調整) */
+    border-collapse: collapse;
+    table-layout: fixed; /* 列幅を均等にする */
+    margin-bottom: 2rem;
+    font-size: 0.8rem; /* 全体の文字サイズを少し小さく */
+    border: 1px solid #dee2e6; /* 外枠 */
+}
+
+.horizontal-calendar th,
+.horizontal-calendar td {
+    border: 1px solid #dee2e6;
+    padding: 4px;
+    text-align: center;
+    vertical-align: top; /* イベントを上寄せ */
+    height: 100px; /* イベントセルの高さを固定 (調整可能) */
+    width: 3.33%; /* 100% / 30日 (目安) */
+    position: relative;
+    overflow: hidden; /* セルからはみ出さないように */
+}
+
+.horizontal-calendar th {
+    background-color: #f8f9fa;
+    font-weight: normal;
+    height: auto;
+    padding: 6px 2px;
+    white-space: nowrap; /* 日付と曜日が改行しないように */
+}
+
+/* ヘッダーの曜日 */
+.horizontal-calendar th br {
+    display: block; /* 改行を強制 */
+    content: "";
+    margin-top: 2px; /* 日付と曜日の間隔 */
+}
+
+
+/* 土日のヘッダー背景色 (画像に合わせる) */
+.horizontal-calendar th.saturday {
+    background-color: #dcedfc; /* 薄い青 */
+    color: #006eda;
+}
+.horizontal-calendar th.sunday {
+    background-color: #ffe8d9; /* 薄いオレンジ */
+    color: #e57300;
+}
+
+/* 土日のイベントセル背景色 */
+.horizontal-calendar td.saturday {
+    background-color: #f0f8ff; /* さらに薄い青 */
+}
+.horizontal-calendar td.sunday {
+    background-color: #fff7f0; /* さらに薄いオレンジ */
+}
+
+
+/* イベントアイテム */
+.event-item {
+    font-size: 0.7rem; /* イベント文字サイズ */
+    text-align: left;
+    margin-bottom: 2px;
+    padding: 1px 3px;
+    border-radius: 3px;
+    white-space: nowrap; /* 折り返さない */
+    overflow: hidden;
+    text-overflow: ellipsis; /* はみ出した部分は...で表示 */
+    line-height: 1.2;
+    cursor: default; /* ツールチップ表示のため */
+}
+/* 空行の高さ確保 */
+.event-item-placeholder {
+    height: calc(0.7rem * 1.2 + 2px); /* event-item の高さに合わせる */
+    margin-bottom: 2px;
+}
+
+/* イベントタイプごとのスタイル */
+.event.event-exam {
+    background-color: #cfe2ff;
+    border-left: 3px solid #0d6efd;
+    color: #0a58ca;
+}
+.event.event-pass {
+    background-color: #d1e7dd;
+    border-left: 3px solid #198754;
+    color: #146c43;
+    font-weight: bold;
+}
+.event.event-fail {
+    background-color: #f8d7da;
+    border-left: 3px solid #dc3545;
+    color: #b02a37;
+}
+.event.event-pending {
+    background-color: #e2e3e5;
+    border-left: 3px solid #6c757d;
+    color: #565e64;
+}
