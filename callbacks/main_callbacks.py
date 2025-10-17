@@ -1,27 +1,12 @@
 # callbacks/main_callbacks.py
 
-import sqlite3
-import os
 import pandas as pd
-from dash import Input, Output, State, dcc, html, no_update, callback_context
+from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user
+from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user, get_students_for_user
 from utils.permissions import can_access_student
 from callbacks.progress_callbacks import create_welcome_layout, generate_dashboard_content
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# RenderのDiskマウントパス（/var/data）が存在すればそちらを使用
-RENDER_DATA_DIR = "/var/data"
-if os.path.exists(RENDER_DATA_DIR):
-    # 本番環境（Render）用のパス
-    DB_DIR = RENDER_DATA_DIR
-else:
-    # ローカル開発環境用のパス (プロジェクトのルートディレクトリを指す)
-    # このファイルの2階層上がプロジェクトルート
-    DB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-DATABASE_FILE = os.path.join(DB_DIR, 'progress.db')
 
 def register_main_callbacks(app):
     """メインページとグローバルセレクターに関連するコールバックを登録します。"""
@@ -40,23 +25,26 @@ def register_main_callbacks(app):
             return None
 
         students = []
-        # 管理者の場合は校舎の全生徒を取得
-        if user_info.get('role') == 'admin':
-            user_school = user_info.get('school')
-            if not user_school:
-                return dbc.Alert("ユーザーに校舎が設定されていません。", color="danger")
-            conn = sqlite3.connect(DATABASE_FILE)
-            students_df = pd.read_sql_query(
-                "SELECT id, name FROM students WHERE school = ?", conn, params=(user_school,)
-            )
-            conn.close()
-            students = students_df.to_dict('records')
-        # 一般ユーザーの場合は担当生徒のみ取得
-        else:
-            user_id = user_info.get('id')
-            if not user_id:
-                 return dbc.Alert("ユーザー情報が不正です。", color="danger")
-            students = get_assigned_students_for_user(user_id)
+        # ユーザー情報を基に生徒リストを取得
+        students_by_school = get_students_for_user(user_info)
+
+        if not students_by_school:
+            message = "担当の生徒が登録されていません。" if user_info.get('role') != 'admin' else "この校舎には生徒が登録されていません。"
+            return dbc.Alert(message, color="info")
+
+        # 生徒リストをDashのドロップダウンで使える形式に変換
+        all_students_list = []
+        for school, student_names in students_by_school.items():
+            for student_name in student_names:
+                # 生徒名と校舎からIDを取得する処理が必要（get_student_infoを流用）
+                # 本来はget_students_for_userがIDも返すのが望ましい
+                from data.nested_json_processor import get_student_info
+                student_info = get_student_info(school, student_name)
+                if student_info:
+                    all_students_list.append({'name': student_name, 'id': student_info['id']})
+
+        # 重複を除去
+        students = list({v['id']:v for v in all_students_list}.values())
 
 
         if not students:
@@ -69,6 +57,7 @@ def register_main_callbacks(app):
             placeholder="生徒を選択...",
             value=selected_student_id
         )
+
 
     @app.callback(
         [Output('subject-tabs-container', 'children'),
