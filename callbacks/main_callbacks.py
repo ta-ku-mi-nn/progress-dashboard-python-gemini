@@ -4,7 +4,7 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_assigned_students_for_user, get_students_for_user
+from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_students_for_user
 from utils.permissions import can_access_student
 from callbacks.progress_callbacks import create_welcome_layout, generate_dashboard_content
 
@@ -24,28 +24,8 @@ def register_main_callbacks(app):
         if not user_info or pathname not in ['/', '/homework', '/past-exam']:
             return None
 
-        students = []
-        # ユーザー情報を基に生徒リストを取得
-        students_by_school = get_students_for_user(user_info)
-
-        if not students_by_school:
-            message = "担当の生徒が登録されていません。" if user_info.get('role') != 'admin' else "この校舎には生徒が登録されていません。"
-            return dbc.Alert(message, color="info")
-
-        # 生徒リストをDashのドロップダウンで使える形式に変換
-        all_students_list = []
-        for school, student_names in students_by_school.items():
-            for student_name in student_names:
-                # 生徒名と校舎からIDを取得する処理が必要（get_student_infoを流用）
-                # 本来はget_students_for_userがIDも返すのが望ましい
-                from data.nested_json_processor import get_student_info
-                student_info = get_student_info(school, student_name)
-                if student_info:
-                    all_students_list.append({'name': student_name, 'id': student_info['id']})
-
-        # 重複を除去
-        students = list({v['id']:v for v in all_students_list}.values())
-
+        # ユーザー情報に基づいて表示すべき生徒のリストを取得
+        students = get_students_for_user(user_info)
 
         if not students:
             message = "担当の生徒が登録されていません。" if user_info.get('role') != 'admin' else "この校舎には生徒が登録されていません。"
@@ -57,7 +37,6 @@ def register_main_callbacks(app):
             placeholder="生徒を選択...",
             value=selected_student_id
         )
-
 
     @app.callback(
         [Output('subject-tabs-container', 'children'),

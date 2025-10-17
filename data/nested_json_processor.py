@@ -27,34 +27,41 @@ def get_all_schools():
     return [school['school'] for school in schools]
 
 def get_students_for_user(user_info):
+    """
+    ユーザー情報に基づいて表示すべき生徒のリストを取得する。
+    - 管理者（メイン講師）: 所属校舎の全生徒
+    - 一般ユーザー（サブ講師）: 自身が担当する生徒のみ
+    """
     if not user_info:
-        return {}
+        return []
+
     conn = get_db_connection()
-    username = user_info.get('username')
+    students_cursor = []
     
     with conn.cursor(cursor_factory=DictCursor) as cur:
         if user_info.get('role') == 'admin':
-            cur.execute('SELECT name, school FROM students ORDER BY school, name')
-            students_cursor = cur.fetchall()
-        else:
-            cur.execute('SELECT school FROM users WHERE username = %s', (username,))
-            user = cur.fetchone()
-            user_school = user['school'] if user else None
+            user_school = user_info.get('school')
             if user_school:
                 cur.execute(
-                    'SELECT name, school FROM students WHERE school = %s ORDER BY name',
+                    'SELECT id, name, school FROM students WHERE school = %s ORDER BY name',
                     (user_school,)
                 )
                 students_cursor = cur.fetchall()
-            else:
-                students_cursor = []
+        else:  # 'user' role
+            user_id = user_info.get('id')
+            if user_id:
+                cur.execute('''
+                    SELECT s.id, s.name, s.school
+                    FROM students s
+                    JOIN student_instructors si ON s.id = si.student_id
+                    WHERE si.user_id = %s
+                    ORDER BY s.name
+                ''', (user_id,))
+                students_cursor = cur.fetchall()
     conn.close()
-    students_by_school = {}
-    for student in students_cursor:
-        if student['school'] not in students_by_school:
-            students_by_school[student['school']] = []
-        students_by_school[student['school']].append(student['name'])
-    return students_by_school
+    
+    return [dict(row) for row in students_cursor]
+
 
 def get_student_progress(school, student_name):
     conn = get_db_connection()
