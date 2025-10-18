@@ -97,22 +97,19 @@ def create_html_calendar(acceptance_data, target_year_month):
                 content.append("手")
                 title_texts.append("手続期日")
             if is_announce:
-                 cell_classes.append("announcement-date-cell") # 既存
-                 result_text = row.get('result', '未定')
-                 result_char = "合" if result_text == '合格' else ("否" if result_text == '不合格' else "？")
-                 if "手" not in content: # 手続きがなければ表示
-                     content.append(result_char)
-                 title_texts.append(f"発表日({result_text})")
+                cell_classes.append("announcement-date-cell") # 既存
+                content.append("合")
+                title_texts.append("発表日")
             if is_exam:
-                 cell_classes.append("exam-date-cell") # 既存
-                 if "手" not in content and "合" not in content and "否" not in content and "？" not in content: # 上位がなければ表示
-                     content.append("受")
-                 title_texts.append("受験日")
+                cell_classes.append("exam-date-cell") # 既存
+                if "手" not in content and "合" not in content and "否" not in content and "？" not in content: # 上位がなければ表示
+                    content.append("受")
+                title_texts.append("受験日")
             if is_app:
-                 cell_classes.append("app-deadline-cell") # ★追加
-                 if not content: # まだ何もなければ表示
-                     content.append("出")
-                 title_texts.append("出願期日")
+                cell_classes.append("app-deadline-cell") # ★追加
+                if not content: # まだ何もなければ表示
+                    content.append("出")
+                title_texts.append("出願期日")
 
 
             # コンテンツがあれば結合してセルに追加
