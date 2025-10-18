@@ -27,16 +27,17 @@ def create_report_list(report_type):
 
 def create_detail_modal(report_type):
     """詳細表示用モーダルを生成する"""
-    modal_id_prefix = f"{report_type}"
+    # modal_id_prefix = f"{report_type}" # 不要になるので削除またはコメントアウト
     return dbc.Modal(
         [
-            dbc.ModalHeader(dbc.ModalTitle(id=f"{modal_id_prefix}-detail-modal-title")),
-            dbc.ModalBody(id=f"{modal_id_prefix}-detail-modal-body"),
+            # ↓↓↓ IDを辞書形式に変更 ↓↓↓
+            dbc.ModalHeader(dbc.ModalTitle(id={'type': 'detail-modal-title', 'report_type': report_type})),
+            dbc.ModalBody(id={'type': 'detail-modal-body', 'report_type': report_type}),
             dbc.ModalFooter(
-                dbc.Button("閉じる", id=f"close-{modal_id_prefix}-detail-modal", className="ms-auto")
+                dbc.Button("閉じる", id={'type': 'close-detail-modal', 'report_type': report_type}, className="ms-auto")
             ),
         ],
-        id=f"{modal_id_prefix}-detail-modal",
+        id={'type': 'detail-modal', 'report_type': report_type}, # モーダル自体のIDは変更なし
         is_open=False,
         size="lg"
     )
