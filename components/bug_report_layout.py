@@ -9,10 +9,14 @@ def create_report_form(report_type):
     header_text = "不具合を報告する" if report_type == "bug" else "機能要望を送信する"
     placeholder_text = "不具合の詳細を記入してください..." if report_type == "bug" else "要望の詳細を記入してください..."
     button_text = "送信する"
+    # ★★★ アラートIDを追加 ★★★
+    alert_id = f"{form_id_prefix}-submit-alert"
 
     return dbc.Card([
         dbc.CardHeader(header_text + "(褒め言葉でもOK)"),
         dbc.CardBody([
+            # ★★★ アラートコンポーネントを追加 ★★★
+            dbc.Alert(id=alert_id, is_open=False),
             dbc.Input(id=f"{form_id_prefix}-title", placeholder="件名", className="mb-3"),
             dbc.Textarea(id=f"{form_id_prefix}-description", placeholder=placeholder_text, className="mb-3", rows=5),
             dbc.Button(button_text, id=f"submit-{form_id_prefix}-btn", color="primary", className="w-100")
@@ -105,11 +109,12 @@ def create_bug_report_layout(user_info):
             id="report-tabs",
             active_tab="tab-bug-report",
         ),
-        # モーダル (不具合用と要望用)
-        create_detail_modal("bug"),
-        create_detail_modal("request"),
-        create_admin_modal("bug"),
-        create_admin_modal("request"),
-        # 共通のトースト用Storeなど
+        # ★★★ モーダルを html.Div でラップ ★★★
+        html.Div([
+            create_detail_modal("bug"),
+            create_detail_modal("request"),
+            create_admin_modal("bug"),
+            create_admin_modal("request"),
+        ]),
         dcc.Store(id='report-update-trigger', storage_type='memory'), # リスト更新トリガー用
     ], fluid=True)
