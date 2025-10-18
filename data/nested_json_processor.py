@@ -1083,19 +1083,24 @@ def add_acceptance_result(student_id, data):
                 """,
                 (
                     student_id,
-                    data['university_name'],
-                    data['faculty_name'],
+                    data.get('university_name'), # data['...'] から変更
+                    data.get('faculty_name'),    # data['...'] から変更
                     data.get('department_name'),
                     data.get('exam_system'),
                     data.get('result'),
-                    data.get('exam_date'), # 日付データを取得
-                    data.get('announcement_date') # 日付データを取得
-                )
+                    data.get('exam_date'),
+                    data.get('announcement_date'),
+                    data.get('application_deadline'),
+                    data.get('procedure_deadline')
+                ) # ↑↑↑ 修正ここまで ↑↑↑
             )
         conn.commit()
         return True, "大学合否結果を追加しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        # ★エラーメッセージに詳細を追加（デバッグ用）
+        print(f"DB Error in add_acceptance_result: {e}")
+        print(f"Data passed: student_id={student_id}, data={data}")
         return False, f"追加中にエラーが発生しました: {e}"
     finally:
         conn.close()
