@@ -279,20 +279,21 @@ def register_bug_report_callbacks(app):
             report_id = store_data.get('id')
             if report_id is None: raise PreventUpdate
 
-            resolve_func = resolve_bug if report_type_match == 'bug' else resolve_request
             update_func = update_bug_status if report_type_match == 'bug' else update_request_status
+            resolve_bug_func = resolve_bug # resolve_bug は引数2つ
+            resolve_request_func = resolve_request # resolve_request は引数3つ
 
-            if status in ['対応済', '見送り']: success, msg = resolve_func(report_id, message, status)
-            elif status in ['未対応', '対応中']: success, msg = update_func(report_id, status)
-            else: success = False; msg = "無効なステータスです。"
-
-            if success:
-                toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type_match}_report'}
-                update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type_match}
-                close_modal_data = {'report_type': report_type_match, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
-                return "", False, toast_data, update_trigger, close_modal_data
+            if status == '対応済':
+                if report_type_match == 'bug':
+                    success, msg = resolve_bug_func(report_id, message) # 引数2つで呼び出し
+                else: # report_type_match == 'request'
+                    success, msg = resolve_request_func(report_id, message, status) # 引数3つで呼び出し
+            elif status == '見送り' and report_type_match == 'request': # 見送りは request のみ
+                 success, msg = resolve_request_func(report_id, message, status) # 引数3つで呼び出し
+            elif status in ['未対応', '対応中']:
+                success, msg = update_func(report_id, status) # message は不要
             else:
-                return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update, no_update
+                success = False; msg = "無効なステータスです。"
 
     # Register save status callbacks
     create_save_status_callback('bug')
