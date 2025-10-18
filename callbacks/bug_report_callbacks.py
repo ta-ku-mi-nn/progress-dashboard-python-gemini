@@ -1,23 +1,22 @@
 # callbacks/bug_report_callbacks.py
 
-from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH
+from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, clientside_callback # clientside_callback をインポート
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
-import json # jsonをインポート
+import json
 
 from data.nested_json_processor import (
     add_bug_report, get_all_bug_reports, update_bug_status, resolve_bug,
-    add_feature_request, get_all_feature_requests, update_request_status, resolve_request # 要望用の関数をインポート
+    add_feature_request, get_all_feature_requests, update_request_status, resolve_request
 )
 
 def register_bug_report_callbacks(app):
     """不具合報告・要望ページのコールバックを登録する"""
 
-    # --- 報告・要望の送信 ---
+    # --- 報告・要望の送信 (変更なし) ---
     @app.callback(
-        # ★★★ OutputのアラートIDを修正 ★★★
         [Output('bug-submit-alert', 'children'), Output('bug-submit-alert', 'is_open'),
          Output('request-submit-alert', 'children'), Output('request-submit-alert', 'is_open'),
          Output('bug-title', 'value'), Output('bug-description', 'value'),
@@ -36,32 +35,22 @@ def register_bug_report_callbacks(app):
         ctx = callback_context
         triggered_button_id = ctx.triggered_id
         if not triggered_button_id: raise PreventUpdate
-
-        # ログインチェック
         if not user_info or not user_info.get('username'):
             alert_msg = dbc.Alert("ログインしていません。", color="danger")
             is_bug_submit = triggered_button_id == 'submit-bug-btn'
             bug_alert_out = (alert_msg, True) if is_bug_submit else (no_update, no_update)
             req_alert_out = (alert_msg, True) if not is_bug_submit else (no_update, no_update)
-            # 10個のOutputに対応
             return bug_alert_out[0], bug_alert_out[1], req_alert_out[0], req_alert_out[1], no_update, no_update, no_update, no_update, no_update, no_update
-
         reporter = user_info['username']
         is_bug_submit = triggered_button_id == 'submit-bug-btn'
         title, description, report_type = (bug_title, bug_desc, 'bug') if is_bug_submit else (req_title, req_desc, 'request')
         add_func = add_bug_report if report_type == 'bug' else add_feature_request
-
-        # 入力チェック
         if not title or not description:
             alert_msg = dbc.Alert("件名と詳細を入力してください。", color="warning")
             bug_alert_out = (alert_msg, True) if is_bug_submit else (no_update, no_update)
             req_alert_out = (alert_msg, True) if not is_bug_submit else (no_update, no_update)
-            # 10個のOutputに対応
             return bug_alert_out[0], bug_alert_out[1], req_alert_out[0], req_alert_out[1], no_update, no_update, no_update, no_update, no_update, no_update
-
-        # データ追加処理
         success, message = add_func(reporter, title, description)
-
         if success:
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': f'{report_type}_report'}
             update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type}
@@ -69,15 +58,12 @@ def register_bug_report_callbacks(app):
             req_title_clear, req_desc_clear = ("", "") if not is_bug_submit else (no_update, no_update)
             bug_alert_out = ("", False) if is_bug_submit else (no_update, no_update)
             req_alert_out = ("", False) if not is_bug_submit else (no_update, no_update)
-            # 10個のOutputに対応
             return bug_alert_out[0], bug_alert_out[1], req_alert_out[0], req_alert_out[1], bug_title_clear, bug_desc_clear, req_title_clear, req_desc_clear, toast_data, update_trigger
         else:
             alert_msg = dbc.Alert(f"エラー: {message}", color="danger")
             bug_alert_out = (alert_msg, True) if is_bug_submit else (no_update, no_update)
             req_alert_out = (alert_msg, True) if not is_bug_submit else (no_update, no_update)
-            # 10個のOutputに対応
             return bug_alert_out[0], bug_alert_out[1], req_alert_out[0], req_alert_out[1], no_update, no_update, no_update, no_update, no_update, no_update
-
 
     # --- 一覧の表示 (変更なし) ---
     @app.callback(
@@ -90,78 +76,49 @@ def register_bug_report_callbacks(app):
         ctx = callback_context
         if not ctx.triggered_id and active_tab is None: raise PreventUpdate
         if not active_tab: raise PreventUpdate
-
         report_type = 'bug' if active_tab == 'tab-bug-report' else 'request'
         get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
         no_report_message = "報告されている不具合はありません。" if report_type == 'bug' else "登録されている要望はありません。"
-
         reports = get_func()
-        if not reports:
-            list_content = dbc.Alert(no_report_message, color="info")
+        if not reports: list_content = dbc.Alert(no_report_message, color="info")
         else:
             def get_status_color(status):
                 if status == '対応済': return "success"
                 if status == '対応中': return "warning"
                 if status == '見送り': return "dark"
                 return "secondary"
-
-            items = [
-                dbc.ListGroupItem(
-                    dbc.Row([
-                        dbc.Col(f"[{r['report_date']}] {r['title']}", width=8),
-                        dbc.Col(r['reporter_username'], width=2),
-                        dbc.Col(dbc.Badge(r['status'], color=get_status_color(r['status'])), width=2),
-                    ], align="center"),
-                    id={'type': 'report-item', 'report_type': report_type, 'index': r['id']},
-                    action=True,
-                    className="report-list-item",
-                    n_clicks=0 # Initialize n_clicks
-                ) for r in reports
-            ]
+            items = [ dbc.ListGroupItem( dbc.Row([ dbc.Col(f"[{r['report_date']}] {r['title']}", width=8), dbc.Col(r['reporter_username'], width=2), dbc.Col(dbc.Badge(r['status'], color=get_status_color(r['status'])), width=2), ], align="center"), id={'type': 'report-item', 'report_type': report_type, 'index': r['id']}, action=True, className="report-list-item", n_clicks=0 ) for r in reports ]
             list_content = dbc.ListGroup(items, flush=True)
+        if report_type == 'bug': return list_content, no_update
+        else: return no_update, list_content
 
-        if report_type == 'bug':
-            return list_content, no_update
-        else:
-            return no_update, list_content
+    # --- ★★★★★★★★★★★★★★★★★★★★★★★★ ---
+    # --- ★★★ コールバック修正 v6 (Python + Clientside) ★★★ ---
+    # --- ★★★★★★★★★★★★★★★★★★★★★★★★ ---
 
-
-    # --- Helper Function (共通ロジック) ---
-    def _handle_modal_toggle_logic(report_type, item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
-        """モーダル開閉の共通ロジック"""
+    # --- Python Callback: モーダル制御情報をStoreに出力 ---
+    @app.callback(
+        Output('report-modal-control-store', 'data'),
+        # Inputs using ALL
+        Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
+        Input({'type': 'close-detail-modal', 'report_type': ALL}, 'n_clicks'),
+        Input({'type': 'cancel-admin-modal', 'report_type': ALL}, 'n_clicks'),
+        State('auth-store', 'data'),
+        prevent_initial_call=True
+    )
+    def update_modal_control_store(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
         ctx = callback_context
-        # Use ctx.triggered_prop_ids to avoid issues with n_clicks=0 triggers
-        triggered_prop_id_str = next(iter(ctx.triggered_prop_ids.keys()), None) # Get the first triggered prop_id string
+        triggered_prop_id_str = next(iter(ctx.triggered_prop_ids.keys()), None)
+        if not triggered_prop_id_str: raise PreventUpdate
 
-        if not triggered_prop_id_str:
-            # If nothing triggered (e.g., initial load if prevent_initial_call=False), return no_update for all
-            return [no_update] * 8
-
-        # Try parsing the ID part before the property (e.g., ".n_clicks")
         try:
             triggered_id_str = triggered_prop_id_str.split('.')[0]
-            if triggered_id_str.startswith('{'):
-                 triggered_id_dict = json.loads(triggered_id_str)
-            else:
-                 # If it's not a pattern-matching ID string, this logic path shouldn't be hit
-                 # given the Inputs defined. Return no_update defensively.
-                 return [no_update] * 8
-        except (json.JSONDecodeError, IndexError, AttributeError) as e:
-            print(f"Error parsing triggered ID in helper: {e}")
-            # Parsing failed, return no_update
-            return [no_update] * 8
+            if triggered_id_str.startswith('{'): triggered_id_dict = json.loads(triggered_id_str)
+            else: raise PreventUpdate
+        except (json.JSONDecodeError, IndexError, AttributeError): raise PreventUpdate
 
         trigger_type = triggered_id_dict.get('type')
-        trigger_report_type = triggered_id_dict.get('report_type') # report_type of the element that triggered
-
-        # ★★★ PreventUpdate を no_update に変更 ★★★
-        # このヘルパー関数が処理すべき report_type でないトリガーは no_update を返す
-        if trigger_report_type != report_type:
-            # print(f"Helper ignored trigger for {trigger_report_type} in {report_type} context.")
-            # Critical: Return no_update for all outputs defined for THIS context
-            return [no_update] * 8
-
-        # --- Trigger belongs to this context, proceed ---
+        trigger_report_type = triggered_id_dict.get('report_type')
 
         # Find the actual trigger value (n_clicks)
         trigger_value = None
@@ -172,100 +129,261 @@ def register_bug_report_callbacks(app):
 
         # --- Closing Modals ---
         if trigger_type in ['close-detail-modal', 'cancel-admin-modal']:
-            # Only close if the button was actually clicked (value > 0 and not None)
-            if not trigger_value:
-                 return [no_update] * 8
-            print(f"Helper closing modal for {report_type}")
-            # is_open, title, body, is_open_admin, admin_details, editing_id, status, message
-            return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+            if not trigger_value: raise PreventUpdate # Only react on actual click
+            print(f"Python: Closing modal for {trigger_report_type}")
+            # Signal to close all modals of the triggered type
+            return {'report_type': trigger_report_type, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
 
         # --- Opening Modals (report-item click) ---
         if trigger_type == 'report-item':
-            # Only open if the item was actually clicked (value > 0 and not None)
             if not trigger_value:
-                # If n_clicks reset or initial, ensure modals are closed for this context
-                print(f"Helper closing modal due to n_clicks={trigger_value} for {report_type}")
-                return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+                 # Signal to close modals if n_clicks becomes 0
+                 print(f"Python: Closing modal due to n_clicks=0 for {trigger_report_type}")
+                 return {'report_type': trigger_report_type, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
 
             report_id = triggered_id_dict.get('index')
-            print(f"Helper handling item click for report_id={report_id}, report_type={report_type}")
+            print(f"Python: Handling item click for report_id={report_id}, report_type={trigger_report_type}")
 
-            # Fetch data... (rest of the logic remains the same)
-            get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
+            get_func = get_all_bug_reports if trigger_report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == report_id), None)
 
-            if not report:
-                print("Report not found in helper.")
-                return True, "エラー", dbc.Alert("報告が見つかりません。", color="danger"), False, no_update, no_update, no_update, no_update
+            modal_data = {'report_type': trigger_report_type, 'is_open': False, 'timestamp': datetime.now().isoformat()} # Default to closed
 
-            is_admin = user_info and user_info.get('role') == 'admin'
-
-            if is_admin:
-                print("Helper opening admin modal")
-                details = html.Div([ html.H5(report['title']), html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"), dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light") ])
-                return False, no_update, no_update, True, details, report_id, report['status'], report.get('resolution_message', '')
+            if report:
+                is_admin = user_info and user_info.get('role') == 'admin'
+                if is_admin:
+                    print("Python: Preparing admin modal data")
+                    modal_data.update({
+                        'modal_type': 'admin',
+                        'is_open': True,
+                        'report_id': report_id,
+                        'status': report['status'],
+                        'resolution_message': report.get('resolution_message', ''),
+                        'details_title': report['title'],
+                        'details_reporter': report['reporter_username'],
+                        'details_date': report['report_date'],
+                        'details_description': report['description']
+                    })
+                else:
+                    print("Python: Preparing detail modal data")
+                    modal_data.update({
+                        'modal_type': 'detail',
+                        'is_open': True,
+                        'title': report['title'],
+                        'reporter': report['reporter_username'],
+                        'date': report['report_date'],
+                        'description': report['description'],
+                        'status': report['status'],
+                        'resolution_message': report.get('resolution_message', '')
+                    })
             else:
-                print("Helper opening detail modal")
-                body = [ html.P([html.Strong("報告者: "), report['reporter_username']]), html.P([html.Strong("報告日時: "), report['report_date']]), html.Hr(), html.P(report['description'], style={'whiteSpace': 'pre-wrap'}), ]
-                if report['status'] in ['対応済', '見送り'] and report.get('resolution_message'):
-                    status_label = "対応内容" if report['status'] == '対応済' else "コメント"
-                    body.extend([ html.Hr(), html.Strong(f"{status_label}:"), dbc.Card(dbc.CardBody(report['resolution_message']), className="mt-2 bg-light") ])
-                return True, report['title'], body, False, no_update, no_update, no_update, no_update
+                 print("Python: Report not found, preparing error detail modal")
+                 modal_data.update({
+                    'modal_type': 'detail',
+                    'is_open': True,
+                    'title': 'エラー',
+                    'error_message': '報告が見つかりません。' # Send specific error message
+                 })
+            return modal_data
 
-        # Fallback for unhandled trigger types within this context
-        print(f"Unhandled trigger type '{trigger_type}' in helper for {report_type}")
-        return [no_update] * 8
+        raise PreventUpdate
 
 
-    # --- Callback for BUG reports ---
-    @app.callback(
+    # --- Clientside Callbacks: モーダルの表示/内容更新 ---
+
+    # --- Bug Detail Modal ---
+    clientside_callback(
+        """
+        function(controlData) {
+            // console.log("CS: Bug Detail Modal triggered", controlData);
+            if (!controlData || controlData.report_type !== 'bug') {
+                return [dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'close') {
+                return [false, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'detail') {
+                if (controlData.error_message) {
+                    // Display error in modal body
+                    return [
+                        controlData.is_open,
+                        controlData.title,
+                        // Simple error display using dbc.Alert structure (adapt if using html directly)
+                        window.dash_clientside.React.createElement(
+                            window.dash_bootstrap_components.Alert, {color: "danger"}, controlData.error_message
+                        )
+                    ];
+                }
+                let bodyContent = [
+                    window.dash_clientside.React.createElement('p', null, [window.dash_clientside.React.createElement('strong', null, '報告者: '), controlData.reporter]),
+                    window.dash_clientside.React.createElement('p', null, [window.dash_clientside.React.createElement('strong', null, '報告日時: '), controlData.date]),
+                    window.dash_clientside.React.createElement('hr'),
+                    window.dash_clientside.React.createElement('p', {style: {whiteSpace: 'pre-wrap'}}, controlData.description),
+                ];
+                if ((controlData.status === '対応済' || controlData.status === '見送り') && controlData.resolution_message) {
+                    const statusLabel = controlData.status === '対応済' ? '対応内容' : 'コメント';
+                    bodyContent.push(window.dash_clientside.React.createElement('hr'));
+                    bodyContent.push(window.dash_clientside.React.createElement('strong', null, statusLabel + ':'));
+                    // Assuming dbc components are available globally via dash-bootstrap-components
+                    bodyContent.push(
+                        window.dash_clientside.React.createElement(
+                            window.dash_bootstrap_components.Card, {className: "mt-2 bg-light"},
+                            window.dash_clientside.React.createElement(window.dash_bootstrap_components.CardBody, null, controlData.resolution_message)
+                        )
+                    );
+                }
+                return [controlData.is_open, controlData.title, bodyContent];
+            }
+            // If modal_type is 'admin' or something else, ensure this detail modal is closed
+            return [false, dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
         Output({'type': 'detail-modal', 'report_type': 'bug'}, 'is_open'),
         Output({'type': 'detail-modal-title', 'report_type': 'bug'}, 'children'),
         Output({'type': 'detail-modal-body', 'report_type': 'bug'}, 'children'),
-        Output({'type': 'admin-modal', 'report_type': 'bug'}, 'is_open'),
-        Output({'type': 'admin-detail-display', 'report_type': 'bug'}, 'children'),
-        Output({'type': 'editing-id-store', 'report_type': 'bug'}, 'data'),
-        Output({'type': 'status-dropdown', 'report_type': 'bug'}, 'value'),
-        Output({'type': 'resolution-message-input', 'report_type': 'bug'}, 'value'),
-        # Inputs using ALL
-        Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
-        Input({'type': 'close-detail-modal', 'report_type': ALL}, 'n_clicks'),
-        Input({'type': 'cancel-admin-modal', 'report_type': ALL}, 'n_clicks'),
-        State('auth-store', 'data'),
-        prevent_initial_call=True
+        Input('report-modal-control-store', 'data')
     )
-    def handle_bug_modal_toggle(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
-        # Pass dummy values for unused inputs if necessary, although ALL handles it
-        return _handle_modal_toggle_logic('bug', item_clicks, close_detail_clicks, cancel_admin_clicks, user_info)
 
-
-    # --- Callback for REQUEST reports ---
-    @app.callback(
+    # --- Request Detail Modal ---
+    clientside_callback(
+        """
+        function(controlData) {
+            // console.log("CS: Request Detail Modal triggered", controlData);
+            if (!controlData || controlData.report_type !== 'request') {
+                return [dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'close') {
+                return [false, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'detail') {
+                 if (controlData.error_message) {
+                    return [
+                        controlData.is_open,
+                        controlData.title,
+                         window.dash_clientside.React.createElement(
+                            window.dash_bootstrap_components.Alert, {color: "danger"}, controlData.error_message
+                        )
+                    ];
+                }
+                let bodyContent = [
+                    window.dash_clientside.React.createElement('p', null, [window.dash_clientside.React.createElement('strong', null, '報告者: '), controlData.reporter]),
+                    window.dash_clientside.React.createElement('p', null, [window.dash_clientside.React.createElement('strong', null, '報告日時: '), controlData.date]),
+                    window.dash_clientside.React.createElement('hr'),
+                    window.dash_clientside.React.createElement('p', {style: {whiteSpace: 'pre-wrap'}}, controlData.description),
+                ];
+                if ((controlData.status === '対応済' || controlData.status === '見送り') && controlData.resolution_message) {
+                    const statusLabel = controlData.status === '対応済' ? '対応内容' : 'コメント';
+                    bodyContent.push(window.dash_clientside.React.createElement('hr'));
+                    bodyContent.push(window.dash_clientside.React.createElement('strong', null, statusLabel + ':'));
+                    bodyContent.push(
+                        window.dash_clientside.React.createElement(
+                            window.dash_bootstrap_components.Card, {className: "mt-2 bg-light"},
+                            window.dash_clientside.React.createElement(window.dash_bootstrap_components.CardBody, null, controlData.resolution_message)
+                        )
+                    );
+                }
+                return [controlData.is_open, controlData.title, bodyContent];
+            }
+             // If modal_type is 'admin' or something else, ensure this detail modal is closed
+            return [false, dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
         Output({'type': 'detail-modal', 'report_type': 'request'}, 'is_open'),
         Output({'type': 'detail-modal-title', 'report_type': 'request'}, 'children'),
         Output({'type': 'detail-modal-body', 'report_type': 'request'}, 'children'),
+        Input('report-modal-control-store', 'data')
+    )
+
+    # --- Bug Admin Modal ---
+    clientside_callback(
+        """
+        function(controlData) {
+            // console.log("CS: Bug Admin Modal triggered", controlData);
+            if (!controlData || controlData.report_type !== 'bug') {
+                return [dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'close') {
+                return [false, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'admin') {
+                // Construct admin details display using React.createElement
+                const details = window.dash_clientside.React.createElement('div', null, [
+                    window.dash_clientside.React.createElement('h5', null, controlData.details_title),
+                    window.dash_clientside.React.createElement('small', null, `報告者: ${controlData.details_reporter} | 日時: ${controlData.details_date}`),
+                    window.dash_clientside.React.createElement(
+                        window.dash_bootstrap_components.Card, {className: "mt-2 mb-3 bg-light"},
+                        window.dash_clientside.React.createElement(window.dash_bootstrap_components.CardBody, null, controlData.details_description)
+                    )
+                ]);
+                return [
+                    controlData.is_open,
+                    details,
+                    controlData.report_id,
+                    controlData.status,
+                    controlData.resolution_message
+                ];
+            }
+             // If modal_type is 'detail' or something else, ensure this admin modal is closed
+            return [false, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
+        Output({'type': 'admin-modal', 'report_type': 'bug'}, 'is_open'),
+        Output({'type': 'admin-detail-display', 'report_type': 'bug'}, 'children'), # Update content
+        Output({'type': 'editing-id-store', 'report_type': 'bug'}, 'data'),         # Update store
+        Output({'type': 'status-dropdown', 'report_type': 'bug'}, 'value'),       # Update dropdown value
+        Output({'type': 'resolution-message-input', 'report_type': 'bug'}, 'value'), # Update textarea value
+        Input('report-modal-control-store', 'data')
+    )
+
+    # --- Request Admin Modal ---
+    clientside_callback(
+        """
+        function(controlData) {
+            // console.log("CS: Request Admin Modal triggered", controlData);
+            if (!controlData || controlData.report_type !== 'request') {
+                 return [dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+             if (controlData.modal_type === 'close') {
+                return [false, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+            }
+            if (controlData.modal_type === 'admin') {
+                 const details = window.dash_clientside.React.createElement('div', null, [
+                    window.dash_clientside.React.createElement('h5', null, controlData.details_title),
+                    window.dash_clientside.React.createElement('small', null, `報告者: ${controlData.details_reporter} | 日時: ${controlData.details_date}`),
+                    window.dash_clientside.React.createElement(
+                        window.dash_bootstrap_components.Card, {className: "mt-2 mb-3 bg-light"},
+                        window.dash_clientside.React.createElement(window.dash_bootstrap_components.CardBody, null, controlData.details_description)
+                    )
+                ]);
+                return [
+                    controlData.is_open,
+                    details,
+                    controlData.report_id,
+                    controlData.status,
+                    controlData.resolution_message
+                ];
+            }
+            // If modal_type is 'detail' or something else, ensure this admin modal is closed
+            return [false, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
         Output({'type': 'admin-modal', 'report_type': 'request'}, 'is_open'),
         Output({'type': 'admin-detail-display', 'report_type': 'request'}, 'children'),
         Output({'type': 'editing-id-store', 'report_type': 'request'}, 'data'),
         Output({'type': 'status-dropdown', 'report_type': 'request'}, 'value'),
         Output({'type': 'resolution-message-input', 'report_type': 'request'}, 'value'),
-        # Inputs using ALL
-        Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
-        Input({'type': 'close-detail-modal', 'report_type': ALL}, 'n_clicks'),
-        Input({'type': 'cancel-admin-modal', 'report_type': ALL}, 'n_clicks'),
-        State('auth-store', 'data'),
-        prevent_initial_call=True
+        Input('report-modal-control-store', 'data')
     )
-    def handle_request_modal_toggle(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
-        # Pass dummy values for unused inputs if necessary
-        return _handle_modal_toggle_logic('request', item_clicks, close_detail_clicks, cancel_admin_clicks, user_info)
+
 
     # --- 管理者によるステータス更新コールバック (変更なし) ---
     @app.callback(
         [Output({'type': 'admin-alert', 'report_type': MATCH}, 'children'),
          Output({'type': 'admin-alert', 'report_type': MATCH}, 'is_open'),
-         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open', allow_duplicate=True)],
+         # ★★★ モーダルを閉じるOutputは Clientside に任せるので削除 ★★★
+         # Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open', allow_duplicate=True)],
+         ], # ★★★ 削除後のカンマに注意 ★★★
         Input({'type': 'save-status-btn', 'report_type': MATCH}, 'n_clicks'),
         [State({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
          State({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
@@ -278,15 +396,23 @@ def register_bug_report_callbacks(app):
         report_type = button_id['report_type']
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
-        if status in ['対応済', '見送り']: success, msg = resolve_func(bug_id, message, status) # resolve_func now takes status
+        if status in ['対応済', '見送り']: success, msg = resolve_func(bug_id, message, status)
         elif status in ['未対応', '対応中']: success, msg = update_func(bug_id, status)
         else: success = False; msg = "無効なステータスです。"
-        if success: return "", False, False
-        else: return dbc.Alert(f"エラー: {msg}", color="danger"), True, True
+
+        # ★★★ is_open の Output を削除したので、戻り値も変更 ★★★
+        if success:
+             # 成功時はアラートをクリアするだけ (モーダルは閉じない)
+             return "", False #, False # 最後の False を削除
+        else:
+             # 失敗時はアラート表示 (モーダルは開いたまま)
+             return dbc.Alert(f"エラー: {msg}", color="danger"), True #, True # 最後の True を削除
 
     @app.callback(
         [Output('toast-trigger', 'data', allow_duplicate=True),
-         Output('report-update-trigger', 'data', allow_duplicate=True)],
+         Output('report-update-trigger', 'data', allow_duplicate=True),
+         # ★★★ 保存成功時に Clientside にモーダルを閉じるよう指示する ★★★
+         Output('report-modal-control-store', 'data', allow_duplicate=True)],
         Input({'type': 'save-status-btn', 'report_type': ALL}, 'n_clicks'),
         [State({'type': 'editing-id-store', 'report_type': ALL}, 'data'),
          State({'type': 'status-dropdown', 'report_type': ALL}, 'value'),
@@ -306,22 +432,28 @@ def register_bug_report_callbacks(app):
         triggered_index = -1
         for i, btn_id in enumerate(button_id_list):
             if btn_id == triggered_button_id: triggered_index = i; break
-        # Ensure click value is valid (greater than 0, not None)
-        if triggered_index == -1 or not ctx.triggered or ctx.triggered[0].get('value') is None or ctx.triggered[0]['value'] == 0:
-            raise PreventUpdate
+        if triggered_index == -1 or not ctx.triggered or ctx.triggered[0].get('value') is None or ctx.triggered[0]['value'] == 0: raise PreventUpdate
+
         bug_id = bug_id_list[triggered_index]
         status = status_list[triggered_index]
         message = message_list[triggered_index]
         button_id = triggered_button_id
         if not bug_id: raise PreventUpdate
+
         report_type = button_id['report_type']
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
-        if status in ['対応済', '見送り']: success, msg = resolve_func(bug_id, message, status) # pass status here
+
+        if status in ['対応済', '見送り']: success, msg = resolve_func(bug_id, message, status)
         elif status in ['未対応', '対応中']: success, msg = update_func(bug_id, status)
         else: success = False; msg = "無効なステータスです。"
+
         if success:
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type}_report'}
             update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type}
-            return toast_data, update_trigger
-        else: return no_update, no_update
+            # ★★★ モーダルを閉じるためのデータ ★★★
+            close_modal_data = {'report_type': report_type, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
+            return toast_data, update_trigger, close_modal_data
+        else:
+             # 失敗時はモーダル制御データは送らない
+             return no_update, no_update, no_update

@@ -109,7 +109,9 @@ def create_bug_report_layout(user_info):
             id="report-tabs",
             active_tab="tab-bug-report",
         ),
-        # ★★★ モーダルを html.Div でラップ ★★★
+        # ★★★ 制御用Storeを追加 ★★★
+        dcc.Store(id='report-modal-control-store', storage_type='memory'),
+        # モーダルを html.Div でラップ (変更なし)
         html.Div([
             create_detail_modal("bug"),
             create_detail_modal("request"),
