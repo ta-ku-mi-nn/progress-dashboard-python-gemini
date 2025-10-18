@@ -179,51 +179,83 @@ def register_past_exam_callbacks(app):
         [Output('past-exam-table-container', 'children'),
          Output('past-exam-university-filter', 'options'),
          Output('past-exam-subject-filter', 'options')],
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
-         Input('past-exam-university-filter', 'value'), Input('past-exam-subject-filter', 'value'),
-         Input('refresh-past-exam-table-btn', 'n_clicks')],
+        [Input('student-selection-store', 'data'),
+         Input('toast-trigger', 'data'),
+         Input('past-exam-university-filter', 'value'),
+         Input('past-exam-subject-filter', 'value'),
+         Input('refresh-past-exam-table-btn', 'n_clicks')]
     )
     def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks):
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
+        # PreventUpdate の条件チェック
         if triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'past_exam':
                 raise PreventUpdate
         elif triggered_id == 'refresh-past-exam-table-btn' and refresh_clicks is None:
              raise PreventUpdate
 
+        # --- ここから戻り値を確実に返すための構造 ---
+        table_content = None
+        university_options = []
+        subject_options = []
+
         if not student_id:
-            alert_message = dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
-            return alert_message, [], [] # 修正済み: 3つの要素を返す
+            table_content = dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
+            # この時点で戻り値を確定させる
+            return table_content, university_options, subject_options
 
-        results = get_past_exam_results_for_student(student_id)
-        df = pd.DataFrame(results) if results else pd.DataFrame()
+        try: # データ取得と処理中のエラーをキャッチ（念のため）
+            results = get_past_exam_results_for_student(student_id)
+            df = pd.DataFrame(results) if results else pd.DataFrame()
 
-        # ↓↓↓ データフレームが空かどうかのチェックを追加 ↓↓↓
-        if df.empty:
-            alert_message = dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4")
-            # データがない場合も、オプションは空リストで返す
-            return alert_message, [], []
-        # ↑↑↑ 修正ここまで ↑↑↑
+            if df.empty:
+                table_content = dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4")
+                # university_options と subject_options は空リストのまま
+            else:
+                # オプション生成
+                university_options = [{'label': u, 'value': u} for u in sorted(df['university_name'].unique())]
+                subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())]
 
-        # オプション生成 (データがある前提でOK)
-        university_options = [{'label': u, 'value': u} for u in sorted(df['university_name'].unique())]
-        subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())]
+                # フィルター処理
+                df_filtered = df.copy()
+                if selected_university:
+                    df_filtered = df_filtered[df_filtered['university_name'] == selected_university]
+                if selected_subject:
+                    df_filtered = df_filtered[df_filtered['subject'] == selected_subject]
 
-        # フィルター処理
-        df_filtered = df.copy()
-        if selected_university:
-             df_filtered = df_filtered[df_filtered['university_name'] == selected_university]
-        if selected_subject:
-             df_filtered = df_filtered[df_filtered['subject'] == selected_subject]
+                if df_filtered.empty:
+                    table_content = dbc.Alert("フィルターに一致する過去問結果はありません。", color="warning", className="mt-4")
+                    # オプションはフィルター前のものを維持
+                else:
+                    # テーブル生成ロジック (変更なし)
+                    def calculate_percentage(row):
+                        correct, total = row['correct_answers'], row['total_questions']
+                        return f"{(correct / total * 100):.1f}%" if pd.notna(correct) and pd.notna(total) and total > 0 else ""
+                    df_filtered['正答率'] = df_filtered.apply(calculate_percentage, axis=1)
+                    def format_time(row):
+                        req, total = row['time_required'], row['total_time_allowed']
+                        if pd.notna(req) and pd.notna(total): return f"{int(req)}/{int(total)}"
+                        return f"{int(req)}" if pd.notna(req) else ""
+                    df_filtered['所要時間(分)'] = df_filtered.apply(format_time, axis=1)
+                    table_header = [html.Thead(html.Tr([html.Th("日付"), html.Th("大学名"), html.Th("学部名"), html.Th("入試方式"), html.Th("年度"), html.Th("科目"),
+                                                        html.Th("所要時間(分)"), html.Th("正答率"), html.Th("操作")]))]
+                    table_body = [html.Tbody([html.Tr([html.Td(row['date']), html.Td(row['university_name']), html.Td(row.get('faculty_name', '')),
+                                                        html.Td(row.get('exam_system', '')), html.Td(row['year']), html.Td(row['subject']),
+                                                        html.Td(row['所要時間(分)']), html.Td(row['正答率']),
+                                                        html.Td([dbc.Button("編集", id={'type': 'edit-past-exam-btn', 'index': row['id']}, size="sm", className="me-1"),
+                                                                 dbc.Button("削除", id={'type': 'delete-past-exam-btn', 'index': row['id']}, color="danger", size="sm", outline=True)])
+                                                      ]) for _, row in df_filtered.iterrows()])]
+                    table_content = dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
 
-        # ↓↓↓ フィルター結果が空の場合のチェックを追加 ↓↓↓
-        if df_filtered.empty:
-             alert_message = dbc.Alert("フィルターに一致する過去問結果はありません。", color="warning", className="mt-4")
-             # フィルター結果が空でも、元のオプションは返す
-             return alert_message, university_options, subject_options
-        # ↑↑↑ 修正ここまで ↑↑↑
+        except Exception as e:
+            print(f"Error in update_past_exam_table: {e}") # エラーログ出力
+            table_content = dbc.Alert(f"テーブル表示中にエラーが発生しました: {e}", color="danger")
+            # エラー発生時も空のオプションを返す
+
+        # --- 必ず3つの要素を返す ---
+        return table_content, university_options, subject_options
 
 
     # --- 大学合否タブ関連のコールバック ---
