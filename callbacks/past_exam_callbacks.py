@@ -362,12 +362,12 @@ def register_past_exam_callbacks(app):
         # toast 由来で source が違う場合 or 更新ボタンでも n_clicks が None の場合は早期リターン
         if triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'acceptance':
-                 raise PreventUpdate
+                raise PreventUpdate
         elif triggered_id == 'refresh-acceptance-table-btn' and refresh_clicks is None:
-             raise PreventUpdate
+            raise PreventUpdate
 
         if not student_id:
-             return [] # dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4") # レイアウトに合わせて変更
+            return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
 
     @app.callback(
         [Output('delete-acceptance-confirm', 'displayed'),
