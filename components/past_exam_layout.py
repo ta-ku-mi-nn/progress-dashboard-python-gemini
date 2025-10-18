@@ -15,11 +15,10 @@ def create_past_exam_layout():
 
         dbc.Row([
             dbc.Col(html.H4("過去問演習記録")), # H2からH4に変更
-            dbc.Col(
-                dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success"),
+            dbc.Col([ # Pass children as a list
+                dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-past-exam-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
-                className="text-end"
-            )
+            ], className="text-end") # Pass className as a keyword argument
         ], align="center", className="my-4"),
 
         # フィルター
@@ -97,11 +96,10 @@ def create_past_exam_layout():
         dcc.Store(id='editing-acceptance-id-store'),
         dbc.Row([
             dbc.Col(html.H4("入試管理")),
-            dbc.Col(
-                dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success"),
+            dbc.Col([ # Pass children as a list
+                dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-acceptance-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
-                className="text-end"
-            )
+            ], className="text-end") # Pass className as a keyword argument
         ], align="center", className="my-4"),
         dcc.Loading(html.Div(id="acceptance-table-container")), # テーブル表示エリア
         dbc.Modal([ # 合否モーダル (日付入力含む)
@@ -157,15 +155,13 @@ def create_past_exam_layout():
         dcc.Store(id='current-calendar-month-store'), # 表示年月を保持 (YYYY-MM形式)
         dbc.Row([
             dbc.Col(html.H4("受験カレンダー"), width='auto'),
-            dbc.Col(
+            dbc.Col([ # Pass children as a list
+                dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
                 dbc.ButtonGroup([
-                    dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
                     dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary", size="sm"),
                     dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary", size="sm")
                 ]),
-                width='auto',
-                className="ms-auto" # 右寄せ
-            )
+            ], width='auto', className="ms-auto") # Pass className as a keyword argument
         ], align="center", className="my-4"),
         html.H5(id="current-month-display", className="text-center mb-3"), # 表示年月を表示
 
