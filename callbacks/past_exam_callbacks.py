@@ -127,7 +127,8 @@ def register_past_exam_callbacks(app):
             success, message = add_past_exam_result(student_id, result_data)
 
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+            # ★★★ 過去問用の source を設定 ★★★
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'past_exam'}
             return "", False, toast_data, False
         else:
             return dbc.Alert(message, color="danger"), True, no_update, no_update
@@ -157,7 +158,8 @@ def register_past_exam_callbacks(app):
             raise PreventUpdate
 
         success, message = delete_past_exam_result(result_id)
-        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+        # ★★★ 過去問用の source を設定 ★★★
+        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'past_exam'}
         return toast_data
 
     @app.callback(
@@ -171,8 +173,9 @@ def register_past_exam_callbacks(app):
     )
     def update_past_exam_table(student_id, toast_data, selected_university, selected_subject):
         ctx = callback_context
+        # ★★★ source をチェックするように変更 ★★★
         if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if "過去問の結果" not in toast_data.get('message', ''):
+            if toast_data.get('source') != 'past_exam': # source が past_exam でなければ更新しない
                  raise PreventUpdate
 
         if not student_id:
@@ -291,13 +294,12 @@ def register_past_exam_callbacks(app):
         return False, no_update, None, "", "", "", "", None, None, False
 
 
-    # 大学合否結果の保存 (日付フィールド追加 + カレンダー月更新)
+    # 大学合否結果の保存 (日付フィールド追加 + カレンダー月更新 + source追加)
     @app.callback(
         [Output('acceptance-modal-alert', 'children'),
          Output('acceptance-modal-alert', 'is_open', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True),
          Output('acceptance-modal', 'is_open', allow_duplicate=True),
-         # ★★★ Outputを追加 ★★★
          Output('current-calendar-month-store', 'data', allow_duplicate=True)],
         [Input('save-acceptance-modal-btn', 'n_clicks')],
         [State('editing-acceptance-id-store', 'data'),
@@ -316,7 +318,6 @@ def register_past_exam_callbacks(app):
             raise PreventUpdate
 
         if not university or not faculty:
-            # ★★★ カレンダー月は更新しない ★★★
             return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update, no_update
 
         result_data = {
@@ -326,18 +327,15 @@ def register_past_exam_callbacks(app):
             'announcement_date': announcement_date
         }
 
-        # ★★★ カレンダー表示用の年月を決定 ★★★
         target_month_str = no_update
         if exam_date:
             try:
                 target_month_str = datetime.strptime(exam_date, '%Y-%m-%d').strftime('%Y-%m')
-            except ValueError:
-                pass # 不正な日付形式の場合は無視
-        elif announcement_date: # 受験日がない場合、発表日を試す
+            except ValueError: pass
+        elif announcement_date:
              try:
                 target_month_str = datetime.strptime(announcement_date, '%Y-%m-%d').strftime('%Y-%m')
-             except ValueError:
-                 pass # 不正な日付形式の場合は無視
+             except ValueError: pass
 
         if result_id:
             success, message = update_acceptance_result(result_id, result_data)
@@ -347,11 +345,10 @@ def register_past_exam_callbacks(app):
 
         if success:
             toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message}
-            # ★★★ 成功時にカレンダー月を返す ★★★
+            # ★★★ source を 'acceptance' に設定 ★★★
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message, 'source': 'acceptance'}
             return "", False, toast_data, False, target_month_str
         else:
-            # ★★★ 失敗時はカレンダー月を更新しない ★★★
             return dbc.Alert(message, color="danger"), True, no_update, no_update, no_update
 
 
@@ -369,6 +366,7 @@ def register_past_exam_callbacks(app):
         result_id = ctx.triggered_id['index']
         return True, result_id
 
+    # 大学合否 削除の実行 (source追加)
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input('delete-acceptance-confirm', 'submit_n_clicks'),
@@ -380,10 +378,12 @@ def register_past_exam_callbacks(app):
             raise PreventUpdate
 
         success, message = delete_acceptance_result(result_id)
-        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+        # ★★★ source を 'acceptance' に設定 ★★★
+        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'acceptance'}
         return toast_data
 
 
+    # 大学合否テーブルの描画と更新 (sourceチェックに変更)
     @app.callback(
         Output('acceptance-table-container', 'children'),
         [Input('student-selection-store', 'data'),
@@ -391,12 +391,13 @@ def register_past_exam_callbacks(app):
     )
     def update_acceptance_table(student_id, toast_data):
         ctx = callback_context
+        # ★★★ source をチェックするように変更 ★★★
         if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if "大学合否結果" not in toast_data.get('message', ''):
+            if toast_data.get('source') != 'acceptance': # source が acceptance でなければ更新しない
                  raise PreventUpdate
 
         if not student_id:
-            return []
+            return [] # 空リストを返すように修正
 
         results = get_acceptance_results_for_student(student_id)
         if not results:
@@ -444,6 +445,7 @@ def register_past_exam_callbacks(app):
         return dbc.Table(table_header + [html.Tbody(table_body)], striped=True, bordered=True, hover=True, responsive=True)
 
 
+    # 合否ドロップダウンの変更をDBに反映 (source追加)
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input({'type': 'acceptance-result-dropdown', 'index': ALL}, 'value'),
@@ -476,11 +478,12 @@ def register_past_exam_callbacks(app):
         else:
              message = f"合否情報の更新に失敗しました: {message}"
 
-        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message}
+        # ★★★ source を 'acceptance' に設定 ★★★
+        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'acceptance'}
         return toast_data
 
 
-    # --- 大学合否カレンダーの更新 ---
+    # --- 大学合否カレンダーの更新 (sourceチェックに変更) ---
     @app.callback(
         Output('acceptance-calendar-container', 'children'),
         [Input('student-selection-store', 'data'),
@@ -491,16 +494,14 @@ def register_past_exam_callbacks(app):
     def update_acceptance_calendar(student_id, toast_data, target_month, active_tab):
         ctx = callback_context
 
-        # ★★★ 修正: カレンダータブが表示されていない場合は更新しない ★★★
         if active_tab != 'tab-gantt':
-            raise PreventUpdate # 更新を完全に停止
-            # return [] # または空リストを返す
+            raise PreventUpdate
 
+        # ★★★ source をチェックするように変更 ★★★
         if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if "大学合否結果" not in toast_data.get('message', ''):
+            if toast_data.get('source') != 'acceptance': # source が acceptance でなければ更新しない
                  raise PreventUpdate
 
-        # target_month がない場合(初期表示など)は現在の年月を使用
         if not target_month:
             target_month = date.today().strftime('%Y-%m')
 
@@ -512,31 +513,28 @@ def register_past_exam_callbacks(app):
         calendar_html = create_html_calendar(acceptance_data, target_month)
         return calendar_html
 
-    # カレンダーの表示年月を更新するコールバック
+    # --- カレンダー年月更新関連 (変更なし) ---
     @app.callback(
-        Output('current-calendar-month-store', 'data', allow_duplicate=True), # allow_duplicate=True を削除 (save_acceptance_result と競合するため不要)
+        Output('current-calendar-month-store', 'data', allow_duplicate=True),
         [Input('prev-month-btn', 'n_clicks'),
          Input('next-month-btn', 'n_clicks'),
          Input('past-exam-tabs', 'active_tab')],
         State('current-calendar-month-store', 'data'),
-        prevent_initial_call=True # prevent_initial_call=True を追加
+        prevent_initial_call=True
     )
     def update_calendar_month(prev_clicks, next_clicks, active_tab, current_month_str):
         ctx = callback_context
         trigger_id = ctx.triggered_id
 
-        # カレンダータブがアクティブになった時に初期化（既に target_month が設定されている場合を除く）
         if trigger_id == 'past-exam-tabs' and active_tab == 'tab-gantt':
-            if current_month_str: # 既に月が設定されていれば（例：保存直後など）、それを維持
+            if current_month_str:
                  return no_update
-            else: # まだ月が設定されていなければ当月を表示
+            else:
                  return date.today().strftime('%Y-%m')
 
-        # 前月/次月ボタンが押された場合のみ処理
         if trigger_id not in ['prev-month-btn', 'next-month-btn']:
              raise PreventUpdate
 
-        # current_month_str がない場合は当月を基準にする
         if not current_month_str:
             current_month_str = date.today().strftime('%Y-%m')
 
@@ -555,11 +553,9 @@ def register_past_exam_callbacks(app):
             first_day_next_month = current_month.replace(day=1) + timedelta(days=days_in_month)
             return first_day_next_month.strftime('%Y-%m')
 
-        # 上記以外（ここには到達しないはず）
         raise PreventUpdate
 
 
-    # 表示年月を表示するコールバック
     @app.callback(
         Output('current-month-display', 'children'),
         Input('current-calendar-month-store', 'data')
@@ -571,6 +567,5 @@ def register_past_exam_callbacks(app):
             dt = datetime.strptime(month_str, '%Y-%m')
             return f"{dt.year}年 {dt.month}月"
         except (ValueError, TypeError):
-            # 初期表示などで month_str が None の場合も考慮
             today = date.today()
             return f"{today.year}年 {today.month}月"
