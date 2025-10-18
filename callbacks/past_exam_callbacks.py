@@ -197,7 +197,8 @@ def register_past_exam_callbacks(app):
              raise PreventUpdate
 
         if not student_id:
-            return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4"), [], []
+            alert_message = dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
+            return alert_message, [], [] # アラートと空のリスト2つを返す
 
 
     # --- 大学合否タブ関連のコールバック ---
