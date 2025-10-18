@@ -83,21 +83,32 @@
     background-color: #fff7f0;
 }
 
-/* --- 受験日と発表日の背景色 --- */
-.exam-date-cell {
-    background-color: #f8d7da !important; /* Bootstrapのdanger背景色 (薄め) */
-    color: #842029; /* 文字色 */
+.app-deadline-cell { /* 出願期日 */
+    background-color: #fffacd !important; /* 黄色 (LemonChiffon) */
+}
+.exam-date-cell { /* 受験日 */
+    background-color: #ffd700 !important; /* オレンジ (Gold - 少し濃いオレンジ) */
+}
+.announcement-date-cell { /* 合格発表日 */
+    background-color: #90ee90 !important; /* 緑 (LightGreen) */
+}
+.proc-deadline-cell { /* 手続期日 */
+    background-color: #e6e6fa !important; /* 紫 (Lavender) */
 }
 
-.announcement-date-cell {
-    background-color: #d1e7dd !important; /* Bootstrapのsuccess背景色 (薄め) */
-    color: #0f5132; /* 文字色 */
+/* 複数のイベントが重なった場合の優先度 (背景色) */
+/* 手続期日 > 合格発表日 > 受験日 > 出願期日 */
+.exam-date-cell.app-deadline-cell {
+    background-color: #ffd700 !important; /* 受験日優先 */
 }
-
-/* 受験日と発表日が重なった場合 (発表日を優先) */
-.announcement-date-cell.exam-date-cell {
-     background-color: #d1e7dd !important;
-     color: #0f5132;
+.announcement-date-cell.exam-date-cell,
+.announcement-date-cell.app-deadline-cell {
+    background-color: #90ee90 !important; /* 発表日優先 */
+}
+.proc-deadline-cell.announcement-date-cell,
+.proc-deadline-cell.exam-date-cell,
+.proc-deadline-cell.app-deadline-cell {
+    background-color: #e6e6fa !important; /* 手続期日優先 */
 }
 
 /* オプション: 今日の日付を視覚的に示す */

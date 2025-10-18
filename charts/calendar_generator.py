@@ -76,35 +76,51 @@ def create_html_calendar(acceptance_data, target_year_month):
         proc_day = row['proc_deadline_dt'].day if pd.notna(row['proc_deadline_dt']) and row['proc_deadline_dt'].year == year and row['proc_deadline_dt'].month == month else None # ★追加
 
         for day in range(1, num_days + 1):
-            cell_class = "calendar-date-cell"
-            content = [] # ★文字列からリストに変更
-            title_texts = [] # ★ツールチップ用テキストリスト
+            cell_classes = ["calendar-date-cell"] # ★リストに変更
+            content = []
+            title_texts = []
             current_date_obj = date(year, month, day)
             weekday_index = current_date_obj.weekday()
 
-            if weekday_index == 5: cell_class += " saturday"
-            elif weekday_index == 6: cell_class += " sunday"
+            if weekday_index == 5: cell_classes.append("saturday") # ★リストに追加
+            elif weekday_index == 6: cell_classes.append("sunday") # ★リストに追加
 
-            # 各日付のチェックとコンテンツ追加
-            if app_day is not None and day == app_day: # ★追加
-                content.append("出")
-                title_texts.append("出願期日")
-            if exam_day is not None and day == exam_day:
-                content.append("受")
-                title_texts.append("受験日")
-            if announcement_day is not None and day == announcement_day:
-                result_text = row.get('result', '未定')
-                result_char = "合" if result_text == '合格' else ("否" if result_text == '不合格' else "？")
-                content.append(result_char)
-                title_texts.append(f"発表日({result_text})")
-            if proc_day is not None and day == proc_day: # ★追加
+            # 各日付のチェックとクラス・コンテンツ追加
+            is_proc = proc_day is not None and day == proc_day
+            is_announce = announcement_day is not None and day == announcement_day
+            is_exam = exam_day is not None and day == exam_day
+            is_app = app_day is not None and day == app_day
+
+            # 優先度: 手続 > 発表 > 受験 > 出願 (クラスと文字)
+            if is_proc:
+                cell_classes.append("proc-deadline-cell") # ★追加
                 content.append("手")
                 title_texts.append("手続期日")
+            if is_announce:
+                 cell_classes.append("announcement-date-cell") # 既存
+                 result_text = row.get('result', '未定')
+                 result_char = "合" if result_text == '合格' else ("否" if result_text == '不合格' else "？")
+                 if "手" not in content: # 手続きがなければ表示
+                     content.append(result_char)
+                 title_texts.append(f"発表日({result_text})")
+            if is_exam:
+                 cell_classes.append("exam-date-cell") # 既存
+                 if "手" not in content and "合" not in content and "否" not in content and "？" not in content: # 上位がなければ表示
+                     content.append("受")
+                 title_texts.append("受験日")
+            if is_app:
+                 cell_classes.append("app-deadline-cell") # ★追加
+                 if not content: # まだ何もなければ表示
+                     content.append("出")
+                 title_texts.append("出願期日")
+
 
             # コンテンツがあれば結合してセルに追加
             final_content = "/".join(content) if content else ""
             final_title = ", ".join(title_texts) if title_texts else ""
-            date_cells.append(html.Td(final_content, className=cell_class, title=final_title))
+            # ★クラス名をスペースで結合して設定
+            date_cells.append(html.Td(final_content, className=" ".join(cell_classes), title=final_title))
+        # --- ★★★ ここまで修正 ★★★ ---
 
         body_rows.append(html.Tr([info_cell] + date_cells))
 

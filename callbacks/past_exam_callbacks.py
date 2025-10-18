@@ -18,11 +18,11 @@ from data.nested_json_processor import (
 )
 from charts.calendar_generator import create_html_calendar
 
-# --- ★★★ ヘルパー関数を追加 ★★★ ---
 def find_nearest_future_month(acceptance_data):
     """
-    合否データの中から、今日以降で最も近い受験日または発表日の年月('YYYY-MM')を返す。
-    該当する日付がない場合は、現在の年月を返す。
+    合否データの中から、今日以降で最も近い「出願期日」の年月('YYYY-MM')を返す。
+    該当する出願期日がない場合は、他の未来の日付（受験日、発表日、手続期日）で最も近い月を返し、
+    それらもない場合は現在の年月を返す。
     """
     today = date.today()
     nearest_date = None
@@ -32,23 +32,40 @@ def find_nearest_future_month(acceptance_data):
 
     df = pd.DataFrame(acceptance_data)
     # 日付文字列をdatetimeオブジェクトに変換（不正な形式は無視）
+    df['app_deadline_dt'] = pd.to_datetime(df['application_deadline'], errors='coerce').dt.date # ★追加
     df['exam_dt'] = pd.to_datetime(df['exam_date'], errors='coerce').dt.date
     df['announcement_dt'] = pd.to_datetime(df['announcement_date'], errors='coerce').dt.date
+    df['proc_deadline_dt'] = pd.to_datetime(df['procedure_deadline'], errors='coerce').dt.date # ★追加
 
-    # 今日以降の日付をリストアップ
-    future_dates = []
+    # --- ★ここからロジック変更★ ---
+    # 今日以降の「出願期日」をリストアップ
+    future_app_deadlines = []
+    if 'app_deadline_dt' in df.columns:
+        future_app_deadlines = df[df['app_deadline_dt'] >= today]['app_deadline_dt'].dropna().tolist()
+
+    # 今日以降の出願期日があれば、最も近いものを返す
+    if future_app_deadlines:
+        nearest_date = min(future_app_deadlines)
+        return nearest_date.strftime('%Y-%m')
+
+    # 出願期日がない場合、他の今日以降の日付をリストアップ
+    future_other_dates = []
     if 'exam_dt' in df.columns:
-        future_dates.extend(df[df['exam_dt'] >= today]['exam_dt'].dropna().tolist())
+        future_other_dates.extend(df[df['exam_dt'] >= today]['exam_dt'].dropna().tolist())
     if 'announcement_dt' in df.columns:
-        future_dates.extend(df[df['announcement_dt'] >= today]['announcement_dt'].dropna().tolist())
+        future_other_dates.extend(df[df['announcement_dt'] >= today]['announcement_dt'].dropna().tolist())
+    if 'proc_deadline_dt' in df.columns:
+         future_other_dates.extend(df[df['proc_deadline_dt'] >= today]['proc_deadline_dt'].dropna().tolist())
 
-    if not future_dates:
-        return today.strftime('%Y-%m') # 未来の日付がなければ当月
+    # 他の日付があれば、最も近いものを返す
+    if future_other_dates:
+        nearest_date = min(future_other_dates)
+        return nearest_date.strftime('%Y-%m')
+    # --- ★ここまでロジック変更★ ---
 
-    # 最も近い未来の日付を見つける
-    nearest_date = min(future_dates)
-    return nearest_date.strftime('%Y-%m')
-# --- ★★★ ここまで追加 ★★★ ---
+    # 未来の日付が全くない場合は当月
+    return today.strftime('%Y-%m')
+# --- ★★★ ここまで修正 ★★★ ---
 
 def register_past_exam_callbacks(app):
     """過去問管理ページのコールバックを登録する"""
