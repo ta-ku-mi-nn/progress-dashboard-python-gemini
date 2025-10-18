@@ -117,13 +117,12 @@ def register_bug_report_callbacks(app):
             return no_update, list_content
 
     # --- 詳細モーダル表示 (共通化) ---
-    # `Input` ID を修正 (str -> dict)
     @app.callback(
         [Output({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
          Output({'type': 'detail-modal-title', 'report_type': MATCH}, 'children'),
          Output({'type': 'detail-modal-body', 'report_type': MATCH}, 'children')],
         [Input({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'n_clicks'),
-         Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks')], # ID を dict に
+         Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks')],
         [State('auth-store', 'data'),
          State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id')],
         prevent_initial_call=True
@@ -150,15 +149,15 @@ def register_bug_report_callbacks(app):
             # クリックされたアイテムのn_clicksがNoneでないことを確認
             clicked_item_index = -1
             for i, clicks in enumerate(item_clicks):
-                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type') :
-                    # 現在のトリガーのクリック回数がNoneでないか、または以前のクリック回数より大きいか確認
-                    # (単純にNoneでないことを確認する方が安全かもしれない)
-                    if clicks > 0: # clicksがNoneでないことを確認
-                      clicked_item_index = i
-                      break
+                 # Check if clicks is not None and if the current item_id matches the triggered_id
+                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type'):
+                    # We found the clicked item, break the loop
+                    clicked_item_index = i
+                    break
 
+            # If no valid click was found for the triggered item, prevent update
             if clicked_item_index == -1:
-                 raise PreventUpdate # 該当するクリックイベントが見つからない
+                 raise PreventUpdate
 
             bug_id = triggered_id['index']
             get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
@@ -189,7 +188,6 @@ def register_bug_report_callbacks(app):
 
 
     # --- 管理者向け編集モーダル表示 (共通化) ---
-    # `Input` ID を修正 (str -> dict)
     @app.callback(
         [Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
          Output({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
@@ -197,7 +195,7 @@ def register_bug_report_callbacks(app):
          Output({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
          Output({'type': 'admin-detail-display', 'report_type': MATCH}, 'children')],
         [Input({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'n_clicks'),
-         Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')], # ID を dict に
+         Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')],
         [State('auth-store', 'data'),
          State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id')],
         prevent_initial_call=True
@@ -221,14 +219,15 @@ def register_bug_report_callbacks(app):
 
         # report-item がクリックされた場合
         if triggered_id.get('type') == 'report-item':
-             # クリックされたアイテムのn_clicksがNoneでないことを確認
+            # クリックされたアイテムのn_clicksがNoneでないことを確認
             clicked_item_index = -1
             for i, clicks in enumerate(edit_clicks):
-                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type') :
-                    if clicks > 0: # clicksがNoneでないことを確認
-                      clicked_item_index = i
-                      break
-
+                 # Check if clicks is not None and if the current item_id matches the triggered_id
+                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type'):
+                     # We found the clicked item, break the loop
+                    clicked_item_index = i
+                    break
+             # If no valid click was found for the triggered item, prevent update
             if clicked_item_index == -1:
                  raise PreventUpdate
 
@@ -247,13 +246,11 @@ def register_bug_report_callbacks(app):
 
         return no_update, no_update, no_update, no_update, None
 
-    # --- 管理者によるステータス更新 (共通化) ---
-    # Output を修正
+    # --- Callback 1: 管理者によるステータス更新 (MATCHED Outputs: Alert, Modal) ---
     @app.callback(
         [Output({'type': 'admin-alert', 'report_type': MATCH}, 'children'),
          Output({'type': 'admin-alert', 'report_type': MATCH}, 'is_open'),
-         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open', allow_duplicate=True),
-         Output('save-status-result-store', 'data')], # <= 変更: 中間Storeに出力
+         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open', allow_duplicate=True)],
         Input({'type': 'save-status-btn', 'report_type': MATCH}, 'n_clicks'),
         [State({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
          State({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
@@ -261,75 +258,92 @@ def register_bug_report_callbacks(app):
          State({'type': 'save-status-btn', 'report_type': MATCH}, 'id')],
         prevent_initial_call=True
     )
-    def save_status(n_clicks, bug_id, status, message, button_id):
+    def save_status_matched(n_clicks, bug_id, status, message, button_id):
         if not n_clicks or not bug_id:
             raise PreventUpdate
 
-        report_type = button_id['report_type'] # ボタンのIDから report_type を取得
+        report_type = button_id['report_type']
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
 
-        # resolve_request 関数は status を受け取るように修正されている前提
         if status in ['対応済', '見送り']:
             success, msg = resolve_func(bug_id, message, status)
-        elif status in ['未対応', '対応中']: # '見送り' 以外の更新
+        elif status in ['未対応', '対応中']:
             success, msg = update_func(bug_id, status)
         else:
             success = False
             msg = "無効なステータスです。"
 
-
-        result_data = {
-            'timestamp': datetime.now().isoformat(),
-            'success': success,
-            'message': msg,
-            'report_type': report_type
-        }
-
         if success:
-            # アラートクリア、モーダル閉じる、結果をStoreへ
-            return "", False, False, result_data
+            # アラートクリア、モーダル閉じる
+            return "", False, False
         else:
-            # エラーアラート表示、モーダル開いたまま、結果をStoreへ
-            return dbc.Alert(f"エラー: {msg}", color="danger"), True, True, result_data
+            # エラーアラート表示、モーダル開いたまま
+            return dbc.Alert(f"エラー: {msg}", color="danger"), True, True
 
-
-    # --- ステータス保存結果を処理してトーストとリスト更新トリガーを発行 ---
+    # --- Callback 2: 管理者によるステータス更新 (Non-MATCHED Outputs: Stores) ---
     @app.callback(
         [Output('toast-trigger', 'data', allow_duplicate=True),
          Output('report-update-trigger', 'data', allow_duplicate=True)],
-        Input('save-status-result-store', 'data'),
+        Input({'type': 'save-status-btn', 'report_type': ALL}, 'n_clicks'), # Use ALL here
+        [State({'type': 'editing-id-store', 'report_type': ALL}, 'data'),
+         State({'type': 'status-dropdown', 'report_type': ALL}, 'value'),
+         State({'type': 'resolution-message-input', 'report_type': ALL}, 'value'),
+         State({'type': 'save-status-btn', 'report_type': ALL}, 'id')], # Get ALL IDs
         prevent_initial_call=True
     )
-    def handle_save_status_result(result_data):
-        if not result_data:
+    def save_status_stores(n_clicks_list, bug_id_list, status_list, message_list, button_id_list):
+        ctx = callback_context
+        # Find which button was actually clicked
+        triggered_button_id_str = ctx.triggered_id
+        if not triggered_button_id_str:
+            raise PreventUpdate
+
+        # Parse the triggered ID string back into a dictionary
+        try:
+            triggered_button_id = json.loads(triggered_button_id_str)
+        except json.JSONDecodeError:
+            raise PreventUpdate # Should not happen if IDs are correct
+
+        # Find the index corresponding to the triggered button
+        triggered_index = -1
+        for i, btn_id in enumerate(button_id_list):
+            if btn_id == triggered_button_id:
+                triggered_index = i
+                break
+
+        if triggered_index == -1 or n_clicks_list[triggered_index] is None:
+            raise PreventUpdate # Click not found or n_clicks is None
+
+        # Get the corresponding states using the found index
+        bug_id = bug_id_list[triggered_index]
+        status = status_list[triggered_index]
+        message = message_list[triggered_index]
+        button_id = triggered_button_id # Already have the dict
+
+        if not bug_id: # Check if bug_id is valid
+            raise PreventUpdate
+
+        report_type = button_id['report_type']
+        resolve_func = resolve_bug if report_type == 'bug' else resolve_request
+        update_func = update_bug_status if report_type == 'bug' else update_request_status
+
+        if status in ['対応済', '見送り']:
+            success, msg = resolve_func(bug_id, message, status)
+        elif status in ['未対応', '対応中']:
+             success, msg = update_func(bug_id, status)
+        else:
+            success = False
+            msg = "無効なステータスです。" # Should ideally not happen due to dropdown
+
+        if success:
+            toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type}_report'}
+            update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type}
+            # トースト表示、リスト更新トリガー
+            return toast_data, update_trigger
+        else:
+            # 失敗時は何もしない (アラートは別コールバックで表示)
             return no_update, no_update
-
-        report_type = result_data.get('report_type', 'unknown')
-        message = result_data.get('message', '処理が完了しました。')
-        success = result_data.get('success', False)
-
-        toast_data = {
-            'timestamp': result_data.get('timestamp', datetime.now().isoformat()),
-            'message': message,
-            'source': f'{report_type}_report' # sourceを明確に
-        }
-
-        # 成功した場合のみリスト更新トリガーを発行
-        update_trigger = {'timestamp': result_data.get('timestamp'), 'type': report_type} if success else no_update
-
-        return toast_data, update_trigger
 
     # --- IDを汎用化するためのヘルパー ---
     # (不要になったため削除)
-
-# コールバックIDの修正（submitボタンなど）
-# components/bug_report_layout.py の create_report_form 内のボタンIDも修正が必要です。
-# 例: id=f"submit-{form_id_prefix}-btn"
-
-# components/bug_report_layout.py の create_admin_modal 内のボタンIDも修正が必要です。
-# 例: id={'type': 'save-status-btn', 'report_type': report_type}
-# 例: id={'type': 'cancel-admin-modal', 'report_type': report_type}
-
-# components/bug_report_layout.py の create_detail_modal 内のボタンIDも修正が必要です。
-# 例: id={'type': 'close-detail-modal', 'report_type': report_type}
