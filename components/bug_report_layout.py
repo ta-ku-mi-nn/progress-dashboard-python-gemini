@@ -108,8 +108,8 @@ def create_bug_report_layout(user_info):
         # モーダル (不具合用と要望用)
         create_detail_modal("bug"),
         create_detail_modal("request"),
-        create_admin_modal("bug").children.append(html.Div(style={'display': 'block' if is_admin else 'none'})), # 内部要素としてスタイルを追加 (より安全な方法)
-        create_admin_modal("request").children.append(html.Div(style={'display': 'block' if is_admin else 'none'})),# 上記と同様
+        create_admin_modal("bug"),
+        create_admin_modal("request"),
         # 共通のトースト用Storeなど
         dcc.Store(id='report-update-trigger', storage_type='memory'), # リスト更新トリガー用
     ], fluid=True)
