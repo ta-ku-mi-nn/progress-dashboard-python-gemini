@@ -1161,3 +1161,91 @@ def delete_acceptance_result(result_id):
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
         conn.close()
+
+def add_feature_request(reporter_username, title, description):
+    """新しい機能要望をデータベースに追加する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO feature_requests (reporter_username, report_date, title, description)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (reporter_username, datetime.now().strftime("%Y-%m-%d %H:%M"), title, description)
+            )
+        conn.commit()
+        return True, "要望が送信されました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (add_feature_request): {e}") # エラーログ追加
+        return False, f"要望の送信中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+def get_all_feature_requests():
+    """すべての機能要望を取得する"""
+    conn = get_db_connection()
+    requests = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # report_date で降順ソート
+            cur.execute("SELECT * FROM feature_requests ORDER BY report_date DESC")
+            requests_cursor = cur.fetchall()
+            requests = [dict(row) for row in requests_cursor]
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_all_feature_requests): {e}") # エラーログ追加
+    finally:
+        if conn:
+            conn.close()
+    return requests
+
+def update_request_status(request_id, status):
+    """機能要望のステータスを更新する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE feature_requests SET status = %s WHERE id = %s",
+                (status, request_id)
+            )
+        conn.commit()
+        # 更新された行数をチェック
+        if cur.rowcount == 0:
+             return False, "指定されたIDの要望が見つかりません。"
+        return True, "ステータスが更新されました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (update_request_status): {e}") # エラーログ追加
+        return False, f"ステータス更新中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+def resolve_request(request_id, resolution_message, status='対応済'): # status 引数を追加
+    """機能要望を指定されたステータスにし、対応メッセージを保存する"""
+    conn = get_db_connection()
+    # status が '対応済' または '見送り' であることを確認
+    if status not in ['対応済', '見送り']:
+        return False, "無効なステータスです。"
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE feature_requests SET status = %s, resolution_message = %s WHERE id = %s",
+                (status, resolution_message, request_id)
+            )
+        conn.commit()
+        # 更新された行数をチェック
+        if cur.rowcount == 0:
+             return False, "指定されたIDの要望が見つかりません。"
+        status_text = "対応済み" if status == "対応済" else "見送り"
+        return True, f"要望が {status_text} に更新されました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (resolve_request): {e}") # エラーログ追加
+        return False, f"更新中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
