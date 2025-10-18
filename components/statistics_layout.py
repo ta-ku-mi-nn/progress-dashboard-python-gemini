@@ -13,7 +13,7 @@ def create_statistics_layout(user_info):
     school = user_info.get('school', '校舎不明')
 
     return dbc.Container([
-        html.H2(f"{school} の学習レベル統計", className="my-4"),
+        html.H3(f"{school} の学習レベル統計", className="my-4"),
         dbc.Row([
             dbc.Col(
                 dcc.Dropdown(

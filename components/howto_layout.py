@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 def create_howto_layout(user_info):
     return html.Div([
         dbc.Row([
-            dbc.Col(html.H2("使い方")),
+            dbc.Col(html.H3("使い方")),
         ], className="my-4"),
         dbc.Row(
             dbc.Col(

@@ -67,7 +67,7 @@ def create_bug_report_layout(user_info):
     # ★★★ ここまで修正 ★★★
 
     return dbc.Container([
-        html.H2("不具合報告", className="my-4"),
+        html.H3("不具合報告", className="my-4"),
         dbc.Row([
             dbc.Col(report_form, md=4),
             dbc.Col(report_list, md=8),

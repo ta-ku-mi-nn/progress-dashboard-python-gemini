@@ -103,7 +103,7 @@ def create_homework_layout(user_info):
 
     return html.Div([
         dbc.Row([
-            dbc.Col(html.H2("宿題管理")),
+            dbc.Col(html.H3("宿題管理")),
             dbc.Col(
                 dbc.Button("新しい宿題を追加", id="add-homework-btn", color="success"),
                 className="text-end"

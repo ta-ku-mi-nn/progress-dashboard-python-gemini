@@ -95,9 +95,9 @@ def create_past_exam_layout():
     acceptance_tab_content = html.Div([
         dcc.Store(id='editing-acceptance-id-store'),
         dbc.Row([
-            dbc.Col(html.H4("大学合否記録")),
+            dbc.Col(html.H4("入試管理")),
             dbc.Col(
-                dbc.Button("合否結果を追加する", id="open-acceptance-modal-btn", color="success"),
+                dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success"),
                 className="text-end"
             )
         ], align="center", className="my-4"),
@@ -167,11 +167,11 @@ def create_past_exam_layout():
 
     # --- タブ構造 ---
     return html.Div([
-        html.H2("過去問・合否管理", className="my-4"),
+        html.H3("過去問・入試管理", className="my-4"),
         dbc.Tabs(
             [
                 dbc.Tab(past_exam_tab_content, label="過去問管理", tab_id="tab-past-exam"),
-                dbc.Tab(acceptance_tab_content, label="大学合否", tab_id="tab-acceptance"),
+                dbc.Tab(acceptance_tab_content, label="入試管理", tab_id="tab-acceptance"),
                 dbc.Tab(calendar_tab_content, label="受験スケジュール", tab_id="tab-gantt"), # コンテンツ変数を変更
             ],
             id="past-exam-tabs",
