@@ -183,13 +183,10 @@ def register_past_exam_callbacks(app):
          Input('past-exam-university-filter', 'value'), Input('past-exam-subject-filter', 'value'),
          Input('refresh-past-exam-table-btn', 'n_clicks')],
     )
-    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks): # 引数に refresh_clicks を追加
+    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks):
         ctx = callback_context
-        # toast_trigger または refresh_button が押された時のみ処理を進めるか、
-        # student_id, filter が変更された時も更新する
-        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load' # 初期ロード対応
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # toast 由来で source が違う場合 or 更新ボタンでも n_clicks が None の場合は早期リターン
         if triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'past_exam':
                 raise PreventUpdate
@@ -198,7 +195,35 @@ def register_past_exam_callbacks(app):
 
         if not student_id:
             alert_message = dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
-            return alert_message, [], [] # アラートと空のリスト2つを返す
+            return alert_message, [], [] # 修正済み: 3つの要素を返す
+
+        results = get_past_exam_results_for_student(student_id)
+        df = pd.DataFrame(results) if results else pd.DataFrame()
+
+        # ↓↓↓ データフレームが空かどうかのチェックを追加 ↓↓↓
+        if df.empty:
+            alert_message = dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4")
+            # データがない場合も、オプションは空リストで返す
+            return alert_message, [], []
+        # ↑↑↑ 修正ここまで ↑↑↑
+
+        # オプション生成 (データがある前提でOK)
+        university_options = [{'label': u, 'value': u} for u in sorted(df['university_name'].unique())]
+        subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())]
+
+        # フィルター処理
+        df_filtered = df.copy()
+        if selected_university:
+             df_filtered = df_filtered[df_filtered['university_name'] == selected_university]
+        if selected_subject:
+             df_filtered = df_filtered[df_filtered['subject'] == selected_subject]
+
+        # ↓↓↓ フィルター結果が空の場合のチェックを追加 ↓↓↓
+        if df_filtered.empty:
+             alert_message = dbc.Alert("フィルターに一致する過去問結果はありません。", color="warning", className="mt-4")
+             # フィルター結果が空でも、元のオプションは返す
+             return alert_message, university_options, subject_options
+        # ↑↑↑ 修正ここまで ↑↑↑
 
 
     # --- 大学合否タブ関連のコールバック ---
