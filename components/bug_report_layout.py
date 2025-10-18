@@ -13,7 +13,6 @@ def create_report_form(report_type):
     return dbc.Card([
         dbc.CardHeader(header_text + "(褒め言葉でもOK)"),
         dbc.CardBody([
-            dbc.Alert(id=f"{form_id_prefix}-alert", is_open=False),
             dbc.Input(id=f"{form_id_prefix}-title", placeholder="件名", className="mb-3"),
             dbc.Textarea(id=f"{form_id_prefix}-description", placeholder=placeholder_text, className="mb-3", rows=5),
             dbc.Button(button_text, id=f"submit-{form_id_prefix}-btn", color="primary", className="w-100")
@@ -109,8 +108,8 @@ def create_bug_report_layout(user_info):
         # モーダル (不具合用と要望用)
         create_detail_modal("bug"),
         create_detail_modal("request"),
-        create_admin_modal("bug") if is_admin else html.Div(),
-        create_admin_modal("request") if is_admin else html.Div(),
+        create_admin_modal("bug").children.append(html.Div(style={'display': 'block' if is_admin else 'none'})), # 内部要素としてスタイルを追加 (より安全な方法)
+        create_admin_modal("request").children.append(html.Div(style={'display': 'block' if is_admin else 'none'})),# 上記と同様
         # 共通のトースト用Storeなど
         dcc.Store(id='report-update-trigger', storage_type='memory'), # リスト更新トリガー用
     ], fluid=True)
