@@ -1,100 +1,122 @@
 /* assets/calendar.css */
 
-.horizontal-calendar {
-    width: 100%; /* 親要素に合わせる */
-    min-width: 1200px; /* 横スクロールを促す最小幅 (日付の数に応じて調整) */
+/* --- テーブル全体のスタイル --- */
+.calendar-table {
+    width: 100%;
+    /* min-width: 1200px; /* 必要に応じて調整 */
     border-collapse: collapse;
-    table-layout: fixed; /* 列幅を均等にする */
+    table-layout: fixed; /* 列幅を固定 */
     margin-bottom: 2rem;
-    font-size: 0.8rem; /* 全体の文字サイズを少し小さく */
-    border: 1px solid #dee2e6; /* 外枠 */
-}
-
-.horizontal-calendar th,
-.horizontal-calendar td {
+    font-size: 0.8rem;
     border: 1px solid #dee2e6;
-    padding: 4px;
-    text-align: center;
-    vertical-align: top; /* イベントを上寄せ */
-    height: 100px; /* イベントセルの高さを固定 (調整可能) */
-    width: 3.33%; /* 100% / 30日 (目安) */
-    position: relative;
-    overflow: hidden; /* セルからはみ出さないように */
+    white-space: nowrap; /* セル内での改行を防ぐ */
 }
 
-.horizontal-calendar th {
+/* --- ヘッダーセルのスタイル --- */
+.calendar-table th {
+    border: 1px solid #dee2e6;
+    padding: 6px 4px; /* 上下左右のパディング調整 */
+    text-align: center;
     background-color: #f8f9fa;
     font-weight: normal;
-    height: auto;
-    padding: 6px 2px;
-    white-space: nowrap; /* 日付と曜日が改行しないように */
+    font-size: 0.75rem; /* ヘッダーの文字を少し小さく */
+    vertical-align: middle; /* 上下中央揃え */
+    /* width: calc((100% - 220px) / 31); /* 日付列の幅を計算 (31日分で割る例) */
+    min-width: 40px; /* 日付セルの最小幅 */
 }
 
-/* ヘッダーの曜日 */
-.horizontal-calendar th br {
-    display: block; /* 改行を強制 */
+/* 情報列ヘッダーのスタイル */
+.calendar-info-header-cell {
+    width: 220px; /* 情報列の幅を固定 (調整可能) */
+    background-color: #e9ecef; /* 少し濃い背景色 */
+    font-weight: bold;
+}
+
+/* ヘッダーの曜日表示用の改行 */
+.calendar-table th br {
+    display: block;
     content: "";
-    margin-top: 2px; /* 日付と曜日の間隔 */
+    margin-top: 2px;
 }
 
-
-/* 土日のヘッダー背景色 (画像に合わせる) */
-.horizontal-calendar th.saturday {
-    background-color: #dcedfc; /* 薄い青 */
+/* 土日のヘッダー背景色 */
+.calendar-table th.saturday {
+    background-color: #dcedfc;
     color: #006eda;
 }
-.horizontal-calendar th.sunday {
-    background-color: #ffe8d9; /* 薄いオレンジ */
+.calendar-table th.sunday {
+    background-color: #ffe8d9;
     color: #e57300;
 }
 
-/* 土日のイベントセル背景色 */
-.horizontal-calendar td.saturday {
-    background-color: #f0f8ff; /* さらに薄い青 */
-}
-.horizontal-calendar td.sunday {
-    background-color: #fff7f0; /* さらに薄いオレンジ */
-}
-
-
-/* イベントアイテム */
-.event-item {
-    font-size: 0.7rem; /* イベント文字サイズ */
+/* --- ボディセル (情報列) のスタイル --- */
+.calendar-info-cell {
+    border: 1px solid #dee2e6;
+    padding: 8px;
     text-align: left;
-    margin-bottom: 2px;
-    padding: 1px 3px;
-    border-radius: 3px;
-    white-space: nowrap; /* 折り返さない */
-    overflow: hidden;
-    text-overflow: ellipsis; /* はみ出した部分は...で表示 */
-    line-height: 1.2;
-    cursor: default; /* ツールチップ表示のため */
-}
-/* 空行の高さ確保 */
-.event-item-placeholder {
-    height: calc(0.7rem * 1.2 + 2px); /* event-item の高さに合わせる */
-    margin-bottom: 2px;
+    vertical-align: top; /* 上寄せ */
+    font-size: 0.75rem;
+    white-space: normal; /* 大学名は折り返す */
+    line-height: 1.3;
+    width: 220px; /* ヘッダーと合わせる */
+    background-color: #f8f9fa; /* ヘッダーより少し薄い背景 */
 }
 
-/* イベントタイプごとのスタイル */
-.event.event-exam {
-    background-color: #cfe2ff;
-    border-left: 3px solid #0d6efd;
-    color: #0a58ca;
+/* --- ボディセル (日付列) のスタイル --- */
+.calendar-date-cell {
+    border: 1px solid #dee2e6;
+    padding: 4px; /* パディングを小さく */
+    text-align: center;
+    vertical-align: middle; /* アイコンを中央揃え */
+    height: 50px; /* 各行の高さを固定 (調整可能) */
+    font-size: 1rem; /* アイコンサイズ調整用 */
+    position: relative; /* 今日の日付マーカー用 (オプション) */
+    /* width: calc((100% - 220px) / 31); /* ヘッダーと合わせる */
+    min-width: 40px; /* ヘッダーと合わせる */
 }
-.event.event-pass {
-    background-color: #d1e7dd;
-    border-left: 3px solid #198754;
-    color: #146c43;
-    font-weight: bold;
+
+/* 土日の日付セル背景色 */
+.calendar-date-cell.saturday {
+    background-color: #f0f8ff;
 }
-.event.event-fail {
-    background-color: #f8d7da;
-    border-left: 3px solid #dc3545;
-    color: #b02a37;
+.calendar-date-cell.sunday {
+    background-color: #fff7f0;
 }
-.event.event-pending {
-    background-color: #e2e3e5;
-    border-left: 3px solid #6c757d;
-    color: #565e64;
+
+/* --- 受験日と発表日の背景色 --- */
+.exam-date-cell {
+    background-color: #f8d7da !important; /* Bootstrapのdanger背景色 (薄め) */
+    color: #842029; /* 文字色 */
 }
+
+.announcement-date-cell {
+    background-color: #d1e7dd !important; /* Bootstrapのsuccess背景色 (薄め) */
+    color: #0f5132; /* 文字色 */
+}
+
+/* 受験日と発表日が重なった場合 (発表日を優先) */
+.announcement-date-cell.exam-date-cell {
+     background-color: #d1e7dd !important;
+     color: #0f5132;
+}
+
+/* オプション: 今日の日付を視覚的に示す */
+/*
+.today-cell::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 6px;
+    height: 6px;
+    background-color: #0d6efd;
+    border-radius: 50%;
+}
+*/
+
+/* --- 不要になったスタイルを削除 --- */
+/*
+.horizontal-calendar td { ... }
+.event-item { ... }
+.event-item-placeholder { ... }
+.event { ... }
