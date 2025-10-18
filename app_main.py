@@ -11,6 +11,12 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output
 import plotly.io as pio
+from flask import request, jsonify # Flaskのrequestとjsonifyを追加
+import json # jsonを追加
+from data.nested_json_processor import get_db_connection
+import psycopg2
+from psycopg2.extras import DictCursor
+from datetime import datetime
 
 # --- グラフ描画の安定化のため、デフォルトテンプレートを設定 ---
 pio.templates.default = "plotly_white"
@@ -58,6 +64,9 @@ from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from components.statistics_layout import create_statistics_layout # 追加
 from callbacks.statistics_callbacks import register_statistics_callbacks # 追加
+from data.nested_json_processor import add_past_exam_result, add_acceptance_result
+
+API_KEY = "YOUR_SECRET_API_KEY"  # 適切なAPIキーに置き換えてください
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
@@ -287,6 +296,158 @@ register_past_exam_callbacks(app)
 register_bug_report_callbacks(app)
 register_statistics_callbacks(app) # この行を追加
 
+# === APIエンドポイントを追加 ===
+@server.route('/api/get-student-id', methods=['GET'])
+def get_student_id_by_name():
+    # APIキーの検証
+    auth_key = request.headers.get('X-API-KEY')
+    if auth_key != API_KEY:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    # クエリパラメータから校舎名と生徒名を取得
+    school = request.args.get('school')
+    name = request.args.get('name')
+
+    if not school or not name:
+        return jsonify({"success": False, "message": "Missing 'school' or 'name' query parameter"}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                "SELECT id FROM students WHERE school = %s AND name = %s",
+                (school, name)
+            )
+            student = cur.fetchone()
+
+        if student:
+            return jsonify({"success": True, "student_id": student['id']}), 200
+        else:
+            return jsonify({"success": False, "message": "Student not found"}), 404
+
+    except (Exception, psycopg2.Error) as e:
+        print(f"Error processing /api/get-student-id: {e}")
+        # conn.rollback() # SELECT文なので通常ロールバックは不要
+        return jsonify({"success": False, "message": "An internal error occurred"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@server.route('/api/submit-past-exam', methods=['POST'])
+def submit_past_exam_result():
+    # APIキーの検証 (簡易的な例)
+    auth_key = request.headers.get('X-API-KEY')
+    if auth_key != API_KEY:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    try:
+        data = request.get_json()
+        print(f"Received past exam data: {data}") # ログ出力（デバッグ用）
+
+        # --- データの検証 ---
+        required_fields = ['student_id', 'date', 'university_name', 'year', 'subject', 'total_questions']
+        if not all(field in data for field in required_fields):
+            return jsonify({"success": False, "message": "Missing required fields"}), 400
+
+        # --- データの整形 ---
+        # GASから送られてくるデータ形式に合わせて調整が必要な場合があります
+        # 例: total_questions, correct_answers が文字列で送られてくる場合、数値に変換
+        try:
+            student_id = int(data['student_id']) # ダッシュボード側の生徒IDに変換が必要な場合がある
+            year = int(data['year'])
+            total_questions = int(data['total_questions'])
+            correct_answers = int(data['correct_answers']) if data.get('correct_answers') else None
+            time_required = int(data['time_required']) if data.get('time_required') else None
+            total_time_allowed = int(data['total_time_allowed']) if data.get('total_time_allowed') else None
+            # 日付形式の確認・変換 (YYYY-MM-DD を想定)
+            date_val = datetime.strptime(data['date'], '%Y-%m-%d').strftime('%Y-%m-%d')
+        except (ValueError, TypeError) as e:
+            print(f"Data conversion error: {e}")
+            return jsonify({"success": False, "message": f"Invalid data format: {e}"}), 400
+
+        result_data = {
+            'date': date_val,
+            'university_name': data['university_name'],
+            'faculty_name': data.get('faculty_name'),
+            'exam_system': data.get('exam_system'),
+            'year': year,
+            'subject': data['subject'],
+            'time_required': time_required,
+            'total_time_allowed': total_time_allowed,
+            'correct_answers': correct_answers,
+            'total_questions': total_questions
+        }
+
+        # --- データベースへの保存 ---
+        success, message = add_past_exam_result(student_id, result_data)
+
+        if success:
+            return jsonify({"success": True, "message": message}), 200
+        else:
+            return jsonify({"success": False, "message": message}), 500
+
+    except json.JSONDecodeError:
+        return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+    except Exception as e:
+        print(f"Error processing /api/submit-past-exam: {e}") # エラーログ
+        return jsonify({"success": False, "message": "An internal error occurred"}), 500
+
+@server.route('/api/submit-acceptance', methods=['POST'])
+def submit_acceptance_result():
+    # APIキーの検証
+    auth_key = request.headers.get('X-API-KEY')
+    if auth_key != API_KEY:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    try:
+        data = request.get_json()
+        print(f"Received acceptance data: {data}")
+
+        # --- データの検証 ---
+        required_fields = ['student_id', 'university_name', 'faculty_name']
+        if not all(field in data for field in required_fields):
+            return jsonify({"success": False, "message": "Missing required fields (student_id, university_name, faculty_name)"}), 400
+
+        # --- データの整形 ---
+        try:
+            student_id = int(data['student_id'])
+            # 日付フィールドが存在すれば形式チェック (YYYY-MM-DD を想定)
+            date_fields = ['application_deadline', 'exam_date', 'announcement_date', 'procedure_deadline']
+            result_data = {
+                'university_name': data['university_name'],
+                'faculty_name': data['faculty_name'],
+                'department_name': data.get('department_name'),
+                'exam_system': data.get('exam_system'),
+                'result': data.get('result'), # GAS側で合否も入力する場合
+            }
+            for field in date_fields:
+                if data.get(field):
+                    result_data[field] = datetime.strptime(data[field], '%Y-%m-%d').strftime('%Y-%m-%d')
+                else:
+                    result_data[field] = None # フィールドがない場合はNone
+
+        except (ValueError, TypeError) as e:
+             print(f"Data conversion error: {e}")
+             return jsonify({"success": False, "message": f"Invalid data format: {e}"}), 400
+
+        # --- データベースへの保存 ---
+        # 注意: add_acceptance_result は result を引数に取らない場合があるので、
+        # 必要に応じて data/nested_json_processor.py の関数を修正するか、
+        # ここで result を除外する
+        # （現在の add_acceptance_result は result を受け取るのでそのまま）
+        success, message = add_acceptance_result(student_id, result_data)
+
+        if success:
+            return jsonify({"success": True, "message": message}), 200
+        else:
+            return jsonify({"success": False, "message": message}), 500
+
+    except json.JSONDecodeError:
+        return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+    except Exception as e:
+        print(f"Error processing /api/submit-acceptance: {e}")
+        return jsonify({"success": False, "message": "An internal error occurred"}), 500
 
 if __name__ == '__main__':
     # このブロックは 'python app_main.py' で実行したときのみ動作

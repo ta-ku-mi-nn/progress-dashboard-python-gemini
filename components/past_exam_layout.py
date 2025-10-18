@@ -17,6 +17,7 @@ def create_past_exam_layout():
             dbc.Col(html.H4("過去問演習記録")), # H2からH4に変更
             dbc.Col(
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success"),
+                dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-past-exam-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
                 className="text-end"
             )
         ], align="center", className="my-4"),
@@ -98,6 +99,7 @@ def create_past_exam_layout():
             dbc.Col(html.H4("入試管理")),
             dbc.Col(
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success"),
+                dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-acceptance-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
                 className="text-end"
             )
         ], align="center", className="my-4"),
@@ -157,6 +159,7 @@ def create_past_exam_layout():
             dbc.Col(html.H4("受験カレンダー"), width='auto'),
             dbc.Col(
                 dbc.ButtonGroup([
+                    dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
                     dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary", size="sm"),
                     dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary", size="sm")
                 ]),

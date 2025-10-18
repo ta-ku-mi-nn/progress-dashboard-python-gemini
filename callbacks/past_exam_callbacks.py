@@ -180,41 +180,24 @@ def register_past_exam_callbacks(app):
          Output('past-exam-university-filter', 'options'),
          Output('past-exam-subject-filter', 'options')],
         [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
-         Input('past-exam-university-filter', 'value'), Input('past-exam-subject-filter', 'value')],
+         Input('past-exam-university-filter', 'value'), Input('past-exam-subject-filter', 'value'),
+         Input('refresh-past-exam-table-btn', 'n_clicks')],
     )
-    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject):
+    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks): # 引数に refresh_clicks を追加
         ctx = callback_context
-        if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if toast_data.get('source') != 'past_exam': raise PreventUpdate
-        if not student_id: return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4"), [], []
-        results = get_past_exam_results_for_student(student_id)
-        df = pd.DataFrame(results) if results else pd.DataFrame()
-        university_options = [{'label': u, 'value': u} for u in sorted(df['university_name'].unique())] if not df.empty else []
-        subject_options = [{'label': s, 'value': s} for s in sorted(df['subject'].unique())] if not df.empty else []
-        if df.empty: return dbc.Alert("この生徒の過去問結果はまだありません。", color="info", className="mt-4"), university_options, subject_options
-        df_filtered = df.copy()
-        if selected_university: df_filtered = df_filtered[df_filtered['university_name'] == selected_university]
-        if selected_subject: df_filtered = df_filtered[df_filtered['subject'] == selected_subject]
-        if df_filtered.empty: return dbc.Alert("フィルターに一致する過去問結果はありません。", color="warning", className="mt-4"), university_options, subject_options
-        def calculate_percentage(row):
-            correct, total = row['correct_answers'], row['total_questions']
-            return f"{(correct / total * 100):.1f}%" if pd.notna(correct) and pd.notna(total) and total > 0 else ""
-        df_filtered['正答率'] = df_filtered.apply(calculate_percentage, axis=1)
-        def format_time(row):
-            req, total = row['time_required'], row['total_time_allowed']
-            if pd.notna(req) and pd.notna(total): return f"{int(req)}/{int(total)}"
-            return f"{int(req)}" if pd.notna(req) else ""
-        df_filtered['所要時間(分)'] = df_filtered.apply(format_time, axis=1)
-        table_header = [html.Thead(html.Tr([html.Th("日付"), html.Th("大学名"), html.Th("学部名"), html.Th("入試方式"), html.Th("年度"), html.Th("科目"),
-                                            html.Th("所要時間(分)"), html.Th("正答率"), html.Th("操作")]))]
-        table_body = [html.Tbody([html.Tr([html.Td(row['date']), html.Td(row['university_name']), html.Td(row.get('faculty_name', '')),
-                                            html.Td(row.get('exam_system', '')), html.Td(row['year']), html.Td(row['subject']),
-                                            html.Td(row['所要時間(分)']), html.Td(row['正答率']),
-                                            html.Td([dbc.Button("編集", id={'type': 'edit-past-exam-btn', 'index': row['id']}, size="sm", className="me-1"),
-                                                     dbc.Button("削除", id={'type': 'delete-past-exam-btn', 'index': row['id']}, color="danger", size="sm", outline=True)])
-                                          ]) for _, row in df_filtered.iterrows()])]
-        table = dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
-        return table, university_options, subject_options
+        # toast_trigger または refresh_button が押された時のみ処理を進めるか、
+        # student_id, filter が変更された時も更新する
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load' # 初期ロード対応
+
+        # toast 由来で source が違う場合 or 更新ボタンでも n_clicks が None の場合は早期リターン
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') != 'past_exam':
+                raise PreventUpdate
+        elif triggered_id == 'refresh-past-exam-table-btn' and refresh_clicks is None:
+             raise PreventUpdate
+
+        if not student_id:
+            return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4"), [], []
 
 
     # --- 大学合否タブ関連のコールバック ---
@@ -311,36 +294,22 @@ def register_past_exam_callbacks(app):
     # --- update_acceptance_table 関数 ---
     @app.callback(
         Output('acceptance-table-container', 'children'),
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data')]
+        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
+         Input('refresh-acceptance-table-btn', 'n_clicks')]
     )
-    def update_acceptance_table(student_id, toast_data):
+    def update_acceptance_table(student_id, toast_data, refresh_clicks): # 引数に refresh_clicks を追加
         ctx = callback_context
-        # ... (既存のトリガーチェック) ...
-        if not student_id: return []
-        results = get_acceptance_results_for_student(student_id)
-        if not results: return dbc.Alert("この生徒の大学合否結果はまだありません。", color="info", className="mt-4")
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # ★テーブルヘッダーに期日列を追加
-        table_header = [html.Thead(html.Tr([
-            html.Th("大学名"), html.Th("学部名"), html.Th("学科名"), html.Th("受験方式"),
-            html.Th("出願期日"), html.Th("受験日"), html.Th("発表日"), html.Th("手続期日"), # ★列名変更・追加
-            html.Th("合否", style={'width': '150px'}), html.Th("操作", style={'width': '120px'})]))]
+        # toast 由来で source が違う場合 or 更新ボタンでも n_clicks が None の場合は早期リターン
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') != 'acceptance':
+                 raise PreventUpdate
+        elif triggered_id == 'refresh-acceptance-table-btn' and refresh_clicks is None:
+             raise PreventUpdate
 
-        # ★テーブルボディに期日データを追加
-        table_body = [html.Tbody([html.Tr([
-            html.Td(r['university_name']), html.Td(r['faculty_name']), html.Td(r.get('department_name', '')),
-            html.Td(r.get('exam_system', '')),
-            html.Td(r.get('application_deadline', '')), # ★追加
-            html.Td(r.get('exam_date', '')),
-            html.Td(r.get('announcement_date', '')),
-            html.Td(r.get('procedure_deadline', '')), # ★追加
-            html.Td(dcc.Dropdown(id={'type': 'acceptance-result-dropdown', 'index': r['id']},
-                                 options=[{'label': '未選択', 'value': ''}, {'label': '合格', 'value': '合格'}, {'label': '不合格', 'value': '不合格'}],
-                                 value=r.get('result') if r.get('result') is not None else '', clearable=False, style={'minWidth': '100px'})),
-            html.Td([dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': r['id']}, size="sm", className="me-1"),
-                     dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': r['id']}, color="danger", size="sm", outline=True)])
-        ]) for r in results])]
-        return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
+        if not student_id:
+             return [] # dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4") # レイアウトに合わせて変更
 
     @app.callback(
         [Output('delete-acceptance-confirm', 'displayed'),
@@ -396,15 +365,22 @@ def register_past_exam_callbacks(app):
     # --- 大学合否カレンダーの更新 ---
     @app.callback(
         Output('acceptance-calendar-container', 'children'),
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'), Input('current-calendar-month-store', 'data')],
+        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
+         Input('current-calendar-month-store', 'data'), Input('refresh-calendar-btn', 'n_clicks')],
         State('past-exam-tabs', 'active_tab')
     )
-    def update_acceptance_calendar(student_id, toast_data, target_month, active_tab):
+    def update_acceptance_calendar(student_id, toast_data, target_month, refresh_clicks, active_tab): # 引数に refresh_clicks を追加
         ctx = callback_context
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
+
+        # カレンダータブ以外 or toast の source が違う or 更新ボタンで n_clicks が None の場合早期リターン
         if active_tab != 'tab-gantt': raise PreventUpdate
-        if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if toast_data.get('source') != 'acceptance': raise PreventUpdate
-        if not target_month: target_month = date.today().strftime('%Y-%m') # target_monthがNoneの場合、当月を設定
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') != 'acceptance': raise PreventUpdate
+        elif triggered_id == 'refresh-calendar-btn' and refresh_clicks is None:
+             raise PreventUpdate
+
+        if not target_month: target_month = date.today().strftime('%Y-%m')
         if not student_id: return create_html_calendar([], target_month)
         acceptance_data = get_acceptance_results_for_student(student_id)
         calendar_html = create_html_calendar(acceptance_data, target_month)
