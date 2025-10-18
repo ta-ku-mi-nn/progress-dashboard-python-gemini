@@ -65,12 +65,11 @@ def register_bug_report_callbacks(app):
 
     # --- 一覧の表示 (変更なし) ---
     @app.callback(
-        [Output('bug-list-container', 'children'),
-         Output('request-list-container', 'children')],
-        [Input('report-tabs', 'active_tab'),
-         Input('report-update-trigger', 'data')]
+        [Output('bug-list-container', 'children'), Output('request-list-container', 'children')],
+        [Input('report-tabs', 'active_tab'), Input('report-update-trigger', 'data')]
     )
     def update_report_list(active_tab, update_trigger):
+        # (内容は変更なし)
         ctx = callback_context
         if not ctx.triggered_id and active_tab is None: raise PreventUpdate
         if not active_tab: raise PreventUpdate
@@ -90,155 +89,211 @@ def register_bug_report_callbacks(app):
         if report_type == 'bug': return list_content, no_update
         else: return no_update, list_content
 
-    def register_modal_toggle_callback(report_type_match):
-        @app.callback(
-            Output({'type': 'detail-modal', 'report_type': report_type_match}, 'is_open'),
-            Output({'type': 'admin-modal', 'report_type': report_type_match}, 'is_open'),
-            # ★★★ allow_duplicate=True を追加 ★★★
-            Output(editing_store_id, 'data', allow_duplicate=True),
-            # Inputs (変更なし)
-            Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
-            Input(f'close-{modal_report_type}-detail-modal', 'n_clicks'),
-            Input(f'cancel-{modal_report_type}-admin-modal', 'n_clicks'),
-            Input('report-modal-control-store', 'data'),
-            State('auth-store', 'data'),
-            prevent_initial_call=True
-        )
-        def toggle_modal(item_clicks, close_detail_click, cancel_admin_click, control_data, user_info):
-            ctx = callback_context
-            triggered_prop_id_str = next(iter(ctx.triggered_prop_ids.keys()), None)
-            if not triggered_prop_id_str: raise PreventUpdate
+    # --- ★★★★★★★★★★★★★★★★★★★★★★★★ ---
+    # --- ★★★ コールバック修正 v9 (単一コールバック) ★★★ ---
+    # --- ★★★★★★★★★★★★★★★★★★★★★★★★ ---
+    @app.callback(
+        # --- Outputs for ALL modals (simple IDs) ---
+        Output('bug-detail-modal', 'is_open'),
+        Output('bug-detail-modal-title', 'children'),
+        Output('bug-detail-modal-body', 'children'),
+        Output('bug-admin-modal', 'is_open'),
+        Output('bug-admin-detail-display', 'children'),
+        Output('bug-status-dropdown', 'value'),
+        Output('bug-resolution-message-input', 'value'),
+        Output('request-detail-modal', 'is_open'),
+        Output('request-detail-modal-title', 'children'),
+        Output('request-detail-modal-body', 'children'),
+        Output('request-admin-modal', 'is_open'),
+        Output('request-admin-detail-display', 'children'),
+        Output('request-status-dropdown', 'value'),
+        Output('request-resolution-message-input', 'value'),
+        # --- Shared Store Output ---
+        Output('editing-report-store', 'data', allow_duplicate=True),
+        # --- Inputs (ALL pattern for items, simple IDs for close buttons) ---
+        Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
+        Input('close-bug-detail-modal', 'n_clicks'),
+        Input('cancel-bug-admin-modal', 'n_clicks'),
+        Input('close-request-detail-modal', 'n_clicks'),
+        Input('cancel-request-admin-modal', 'n_clicks'),
+        # --- Input for closing after save ---
+        Input('report-modal-control-store', 'data'),
+        # --- State ---
+        State('auth-store', 'data'),
+        prevent_initial_call=True
+    )
+    def handle_modal_toggle_final(item_clicks, close_bug_detail, cancel_bug_admin,
+                                  close_req_detail, cancel_req_admin, control_data, user_info):
+        ctx = callback_context
+        triggered_prop_id_str = next(iter(ctx.triggered_prop_ids.keys()), None)
+        if not triggered_prop_id_str: raise PreventUpdate
 
-            # --- Handle close signal from control store ---
-            if triggered_prop_id_str == 'report-modal-control-store.data':
-                 if control_data and control_data.get('report_type') == modal_report_type and control_data.get('modal_type') == 'close':
-                     print(f"Closing modals for {modal_report_type} due to control store")
-                     return False, False, no_update # Keep store data
-                 else:
-                     raise PreventUpdate
+        # --- Initialize all outputs to no_update ---
+        # Bug Detail
+        bug_detail_open = no_update
+        bug_detail_title = no_update
+        bug_detail_body = no_update
+        # Bug Admin
+        bug_admin_open = no_update
+        bug_admin_display = no_update
+        bug_status_val = no_update
+        bug_message_val = no_update
+        # Request Detail
+        req_detail_open = no_update
+        req_detail_title = no_update
+        req_detail_body = no_update
+        # Request Admin
+        req_admin_open = no_update
+        req_admin_display = no_update
+        req_status_val = no_update
+        req_message_val = no_update
+        # Store
+        store_data_out = no_update
 
-            # --- Handle button/item clicks ---
-            trigger_value = None
-            triggered_id_dict = None
-            is_pattern_match = False
-            try:
-                id_str = triggered_prop_id_str.split('.')[0]
-                if id_str.startswith('{'):
-                    triggered_id_dict = json.loads(id_str)
-                    is_pattern_match = True
-            except (json.JSONDecodeError, IndexError, AttributeError): triggered_id_dict = None
-            if not is_pattern_match: triggered_id_dict = {'type': triggered_prop_id_str.split('.')[0]}
-            for trigger_info in ctx.triggered:
-                if trigger_info['prop_id'] == triggered_prop_id_str: trigger_value = trigger_info['value']; break
-            trigger_type = triggered_id_dict.get('type')
-            trigger_report_type = triggered_id_dict.get('report_type')
-            if is_pattern_match and trigger_report_type != modal_report_type: raise PreventUpdate
+        # --- Determine Trigger ---
+        trigger_value = None
+        triggered_id_dict = None
+        is_pattern_match = False
+        try:
+            id_str = triggered_prop_id_str.split('.')[0]
+            if id_str.startswith('{'):
+                triggered_id_dict = json.loads(id_str)
+                is_pattern_match = True
+            else: triggered_id_dict = {'type': id_str} # Simple ID
+        except (json.JSONDecodeError, IndexError, AttributeError): raise PreventUpdate
+        for trigger_info in ctx.triggered:
+            if trigger_info['prop_id'] == triggered_prop_id_str: trigger_value = trigger_info['value']; break
+        trigger_type = triggered_id_dict.get('type')
+        trigger_report_type = triggered_id_dict.get('report_type') # None for simple IDs
 
+        # --- Handle Close Signal from Control Store ---
+        if trigger_type == 'report-modal-control-store':
+            if control_data and control_data.get('modal_type') == 'close':
+                close_report_type = control_data.get('report_type')
+                print(f"Closing modals for {close_report_type} via control store")
+                if close_report_type == 'bug': bug_detail_open, bug_admin_open = False, False
+                elif close_report_type == 'request': req_detail_open, req_admin_open = False, False
+                # Keep store data as is
+            else: raise PreventUpdate # Ignore other store updates
+
+        # --- Handle Button/Item Clicks ---
+        else:
             # --- Closing Modals ---
-            if trigger_type == f'close-{modal_report_type}-detail-modal' or \
-               trigger_type == f'cancel-{modal_report_type}-admin-modal':
+            if trigger_type in ['close-bug-detail-modal', 'cancel-bug-admin-modal',
+                                'close-request-detail-modal', 'cancel-request-admin-modal']:
                 if not trigger_value: raise PreventUpdate
-                print(f"Closing modals for {modal_report_type} via button")
-                return False, False, no_update # Keep store data
+                print(f"Closing modal via button: {trigger_type}")
+                if 'bug' in trigger_type: bug_detail_open, bug_admin_open = False, False
+                elif 'request' in trigger_type: req_detail_open, req_admin_open = False, False
+                # Keep store data as is
 
             # --- Opening Modals ---
-            if trigger_type == 'report-item':
-                 if not trigger_value:
-                     print(f"Closing modals for {modal_report_type} due to n_clicks=0")
-                     return False, False, None # Close and clear store
-                 report_id = triggered_id_dict.get('index')
-                 is_admin = user_info and user_info.get('role') == 'admin'
-                 print(f"Opening {'admin' if is_admin else 'detail'} modal for {modal_report_type}, id={report_id}")
-                 if is_admin: return False, True, {'id': report_id, 'type': modal_report_type}
-                 else: return True, False, {'id': report_id, 'type': modal_report_type}
+            elif trigger_type == 'report-item':
+                if not trigger_value:
+                    print(f"Closing modals due to n_clicks=0 for {trigger_report_type}")
+                    if trigger_report_type == 'bug': bug_detail_open, bug_admin_open, store_data_out = False, False, None
+                    elif trigger_report_type == 'request': req_detail_open, req_admin_open, store_data_out = False, False, None
+                else:
+                    report_id = triggered_id_dict.get('index')
+                    print(f"Item click: report_id={report_id}, report_type={trigger_report_type}")
+                    get_func = get_all_bug_reports if trigger_report_type == 'bug' else get_all_feature_requests
+                    reports = get_func()
+                    report = next((r for r in reports if r['id'] == report_id), None)
 
-            raise PreventUpdate
+                    if not report:
+                        print("Report not found.")
+                        error_alert = dbc.Alert("報告データが見つかりません。", color="danger")
+                        if trigger_report_type == 'bug': bug_detail_open, bug_detail_title, bug_detail_body, bug_admin_open = True, "エラー", error_alert, False
+                        elif trigger_report_type == 'request': req_detail_open, req_detail_title, req_detail_body, req_admin_open = True, "エラー", error_alert, False
+                    else:
+                        is_admin = user_info and user_info.get('role') == 'admin'
+                        store_data_out = {'id': report_id, 'type': trigger_report_type} # Set store data
 
-        # Define the store ID used within this factory
-        editing_store_id = 'editing-report-store'
-        modal_report_type = report_type_match # Clarify variable name for inner function
+                        if is_admin:
+                            print("Admin user - opening admin modal")
+                            details = html.Div([ html.H5(report['title']), html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"), dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light") ])
+                            if trigger_report_type == 'bug':
+                                bug_detail_open, bug_admin_open = False, True
+                                bug_admin_display, bug_status_val, bug_message_val = details, report['status'], report.get('resolution_message', '')
+                                # Ensure other type's modals are closed
+                                req_detail_open, req_admin_open = False, False
+                            elif trigger_report_type == 'request':
+                                req_detail_open, req_admin_open = False, True
+                                req_admin_display, req_status_val, req_message_val = details, report['status'], report.get('resolution_message', '')
+                                # Ensure other type's modals are closed
+                                bug_detail_open, bug_admin_open = False, False
+                        else:
+                            print("Non-admin user - opening detail modal")
+                            body = [ html.P([html.Strong("報告者: "), report['reporter_username']]), html.P([html.Strong("報告日時: "), report['report_date']]), html.Hr(), html.P(report['description'], style={'whiteSpace': 'pre-wrap'}), ]
+                            if report['status'] in ['対応済', '見送り'] and report.get('resolution_message'):
+                                status_label = "対応内容" if report['status'] == '対応済' else "コメント"
+                                body.extend([ html.Hr(), html.Strong(f"{status_label}:"), dbc.Card(dbc.CardBody(report['resolution_message']), className="mt-2 bg-light") ])
+                            if trigger_report_type == 'bug':
+                                bug_detail_open, bug_admin_open = True, False
+                                bug_detail_title, bug_detail_body = report['title'], body
+                                # Ensure other type's modals are closed
+                                req_detail_open, req_admin_open = False, False
+                            elif trigger_report_type == 'request':
+                                req_detail_open, req_admin_open = True, False
+                                req_detail_title, req_detail_body = report['title'], body
+                                # Ensure other type's modals are closed
+                                bug_detail_open, bug_admin_open = False, False
+            else:
+                 # Unhandled trigger type
+                 raise PreventUpdate
 
-    # Register the toggle callbacks
-    register_modal_toggle_callback('bug')
-    register_modal_toggle_callback('request')
 
-    # --- モーダル内容更新 コールバック (変更なし) ---
-    def create_content_callback(modal_report_type, is_admin_modal):
-        modal_id = f"{modal_report_type}-{'admin' if is_admin_modal else 'detail'}-modal"
-        store_id = 'editing-report-store'
-        outputs = []
-        if is_admin_modal:
-            outputs = [
-                Output(f'{modal_report_type}-admin-detail-display', 'children'),
-                Output(f'{modal_report_type}-status-dropdown', 'value'),
-                Output(f'{modal_report_type}-resolution-message-input', 'value')
-            ]
-        else:
-            outputs = [
-                Output(f'{modal_report_type}-detail-modal-title', 'children'),
-                Output(f'{modal_report_type}-detail-modal-body', 'children')
-            ]
-        @app.callback(
-            outputs,
-            Input(modal_id, 'is_open'),
-            State(store_id, 'data'),
-            prevent_initial_call=True
+        # Return all output values
+        return (
+            bug_detail_open, bug_detail_title, bug_detail_body,
+            bug_admin_open, bug_admin_display, bug_status_val, bug_message_val,
+            req_detail_open, req_detail_title, req_detail_body,
+            req_admin_open, req_admin_display, req_status_val, req_message_val,
+            store_data_out
         )
-        def update_modal_content(is_open, store_data):
-            if not is_open or not store_data or store_data.get('type') != modal_report_type:
-                return [no_update] * len(outputs)
-            report_id = store_data.get('id')
-            if report_id is None: return [no_update] * len(outputs)
-            print(f"Updating content for {modal_id}, id={report_id}")
-            get_func = get_all_bug_reports if modal_report_type == 'bug' else get_all_feature_requests
-            reports = get_func()
-            report = next((r for r in reports if r['id'] == report_id), None)
-            if not report:
-                 error_alert = dbc.Alert("報告データが見つかりません。", color="danger")
-                 if is_admin_modal: return error_alert, no_update, no_update
-                 else: return "エラー", error_alert
-            if is_admin_modal:
-                details = html.Div([ html.H5(report['title']), html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"), dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light") ])
-                return details, report['status'], report.get('resolution_message', '')
-            else: # Detail Modal
-                body = [ html.P([html.Strong("報告者: "), report['reporter_username']]), html.P([html.Strong("報告日時: "), report['report_date']]), html.Hr(), html.P(report['description'], style={'whiteSpace': 'pre-wrap'}), ]
-                if report['status'] in ['対応済', '見送り'] and report.get('resolution_message'):
-                    status_label = "対応内容" if report['status'] == '対応済' else "コメント"
-                    body.extend([ html.Hr(), html.Strong(f"{status_label}:"), dbc.Card(dbc.CardBody(report['resolution_message']), className="mt-2 bg-light") ])
-                return report['title'], body
-    create_content_callback('bug', False)
-    create_content_callback('bug', True)
-    create_content_callback('request', False)
-    create_content_callback('request', True)
 
-    # --- 管理者によるステータス更新コールバック (変更なし) ---
+
+    # --- 管理者によるステータス更新コールバック (ID単純化) ---
     def create_save_status_callback(report_type_match):
         @app.callback(
+            # Alert Outputs (Specific ID)
             Output(f'{report_type_match}-admin-alert', 'children'),
             Output(f'{report_type_match}-admin-alert', 'is_open'),
+            # Store/Toast Outputs (Allow duplicate)
             Output('toast-trigger', 'data', allow_duplicate=True),
             Output('report-update-trigger', 'data', allow_duplicate=True),
-            Output('report-modal-control-store', 'data', allow_duplicate=True),
+            Output('report-modal-control-store', 'data', allow_duplicate=True), # To close modal
+            # Input (Specific ID)
             Input(f'save-{report_type_match}-status-btn', 'n_clicks'),
+            # State (Specific ID + Shared Store)
             State('editing-report-store', 'data'),
             State(f'{report_type_match}-status-dropdown', 'value'),
             State(f'{report_type_match}-resolution-message-input', 'value'),
             prevent_initial_call=True
         )
         def save_status(n_clicks, store_data, status, message):
-            if not n_clicks or not store_data or store_data.get('type') != report_type_match: raise PreventUpdate
+            # Check click and if store data matches the report type for this callback
+            if not n_clicks or not store_data or store_data.get('type') != report_type_match:
+                raise PreventUpdate
+
             report_id = store_data.get('id')
             if report_id is None: raise PreventUpdate
+
             resolve_func = resolve_bug if report_type_match == 'bug' else resolve_request
             update_func = update_bug_status if report_type_match == 'bug' else update_request_status
+
             if status in ['対応済', '見送り']: success, msg = resolve_func(report_id, message, status)
             elif status in ['未対応', '対応中']: success, msg = update_func(report_id, status)
             else: success = False; msg = "無効なステータスです。"
+
             if success:
                 toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type_match}_report'}
                 update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type_match}
                 close_modal_data = {'report_type': report_type_match, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
                 return "", False, toast_data, update_trigger, close_modal_data
-            else: return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update, no_update
+            else:
+                return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update, no_update
+
+    # Register save status callbacks
     create_save_status_callback('bug')
     create_save_status_callback('request')
