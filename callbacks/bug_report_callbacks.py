@@ -34,54 +34,55 @@ def register_bug_report_callbacks(app):
     def submit_report_or_request(bug_clicks, request_clicks, active_tab, user_info,
                                  bug_title, bug_desc, req_title, req_desc):
         ctx = callback_context
-        if not ctx.triggered_id:
-            raise PreventUpdate
-
+        if not ctx.triggered_id: raise PreventUpdate
         if not user_info or not user_info.get('username'):
-            alert = dbc.Alert("ログインしていません。", color="danger")
-            if active_tab == 'tab-bug-report':
-                return alert, True, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
-            else:
-                return no_update, no_update, alert, True, no_update, no_update, no_update, no_update, no_update, no_update
+            alert_msg = "ログインしていません。"
+            is_bug_tab = active_tab == 'tab-bug-report'
+            bug_alert = (dbc.Alert(alert_msg, color="danger"), True) if is_bug_tab else (no_update, no_update)
+            req_alert = (dbc.Alert(alert_msg, color="danger"), True) if not is_bug_tab else (no_update, no_update)
+            return bug_alert[0], bug_alert[1], req_alert[0], req_alert[1], no_update, no_update, no_update, no_update, no_update, no_update
 
         reporter = user_info['username']
-        title, description, report_type = (bug_title, bug_desc, 'bug') if ctx.triggered_id == 'submit-bug-btn' else (req_title, req_desc, 'request')
+        is_bug_submit = ctx.triggered_id == 'submit-bug-btn'
+        title, description, report_type = (bug_title, bug_desc, 'bug') if is_bug_submit else (req_title, req_desc, 'request')
         add_func = add_bug_report if report_type == 'bug' else add_feature_request
 
         if not title or not description:
-            alert = dbc.Alert("件名と詳細を入力してください。", color="warning")
-            if report_type == 'bug':
-                return alert, True, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
-            else:
-                return no_update, no_update, alert, True, no_update, no_update, no_update, no_update, no_update, no_update
+            alert_msg = "件名と詳細を入力してください。"
+            bug_alert = (dbc.Alert(alert_msg, color="warning"), True) if is_bug_submit else (no_update, no_update)
+            req_alert = (dbc.Alert(alert_msg, color="warning"), True) if not is_bug_submit else (no_update, no_update)
+            return bug_alert[0], bug_alert[1], req_alert[0], req_alert[1], no_update, no_update, no_update, no_update, no_update, no_update
 
         success, message = add_func(reporter, title, description)
 
         if success:
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': f'{report_type}_report'}
             update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type}
-            if report_type == 'bug':
-                return "", False, no_update, no_update, "", "", no_update, no_update, toast_data, update_trigger
-            else:
-                return no_update, no_update, "", False, no_update, no_update, "", "", toast_data, update_trigger
+            bug_title_clear, bug_desc_clear = ("", "") if is_bug_submit else (no_update, no_update)
+            req_title_clear, req_desc_clear = ("", "") if not is_bug_submit else (no_update, no_update)
+            bug_alert = ("", False) if is_bug_submit else (no_update, no_update)
+            req_alert = ("", False) if not is_bug_submit else (no_update, no_update)
+            return bug_alert[0], bug_alert[1], req_alert[0], req_alert[1], bug_title_clear, bug_desc_clear, req_title_clear, req_desc_clear, toast_data, update_trigger
         else:
-            alert = dbc.Alert(f"エラー: {message}", color="danger")
-            if report_type == 'bug':
-                return alert, True, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
-            else:
-                return no_update, no_update, alert, True, no_update, no_update, no_update, no_update, no_update, no_update
+            alert_msg = f"エラー: {message}"
+            bug_alert = (dbc.Alert(alert_msg, color="danger"), True) if is_bug_submit else (no_update, no_update)
+            req_alert = (dbc.Alert(alert_msg, color="danger"), True) if not is_bug_submit else (no_update, no_update)
+            return bug_alert[0], bug_alert[1], req_alert[0], req_alert[1], no_update, no_update, no_update, no_update, no_update, no_update
+
 
     # --- 一覧の表示 (共通化) ---
     # (変更なし)
     @app.callback(
         [Output('bug-list-container', 'children'),
          Output('request-list-container', 'children')],
-        [Input('report-tabs', 'active_tab'), # urlから変更
-         Input('report-update-trigger', 'data')] # 更新トリガー
+        [Input('report-tabs', 'active_tab'),
+         Input('report-update-trigger', 'data')]
     )
     def update_report_list(active_tab, update_trigger):
-        if not active_tab:
-            raise PreventUpdate
+        # Allow initial call or trigger by update
+        ctx = callback_context
+        if not ctx.triggered_id and active_tab is None : raise PreventUpdate # Prevent if no active tab on initial load
+        if not active_tab: raise PreventUpdate # Prevent if active_tab becomes None later
 
         report_type = 'bug' if active_tab == 'tab-bug-report' else 'request'
         get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
@@ -106,7 +107,8 @@ def register_bug_report_callbacks(app):
                     ], align="center"),
                     id={'type': 'report-item', 'report_type': report_type, 'index': r['id']},
                     action=True,
-                    className="report-list-item"
+                    className="report-list-item",
+                    n_clicks=0 # Initialize n_clicks
                 ) for r in reports
             ]
             list_content = dbc.ListGroup(items, flush=True)
@@ -118,99 +120,98 @@ def register_bug_report_callbacks(app):
 
 
     # ★★★★★★★★★★★★★★★★★★★★
-    # ★★★ 修正箇所 (v3) ★★★
+    # ★★★ 修正箇所 (v4) ★★★
     # ★★★★★★★★★★★★★★★★★★★★
     @app.callback(
-        # --- モーダルの Output (MATCH を使用) ---
+        # Outputs using MATCH
         Output({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
         Output({'type': 'detail-modal-title', 'report_type': MATCH}, 'children'),
         Output({'type': 'detail-modal-body', 'report_type': MATCH}, 'children'),
         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
         Output({'type': 'admin-detail-display', 'report_type': MATCH}, 'children'),
-        # --- Store の Output (MATCH を使用) ---
         Output({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
         Output({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
         Output({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
-        # --- Input (トリガーとなる要素) ---
-        # report-item のクリック (ALL で report_type ごとに監視)
+        # Inputs using ALL
         Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
-        # 閉じる/キャンセルボタン (★ MATCH に変更 ★)
-        Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks'),
-        Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks'),
-        # --- State ---
+        Input({'type': 'close-detail-modal', 'report_type': ALL}, 'n_clicks'), # Back to ALL
+        Input({'type': 'cancel-admin-modal', 'report_type': ALL}, 'n_clicks'), # Back to ALL
+        # State
         State('auth-store', 'data'),
-        prevent_initial_call=True # 初回読み込み時は実行しない
+        prevent_initial_call=True
     )
-    def handle_modal_toggle_v3(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
+    def handle_modal_toggle_v4(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
         ctx = callback_context
-
         triggered_prop_id_str = ctx.triggered_prop_ids.get('.')
         if not triggered_prop_id_str:
             raise PreventUpdate
 
-        # 現在のコールバックの MATCH コンテキストを取得
-        # ctx.outputs_list[0][0]['id'] は {'type': '...', 'report_type': '...'}
-        current_match_context = ctx.outputs_list[0][0]['id']
-        current_report_type = current_match_context['report_type']
+        # --- Identify MATCH context ---
+        # The callback runs twice (once for MATCH='bug', once for MATCH='request')
+        # We need to know which context this instance is running under.
+        current_match_context_report_type = ctx.outputs_list[0][0]['id']['report_type']
 
-        # トリガーIDを解析
+        # --- Identify Trigger ---
         try:
             triggered_id_str = triggered_prop_id_str.split('.')[0]
             if triggered_id_str.startswith('{'):
                  triggered_id_dict = json.loads(triggered_id_str)
             else:
-                 # 通常の文字列IDの場合 (このコールバックでは発生しないはずだが念のため)
-                 triggered_id_dict = {'type': triggered_id_str} # ダミーのtype
-        except (json.JSONDecodeError, IndexError) as e:
-            print(f"Error parsing triggered ID: {e}, ID string: {triggered_prop_id_str}")
+                 # Should not happen with pattern matching inputs
+                 raise PreventUpdate
+        except (json.JSONDecodeError, IndexError):
             raise PreventUpdate
 
         trigger_type = triggered_id_dict.get('type')
-        # トリガーが report-item (ALL) の場合、IDから report_type を取得
-        # トリガーが close/cancel ボタン (MATCH) の場合、current_report_type を使う
-        trigger_report_type = triggered_id_dict.get('report_type', current_report_type)
+        # Get the report_type from the element that was actually clicked
+        trigger_report_type = triggered_id_dict.get('report_type')
 
-        print(f"Callback Context: {current_report_type}, Trigger Type: {trigger_type}, Trigger Report Type: {trigger_report_type}") # デバッグ用
+        print(f"Callback Context: {current_match_context_report_type}, Trigger Type: {trigger_type}, Trigger Report Type: {trigger_report_type}") # Debug
 
-        # --- モーダルを閉じる処理 (MATCH トリガー) ---
+        # --- IMPORTANT: Filter Execution ---
+        # Only proceed if the trigger's report_type matches the callback's MATCH context
+        if trigger_report_type != current_match_context_report_type:
+            # print(f"Preventing update for context {current_match_context_report_type} because trigger was {trigger_report_type}")
+            raise PreventUpdate
+
+        # --- Handle Trigger ---
+        # --- Closing Modals ---
         if trigger_type in ['close-detail-modal', 'cancel-admin-modal']:
-             # このコールバックインスタンスが担当する report_type のボタンが押された場合のみ閉じる
-             if trigger_report_type == current_report_type:
-                 print(f"Closing modal for {current_report_type}")
-                 return False, no_update, no_update, False, no_update, no_update, no_update, no_update
-             else:
-                 # 関係ない report_type のボタンが押されても、このインスタンスは反応しない
-                 raise PreventUpdate
-
-        # --- リスト項目クリック時の処理 (ALL トリガー) ---
-        if trigger_type == 'report-item':
-            # このコールバックインスタンスが担当する report_type の項目がクリックされたか？
-            if trigger_report_type != current_report_type:
-                # 違う場合は、このインスタンスは PreventUpdate
-                print(f"Ignoring item click for {trigger_report_type} in {current_report_type} context.")
+            # Get n_clicks value for the specific button that triggered
+            trigger_value = ctx.triggered[0]['value'] if ctx.triggered else None
+            if not trigger_value: # Only close if n_clicks > 0
                 raise PreventUpdate
+            print(f"Closing modal for {current_match_context_report_type}")
+            # Close both potential modals for this context
+            return False, no_update, no_update, False, no_update, no_update, no_update, no_update
 
-            # クリックイベントの値 (n_clicks) を取得
+        # --- Opening Modals (report-item click) ---
+        if trigger_type == 'report-item':
+            # Get n_clicks value
             clicked_n_clicks = ctx.triggered[0]['value'] if ctx.triggered else None
-            if not clicked_n_clicks:
-                # クリック値がない (初期状態など) 場合は、モーダルを確実に閉じるか no_update
-                print("Click value is None or 0, closing/preventing update.")
-                return False, no_update, no_update, False, no_update, no_update, no_update, no_update # 確実に閉じる
+            if not clicked_n_clicks: # Only open if n_clicks > 0
+                 # If n_clicks is 0 or None, we might want to ensure modals are closed
+                 # or just prevent update if they weren't the direct trigger.
+                 # Let's ensure closed state for safety on 0 clicks.
+                 print(f"Item click value is {clicked_n_clicks}. Ensuring modals closed for {current_match_context_report_type}.")
+                 return False, no_update, no_update, False, no_update, no_update, no_update, no_update
 
-            # データを取得してモーダルを開く処理 (v2 と同様)
+
             report_id = triggered_id_dict.get('index')
-            print(f"Handling item click for report_id={report_id}, report_type={current_report_type}")
+            print(f"Handling item click for report_id={report_id}, report_type={current_match_context_report_type}")
 
-            get_func = get_all_bug_reports if current_report_type == 'bug' else get_all_feature_requests
+            # Fetch data (using the confirmed current_match_context_report_type)
+            get_func = get_all_bug_reports if current_match_context_report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == report_id), None)
 
             if not report:
-                print("Report not found.")
-                return True, "エラー", dbc.Alert("報告が見つかりません。", color="danger"), False, no_update, no_update, no_update, no_update
+                 print("Report not found.")
+                 return True, "エラー", dbc.Alert("報告が見つかりません。", color="danger"), False, no_update, no_update, no_update, no_update
 
             is_admin = user_info and user_info.get('role') == 'admin'
 
+            # Open the correct modal based on role
             if is_admin:
                 print("Admin user - opening admin modal")
                 details = html.Div([
@@ -218,7 +219,7 @@ def register_bug_report_callbacks(app):
                     html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"),
                     dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light")
                 ])
-                # is_open, title, body, is_open_admin, admin_details, editing_id, status, message
+                # Close detail, Open admin, set admin details, set store data
                 return False, no_update, no_update, True, details, report_id, report['status'], report.get('resolution_message', '')
             else:
                 print("Non-admin user - opening detail modal")
@@ -235,16 +236,16 @@ def register_bug_report_callbacks(app):
                         html.Strong(f"{status_label}:"),
                         dbc.Card(dbc.CardBody(report['resolution_message']), className="mt-2 bg-light")
                     ])
-                # is_open, title, body, is_open_admin, admin_details, editing_id, status, message
+                # Open detail, Close admin, set detail title/body, clear store data
                 return True, report['title'], body, False, no_update, no_update, no_update, no_update
 
-        # その他の予期せぬトリガー
-        print("Unhandled trigger, preventing update.")
+        # Fallback if trigger type wasn't handled
         raise PreventUpdate
 
     # ★★★★★★★★★★★★★★★★★★★★
     # ★★★ 修正箇所ここまで ★★★
     # ★★★★★★★★★★★★★★★★★★★★
+
 
     # --- Callback 1: 管理者によるステータス更新 (MATCHED Outputs: Alert, Modal) ---
     # (変更なし)
@@ -260,22 +261,15 @@ def register_bug_report_callbacks(app):
         prevent_initial_call=True
     )
     def save_status_matched(n_clicks, bug_id, status, message, button_id):
-        if not n_clicks or not bug_id:
-            raise PreventUpdate
+        if not n_clicks or not bug_id: raise PreventUpdate
         report_type = button_id['report_type']
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
-        if status in ['対応済', '見送り']:
-            success, msg = resolve_func(bug_id, message, status)
-        elif status in ['未対応', '対応中']:
-            success, msg = update_func(bug_id, status)
-        else:
-            success = False
-            msg = "無効なステータスです。"
-        if success:
-            return "", False, False
-        else:
-            return dbc.Alert(f"エラー: {msg}", color="danger"), True, True
+        if status in ['対応済', '見送り']: success, msg = resolve_func(bug_id, message, status)
+        elif status in ['未対応', '対応中']: success, msg = update_func(bug_id, status)
+        else: success = False; msg = "無効なステータスです。"
+        if success: return "", False, False
+        else: return dbc.Alert(f"エラー: {msg}", color="danger"), True, True
 
     # --- Callback 2: 管理者によるステータス更新 (Non-MATCHED Outputs: Stores) ---
     # (変更なし)
@@ -295,8 +289,7 @@ def register_bug_report_callbacks(app):
         if not triggered_prop_id_str: raise PreventUpdate
         try:
             triggered_id_str = triggered_prop_id_str.split('.')[0]
-            if triggered_id_str.startswith('{'):
-                 triggered_button_id = json.loads(triggered_id_str)
+            if triggered_id_str.startswith('{'): triggered_button_id = json.loads(triggered_id_str)
             else: raise PreventUpdate
         except (json.JSONDecodeError, IndexError) as e: raise PreventUpdate
         triggered_index = -1
