@@ -14,10 +14,10 @@ def create_past_exam_layout():
         dcc.Store(id='editing-past-exam-id-store'),
 
         dbc.Row([
-            dbc.Col(
+            dbc.Col([
                 html.H4("過去問演習記録"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted")
-            ), # H2からH4に変更
+            ]), # H2からH4に変更
             dbc.Col([ # Pass children as a list
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-past-exam-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
@@ -98,10 +98,10 @@ def create_past_exam_layout():
     acceptance_tab_content = html.Div([
         dcc.Store(id='editing-acceptance-id-store'),
         dbc.Row([
-            dbc.Col(
+            dbc.Col([
                 html.H4("入試管理"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted")
-                ),
+            ]),
             dbc.Col([ # Pass children as a list
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-acceptance-table-btn", color="secondary", outline=True, title="最新の情報に更新"),
@@ -160,10 +160,10 @@ def create_past_exam_layout():
     calendar_tab_content = html.Div([
         dcc.Store(id='current-calendar-month-store'), # 表示年月を保持 (YYYY-MM形式)
         dbc.Row([
-            dbc.Col(
+            dbc.Col([
                 html.H4("受験カレンダー"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted")
-            ),
+            ]),
             dbc.Col([ # Pass children as a list
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
                 dbc.ButtonGroup([
