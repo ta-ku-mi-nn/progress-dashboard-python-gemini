@@ -118,11 +118,9 @@ def register_bug_report_callbacks(app):
 
     @app.callback(
         # --- Outputs for BOTH modal types ---
-        # Detail Modal Outputs
         Output({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
         Output({'type': 'detail-modal-title', 'report_type': MATCH}, 'children'),
         Output({'type': 'detail-modal-body', 'report_type': MATCH}, 'children'),
-        # Admin Modal Outputs
         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
         Output({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
         Output({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
@@ -134,49 +132,84 @@ def register_bug_report_callbacks(app):
         Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')],
         # --- States ---
         [State('auth-store', 'data'),
-        State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id')],
+        State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id'),
+        # Stateを追加: モーダルが開いているかどうかの状態も確認する
+        State({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
+        State({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
+        ],
         prevent_initial_call=True
     )
-    def handle_modal_toggle(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info, item_ids):
+    def handle_modal_toggle(item_clicks, close_detail_clicks, cancel_admin_clicks,
+                            user_info, item_ids, detail_is_open, admin_is_open): # Stateの引数を追加
         ctx = callback_context
-        # トリガーがない、またはクリックされた値がない場合は更新しない
-        if not ctx.triggered_id or not any(ctx.triggered_prop_ids.values()):
+        triggered_input_id = ctx.triggered_id
+
+        # --- デバッグ出力 ---
+        print(f"\n--- handle_modal_toggle triggered ---")
+        print(f"Triggered ID: {triggered_input_id}")
+        print(f"User Info Role: {user_info.get('role') if user_info else 'No User Info'}")
+        print(f"Item Clicks: {item_clicks}")
+        print(f"Close Detail Clicks: {close_detail_clicks}")
+        print(f"Cancel Admin Clicks: {cancel_admin_clicks}")
+        print(f"Detail Modal Open State: {detail_is_open}")
+        print(f"Admin Modal Open State: {admin_is_open}")
+        # --- デバッグ出力ここまで ---
+
+        # トリガーがない場合は更新しない
+        if not triggered_input_id:
+            print("No triggered ID, preventing update.")
             raise PreventUpdate
 
-        triggered_id = ctx.triggered_id
-        report_type = triggered_id.get('report_type')
+        # triggered_idが辞書でない場合（close/cancelボタン）はそのまま使う
+        # 辞書の場合（report-item）は、それをそのまま使う
+        trigger_info = triggered_input_id
+        report_type = trigger_info.get('report_type') if isinstance(trigger_info, dict) else None
+        trigger_type = trigger_info.get('type') if isinstance(trigger_info, dict) else None # typeを取得
+
+        print(f"Extracted report_type: {report_type}")
+        print(f"Extracted trigger_type: {trigger_type}")
+
         is_admin = user_info and user_info.get('role') == 'admin'
 
         # --- モーダルを閉じる処理 ---
-        if triggered_id.get('type') == 'close-detail-modal':
-            # Detail Modal Outputs , Admin Modal Outputs
-            return False, no_update, no_update, False, no_update, no_update, no_update, no_update
-        if triggered_id.get('type') == 'cancel-admin-modal':
+        # detail-modal または admin-modal の閉じる/キャンセルボタンが押された場合
+        if trigger_type in ['close-detail-modal', 'cancel-admin-modal']:
+            print(f"Closing modal: {trigger_type}")
+            # is_open を False にして返す
             # Detail Modal Outputs , Admin Modal Outputs
             return False, no_update, no_update, False, no_update, no_update, no_update, no_update
 
         # --- リスト項目クリック時の処理 ---
-        if triggered_id.get('type') == 'report-item':
-            # クリックされたアイテムのインデックスを特定
-            clicked_item_index = -1
-            for i, clicks in enumerate(item_clicks):
-                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type'):
-                    clicked_item_index = i
-                    break
-            if clicked_item_index == -1:
-                raise PreventUpdate # 有効なクリックが見つからない場合
+        if trigger_type == 'report-item':
+            print("Report item clicked.")
+            # クリックされたn_clicksを取得 (単一の値のはず)
+            clicked_n_clicks = None
+            # ctx.triggered は [{ 'prop_id': '...', 'value': n_clicks }, ...] のリスト
+            if ctx.triggered and ctx.triggered[0].get('value') is not None:
+                clicked_n_clicks = ctx.triggered[0]['value']
+            print(f"Clicked n_clicks value: {clicked_n_clicks}")
 
-            report_id = triggered_id['index']
+            # n_clicks が 0 または None の場合はモーダルを開かない (既に開いているモーダルも閉じる)
+            if not clicked_n_clicks:
+                print("Click value is None or 0, closing modals or preventing update.")
+                # Detail Modal Outputs , Admin Modal Outputs
+                return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+
+
+            report_id = trigger_info['index']
+            print(f"Target report_id: {report_id}")
             get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == report_id), None)
 
             if not report:
+                print("Report not found.")
                 # エラー処理（どちらのモーダルも開かない）
                 return False, "エラー", "報告が見つかりません。", False, None, no_update, no_update, None
 
             # --- ユーザーの役割に応じて開くモーダルを決定 ---
             if is_admin:
+                print("User is admin, preparing admin modal.")
                 # 管理者モーダルを開く準備
                 details = html.Div([
                     html.H5(report['title']),
@@ -186,6 +219,7 @@ def register_bug_report_callbacks(app):
                 # Detail Modal Outputs , Admin Modal Outputs
                 return False, no_update, no_update, True, report_id, report['status'], report.get('resolution_message', ''), details
             else:
+                print("User is not admin, preparing detail modal.")
                 # 詳細モーダルを開く準備
                 body = [
                     html.P([html.Strong("報告者: "), report['reporter_username']]),
@@ -203,8 +237,9 @@ def register_bug_report_callbacks(app):
                 # Detail Modal Outputs , Admin Modal Outputs
                 return True, report['title'], body, False, no_update, no_update, no_update, no_update
 
-        # 上記のいずれにも該当しない場合は更新しない
-        return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        # 上記のいずれにも該当しない場合（予期せぬトリガーなど）は更新しない
+        print("Trigger type not matched, preventing update.")
+        raise PreventUpdate # または return [no_update] * 8 でも可
 
     # --- Callback 1: 管理者によるステータス更新 (MATCHED Outputs: Alert, Modal) ---
     @app.callback(
