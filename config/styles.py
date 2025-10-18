@@ -19,7 +19,6 @@ APP_INDEX_STRING = '''
             line-height: 1.6;
         }
 
-        /* ★★★ ここから修正 ★★★ */
         /* ローディング画面のアニメーション */
         ._dash-loading {
             position: fixed;
@@ -63,7 +62,6 @@ APP_INDEX_STRING = '''
                 transform: rotate(360deg);
             }
         }
-        /* ★★★ ここまで修正 ★★★ */
 
 
         /* タブの文字色を黒に設定 */

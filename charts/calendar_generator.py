@@ -1,4 +1,4 @@
-# charts/calendar_generator.py (修正版)
+# charts/calendar_generator.py
 
 import pandas as pd
 from dash import html
@@ -46,10 +46,9 @@ def create_html_calendar(acceptance_data, target_year_month):
     df['exam_dt'] = pd.to_datetime(df['exam_date'], errors='coerce')
     df['announcement_dt'] = pd.to_datetime(df['announcement_date'], errors='coerce')
 
-    # ★★★ 修正箇所: 月によるフィルタリングを削除し、全データを表示対象とする ★★★
+    # 月によるフィルタリングを削除し、全データを表示対象とする
     # 受験日でソート (受験日がないものは最後に)
     df_all_sorted = df.sort_values(by='exam_dt', ascending=True, na_position='last')
-    # ★★★ ここまで修正 ★★★
 
     if df_all_sorted.empty: # 変数名を変更
         return html.Div(dbc.Alert("表示する受験・合否データがありません。", color="info"))
@@ -67,10 +66,9 @@ def create_html_calendar(acceptance_data, target_year_month):
 
         # --- 2列目以降: 日付セル ---
         date_cells = []
-        # ★★★ 修正箇所: 日付が「表示月」に含まれるかチェックする ★★★
+        # 日付が「表示月」に含まれるかチェックする
         exam_day = row['exam_dt'].day if pd.notna(row['exam_dt']) and row['exam_dt'].year == year and row['exam_dt'].month == month else None
         announcement_day = row['announcement_dt'].day if pd.notna(row['announcement_dt']) and row['announcement_dt'].year == year and row['announcement_dt'].month == month else None
-        # ★★★ ここまで修正 ★★★
 
         for day in range(1, num_days + 1):
             cell_class = "calendar-date-cell"
@@ -82,7 +80,7 @@ def create_html_calendar(acceptance_data, target_year_month):
             if weekday_index == 5: cell_class += " saturday"
             elif weekday_index == 6: cell_class += " sunday"
 
-            # ★★★ 修正箇所: exam_day と announcement_day が None でない場合のみ色付けとアイコン表示 ★★★
+            # exam_day と announcement_day が None でない場合のみ色付けとアイコン表示
             if exam_day is not None and day == exam_day:
                 cell_class += " exam-date-cell"
                 content = "📝"
@@ -94,7 +92,6 @@ def create_html_calendar(acceptance_data, target_year_month):
                 result_icon = "🎉" if result_text == '合格' else ("❌" if result_text == '不合格' else "❓")
                 content = result_icon
                 title_text = f"発表日 ({result_text})"
-            # ★★★ ここまで修正 ★★★
 
             date_cells.append(html.Td(content, className=cell_class, title=title_text))
 

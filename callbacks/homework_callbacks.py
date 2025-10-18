@@ -218,8 +218,6 @@ def register_homework_callbacks(app):
             if i < len(output_values): output_values[i] = ranges[i]
         return output_values
 
-    # --- ★★★ ここから修正 ★★★ ---
-
     @app.callback(
         Output('delete-homework-confirm', 'displayed'),
         Input('delete-homework-btn', 'n_clicks'),
@@ -273,5 +271,3 @@ def register_homework_callbacks(app):
         empty_ranges = [''] * 7
         # 科目と参考書のドロップダウンはクリアしない (no_update を使わない代わりに Output から外す)
         return "", empty_ranges, "", "", None
-
-    # --- ★★★ ここまで修正 ★★★ ---

@@ -113,11 +113,9 @@ def main():
         for item in progress_items:
             new_student_id = student_id_map.get(item['student_id'])
             if new_student_id:
-                # ★★★ ここからが修正箇所 ★★★
                 # 整数をbool型に変換
                 is_planned_bool = bool(item['is_planned'])
                 is_done_bool = bool(item['is_done'])
-                # ★★★ ここまでが修正箇所 ★★★
 
                 progress_to_insert.append((
                     new_student_id, item['subject'], item['level'], item['book_name'],

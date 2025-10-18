@@ -1,4 +1,4 @@
-/* assets/assets/printable.css (修正版) */
+/* assets/assets/printable.css */
 
 @page {
     size: A4 portrait;
@@ -70,7 +70,7 @@
         page-break-inside: avoid !important;
     }
 
-/* ★★★ グラフ表示の強制（修正版） ★★★ */
+    /* グラフ表示の強制 */
     .js-plotly-plot {
         display: block !important;
         visibility: visible !important;
@@ -82,7 +82,7 @@
     }
 
     /* Plotlyの内部コンテナの表示を確保 */
-    .js-plotly-plot .plotly, 
+    .js-plotly-plot .plotly,
     .js-plotly-plot .svg-container {
         display: block !important;
         visibility: visible !important;
@@ -150,7 +150,7 @@
     .row, .col {
         page-break-inside: avoid;
     }
-    
+
     h2, h4 {
         page-break-after: avoid;
     }

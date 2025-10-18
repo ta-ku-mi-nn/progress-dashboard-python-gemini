@@ -55,20 +55,18 @@ def register_main_callbacks(app):
 
         student_info = get_student_info_by_id(student_id)
         subjects = get_subjects_for_student(student_id)
-        
+
         all_tabs = [dbc.Tab(label="総合", tab_id="総合")]
         if subjects:
             all_tabs.extend([dbc.Tab(label=subject, tab_id=subject) for subject in subjects])
 
         # ここで `subject-tabs` を生成する
         tabs = dbc.Tabs(all_tabs, id="subject-tabs", active_tab="総合")
-        
+
         action_buttons = []
         if can_access_student(user_info, student_info):
-            # ★★★ ここから修正 ★★★
             action_buttons.append(dbc.Button("進捗を更新", id={'type': 'open-plan-modal', 'index': 'main'}, color="primary", outline=True))
-            # ★★★ ここまで修正 ★★★
-        
+
         action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
 
         actions = dbc.ButtonGroup(action_buttons)

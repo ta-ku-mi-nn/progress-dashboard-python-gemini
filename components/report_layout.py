@@ -52,7 +52,7 @@ def create_report_layout(student_name):
                         rows=8, # 初期表示の高さを調整
                         className="mb-4"
                     ),
-                    # ★★★ 修正: 印刷専用のコメント表示エリアを追加 ★★★
+                    # 印刷専用のコメント表示エリア
                     html.Div(id="printable-comment-output", style={'display': 'none'})
                 ], md=5),
             ], className="mt-4"),

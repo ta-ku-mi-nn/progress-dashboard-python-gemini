@@ -91,7 +91,6 @@ def create_all_tables(conn):
             )
         ''')
 
-        # ★★★ ここからが修正箇所 ★★★
         # progressテーブル (UNIQUE制約を追加)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS progress (
@@ -109,7 +108,6 @@ def create_all_tables(conn):
                 UNIQUE (student_id, subject, level, book_name)
             )
         ''')
-        # ★★★ ここまでが修正箇所 ★★★
 
         # homeworkテーブル
         cur.execute('''

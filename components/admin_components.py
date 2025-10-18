@@ -152,7 +152,6 @@ def create_bulk_preset_management_modal():
         ],
     )
 
-# --- ★★★ ここから修正 ★★★
 def create_bulk_preset_edit_modal():
     """一括登録プリセットの新規追加・編集用モーダル（2カラムレイアウト）"""
     return dbc.Modal(
@@ -210,7 +209,6 @@ def create_bulk_preset_edit_modal():
             ]),
         ],
     )
-# --- ★★★ ここまで修正 ★★★
 
 def create_user_edit_modal():
     """ユーザー編集用のモーダルを生成する"""

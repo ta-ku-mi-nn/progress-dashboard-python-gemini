@@ -33,7 +33,6 @@ def create_bug_report_layout(user_info):
         size="lg"
     )
 
-    # ★★★ ここから修正 ★★★
     admin_modal = dbc.Modal(
         [
             dbc.ModalHeader(dbc.ModalTitle("対応状況を更新")),
@@ -64,7 +63,6 @@ def create_bug_report_layout(user_info):
         id="bug-admin-modal",
         is_open=False,
     ) if is_admin else html.Div()
-    # ★★★ ここまで修正 ★★★
 
     return dbc.Container([
         html.H3("不具合報告", className="my-4"),

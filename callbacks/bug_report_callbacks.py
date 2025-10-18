@@ -82,7 +82,6 @@ def register_bug_report_callbacks(app):
         ]
         return dbc.ListGroup(items, flush=True)
 
-    # ★★★ ここから修正 ★★★
     # --- 詳細モーダル（一般ユーザー向け）の表示 ---
     @app.callback(
         [Output('bug-detail-modal', 'is_open'),
@@ -206,4 +205,3 @@ def register_bug_report_callbacks(app):
             return "", False, toast_data, False
         else:
             return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update
-    # ★★★ ここまで修正 ★★★

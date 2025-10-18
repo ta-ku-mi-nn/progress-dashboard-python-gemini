@@ -10,7 +10,6 @@ from data.nested_json_processor import get_students_for_instructor
 def register_auth_callbacks(app):
     """認証関連のコールバックを登録します。"""
 
-    # --- ★★★ ここから修正 ★★★
     # --- ログイン処理 ---
     @app.callback(
         Output('url', 'pathname'),
@@ -37,7 +36,6 @@ def register_auth_callbacks(app):
         else:
             alert_msg = dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
             return no_update, no_update, alert_msg, True
-    # --- ★★★ ここまで修正 ★★★
 
     # --- ログアウト処理 ---
     @app.callback(
@@ -62,10 +60,10 @@ def register_auth_callbacks(app):
     )
     def toggle_user_profile_modal(n_clicks, close_clicks, is_open):
         ctx = callback_context
-        
+
         if ctx.triggered and ctx.triggered[0]['value'] is not None:
             return not is_open
-        
+
         return is_open
 
     @app.callback(
@@ -80,7 +78,7 @@ def register_auth_callbacks(app):
         if is_open and user_data:
             user_id = user_data.get('id')
             assigned_students = get_students_for_instructor(user_id)
-            
+
             if not assigned_students:
                 student_list_component = html.P("担当生徒はいません。", className="text-muted")
             else:

@@ -23,7 +23,6 @@ def can_access_student(user_info, student_info):
     if is_admin(user_info):
         return True
 
-    # --- ★★★ ここから修正 ★★★
     # 一般ユーザーの場合、担当講師か確認
     username = user_info.get('username')
     if username:
@@ -32,6 +31,5 @@ def can_access_student(user_info, student_info):
         is_sub = username in student_info.get('sub_instructors', [])
         if is_main or is_sub:
             return True
-    # --- ★★★ ここまで修正 ★★★
 
     return False

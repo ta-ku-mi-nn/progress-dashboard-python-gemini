@@ -69,7 +69,7 @@ def register_report_callbacks(app):
 
         return dashboard_content, past_exam_table, creation_date
 
-    # 3. ★★★ 修正: 印刷前にグラフの読み込みを待つ ★★★
+    # 3. 印刷前にグラフの読み込みを待つ    app.clientside_callback(
     app.clientside_callback(
         """
         function(n_clicks) {

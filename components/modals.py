@@ -7,7 +7,7 @@ from data.nested_json_processor import get_bulk_presets
 
 def create_plan_update_modal(subjects):
     """学習計画の追加・更新を行うための複数ステップモーダルを生成する。"""
-    
+
     step0_content = html.Div([
         html.P("まず、更新したい科目を選択してください。", className="mb-3 text-center"),
         dcc.Loading(id="loading-subjects", children=html.Div(id='plan-subject-selection-container', className="d-grid gap-2 d-md-flex justify-content-md-center flex-wrap"))
@@ -27,7 +27,6 @@ def create_plan_update_modal(subjects):
                     dbc.CardBody([
                         html.P("マスターにない参考書を一時的に追加します。", className="text-muted small"),
                         dbc.Input(id="custom-book-name-input", placeholder="参考書名", className="mb-2"),
-                        # --- ★★★ ここから修正 ★★★
                         dcc.Dropdown(
                             id="custom-book-level-input",
                             placeholder="ルートレベル",
@@ -39,7 +38,6 @@ def create_plan_update_modal(subjects):
                             ],
                             className="mb-2"
                         ),
-                        # --- ★★★ ここまで修正 ★★★
                         dbc.Input(id="custom-book-duration-input", placeholder="所要時間(h)", type="number", min=0, className="mb-2"),
                         dbc.Button("追加", id="add-custom-book-btn", color="primary", className="w-100")
                     ])
@@ -60,7 +58,7 @@ def create_plan_update_modal(subjects):
             children=html.Div(id='plan-progress-input-container', style={'maxHeight': '500px', 'overflowY': 'auto'})
         )
     ])
-    
+
     return dbc.Modal(
         id="plan-update-modal",
         is_open=False,
@@ -79,7 +77,7 @@ def create_plan_update_modal(subjects):
                     id='plan-empty-confirm-dialog',
                     message='予定が入力されていません。この科目の進捗を0にしますか？',
                 ),
-            
+
                 html.Div(step0_content, id='plan-step-0'),
                 html.Div(step1_content, id='plan-step-1', style={'display': 'none'}),
                 html.Div(step2_content, id='plan-step-2', style={'display': 'none'}),

@@ -340,9 +340,9 @@ def register_plan_callbacks(app):
             return None, False, toast_data
 
         trigger_id = ctx.triggered_id
-        
+
         updates = []
-        
+
         if trigger_id == 'plan-empty-confirm-dialog':
             if not confirm_clicks:
                 raise PreventUpdate
@@ -354,12 +354,12 @@ def register_plan_callbacks(app):
         for book in books_to_unplan:
             level = next((lvl for lvl, b_list in get_master_textbook_list(subject).items() if book in b_list), "N/A")
             updates.append({'subject': subject, 'level': level, 'book_name': book, 'is_planned': False, 'completed_units': 0, 'total_units': 1, 'duration': None})
-        
+
         if trigger_id != 'plan-empty-confirm-dialog':
             for i, id_dict in enumerate(book_ids):
                 book_name = id_dict['book']
                 val = progress_values[i] if progress_values and i < len(progress_values) else ""
-                
+
                 completed, total = 0, 1
                 if val is None or val.strip() == "":
                     if current_progress and book_name in current_progress:
