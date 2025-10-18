@@ -16,6 +16,7 @@ def register_bug_report_callbacks(app):
     """不具合報告・要望ページのコールバックを登録する"""
 
     # --- 報告・要望の送信 ---
+    # (変更なし)
     @app.callback(
         [Output('bug-alert', 'children'), Output('bug-alert', 'is_open'),
          Output('request-alert', 'children'), Output('request-alert', 'is_open'),
@@ -72,6 +73,7 @@ def register_bug_report_callbacks(app):
                 return no_update, no_update, alert, True, no_update, no_update, no_update, no_update, no_update, no_update
 
     # --- 一覧の表示 (共通化) ---
+    # (変更なし)
     @app.callback(
         [Output('bug-list-container', 'children'),
          Output('request-list-container', 'children')],
@@ -116,111 +118,120 @@ def register_bug_report_callbacks(app):
         else:
             return no_update, list_content
 
+
+    # ★★★★★★★★★★★★★★★★★★★★
+    # ★★★ 修正箇所 ★★★
+    # ★★★★★★★★★★★★★★★★★★★★
     @app.callback(
-        # --- Outputs for BOTH modal types ---
+        # --- モーダルの Output (MATCH を使用) ---
+        # どの report_type のモーダルを操作するかを MATCH で特定
         Output({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
         Output({'type': 'detail-modal-title', 'report_type': MATCH}, 'children'),
         Output({'type': 'detail-modal-body', 'report_type': MATCH}, 'children'),
         Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
+        Output({'type': 'admin-detail-display', 'report_type': MATCH}, 'children'), # 管理者用詳細表示
+        # --- Store の Output (MATCH を使用) ---
+        # Stateを保持するStoreも MATCH で特定
         Output({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
         Output({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
         Output({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
-        Output({'type': 'admin-detail-display', 'report_type': MATCH}, 'children'),
-        # --- Inputs ---
-        [Input({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'n_clicks'),
-        Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks'),
-        Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')],
-        # --- States ---
-        [State('auth-store', 'data'),
-        State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id'),
-        # Stateを追加: モーダルが開いているかどうかの状態も確認する
-        State({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
-        State({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
-        ],
-        prevent_initial_call=True
+        # --- Input (トリガーとなる要素) ---
+        # report-item のクリック (ALL で report_type ごとに監視)
+        Input({'type': 'report-item', 'report_type': ALL, 'index': ALL}, 'n_clicks'),
+        # 閉じる/キャンセルボタン (ALL で report_type ごとに監視)
+        Input({'type': 'close-detail-modal', 'report_type': ALL}, 'n_clicks'),
+        Input({'type': 'cancel-admin-modal', 'report_type': ALL}, 'n_clicks'),
+        # --- State ---
+        State('auth-store', 'data'),
+        # prevent_initial_call=True # 初回読み込み時は実行しない
     )
-    def handle_modal_toggle(item_clicks, close_detail_clicks, cancel_admin_clicks,
-                            user_info, item_ids, detail_is_open, admin_is_open): # Stateの引数を追加
+    def handle_modal_toggle_v2(item_clicks, close_detail_clicks, cancel_admin_clicks, user_info):
         ctx = callback_context
-        triggered_input_id = ctx.triggered_id
 
-        # --- デバッグ出力 ---
-        print(f"\n--- handle_modal_toggle triggered ---")
-        print(f"Triggered ID: {triggered_input_id}")
-        print(f"User Info Role: {user_info.get('role') if user_info else 'No User Info'}")
-        print(f"Item Clicks: {item_clicks}")
-        print(f"Close Detail Clicks: {close_detail_clicks}")
-        print(f"Cancel Admin Clicks: {cancel_admin_clicks}")
-        print(f"Detail Modal Open State: {detail_is_open}")
-        print(f"Admin Modal Open State: {admin_is_open}")
-        # --- デバッグ出力ここまで ---
-
-        # トリガーがない場合は更新しない
-        if not triggered_input_id:
-            print("No triggered ID, preventing update.")
+        # トリガーとなった Input の ID ('prop_id') を取得
+        # 例: '{"index":5,"report_type":"bug","type":"report-item"}.n_clicks'
+        # 例: '{"report_type":"bug","type":"close-detail-modal"}.n_clicks'
+        triggered_prop_id_str = ctx.triggered_prop_ids.get('.')
+        if not triggered_prop_id_str:
             raise PreventUpdate
 
-        # triggered_idが辞書でない場合（close/cancelボタン）はそのまま使う
-        # 辞書の場合（report-item）は、それをそのまま使う
-        trigger_info = triggered_input_id
-        report_type = trigger_info.get('report_type') if isinstance(trigger_info, dict) else None
-        trigger_type = trigger_info.get('type') if isinstance(trigger_info, dict) else None # typeを取得
+        # トリガーIDを解析して辞書形式に戻す
+        try:
+            # ".n_clicks" を除去して JSON としてパース
+            triggered_id_dict = json.loads(triggered_prop_id_str.split('.')[0])
+        except json.JSONDecodeError:
+            print(f"Error parsing triggered_id: {triggered_prop_id_str}")
+            raise PreventUpdate
 
-        print(f"Extracted report_type: {report_type}")
-        print(f"Extracted trigger_type: {trigger_type}")
+        # トリガーの種類 (type) と report_type を取得
+        trigger_type = triggered_id_dict.get('type')
+        report_type = triggered_id_dict.get('report_type')
 
-        is_admin = user_info and user_info.get('role') == 'admin'
+        print(f"Triggered type: {trigger_type}, Report type: {report_type}") # デバッグ用
 
         # --- モーダルを閉じる処理 ---
-        # detail-modal または admin-modal の閉じる/キャンセルボタンが押された場合
         if trigger_type in ['close-detail-modal', 'cancel-admin-modal']:
-            print(f"Closing modal: {trigger_type}")
-            # is_open を False にして返す
-            # Detail Modal Outputs , Admin Modal Outputs
-            return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+            print(f"Closing modal: {report_type} - {trigger_type}")
+            # 対応する report_type のモーダルのみ is_open=False を返す
+            # 他の Output は no_update
+            if report_type == ctx.outputs_list[0][0]['id']['report_type']: # OutputのMATCHと比較
+                return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+            else:
+                 raise PreventUpdate # 異なる report_type のコールバックは無視
 
         # --- リスト項目クリック時の処理 ---
         if trigger_type == 'report-item':
-            print("Report item clicked.")
-            # クリックされたn_clicksを取得 (単一の値のはず)
-            clicked_n_clicks = None
-            # ctx.triggered は [{ 'prop_id': '...', 'value': n_clicks }, ...] のリスト
-            if ctx.triggered and ctx.triggered[0].get('value') is not None:
-                clicked_n_clicks = ctx.triggered[0]['value']
-            print(f"Clicked n_clicks value: {clicked_n_clicks}")
+            # クリックイベントの値 (n_clicks) を取得
+            clicked_n_clicks = ctx.triggered[0]['value'] if ctx.triggered else None
 
-            # n_clicks が 0 または None の場合はモーダルを開かない (既に開いているモーダルも閉じる)
+            # n_clicks が None や 0 の場合はモーダルを開かない（または閉じる）
             if not clicked_n_clicks:
-                print("Click value is None or 0, closing modals or preventing update.")
-                # Detail Modal Outputs , Admin Modal Outputs
-                return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+                print("Click value is None or 0, preventing modal open/closing.")
+                # すべてのOutputに対して no_update を返すことで、現在の状態を維持
+                # (もし開いていれば開いたまま、閉じていれば閉じたまま)
+                # return [no_update] * 8
+                # または、確実に閉じる場合は False を返す
+                if report_type == ctx.outputs_list[0][0]['id']['report_type']:
+                     return False, no_update, no_update, False, no_update, no_update, no_update, no_update
+                else:
+                    raise PreventUpdate
 
+            # クリックされた report_id と report_type を取得
+            report_id = triggered_id_dict.get('index')
+            report_type = triggered_id_dict.get('report_type') # 再取得 (MATCH と一致するはず)
 
-            report_id = trigger_info['index']
-            print(f"Target report_id: {report_id}")
+            # report_type が Output の MATCH と一致しない場合は無視
+            if report_type != ctx.outputs_list[0][0]['id']['report_type']:
+                raise PreventUpdate
+
+            print(f"Item clicked: report_id={report_id}, report_type={report_type}")
+
+            # データを取得
             get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == report_id), None)
 
             if not report:
                 print("Report not found.")
-                # エラー処理（どちらのモーダルも開かない）
-                return False, "エラー", "報告が見つかりません。", False, None, no_update, no_update, None
+                # エラー表示（例として detail-modal に表示）
+                return True, "エラー", dbc.Alert("報告が見つかりません。", color="danger"), False, no_update, no_update, no_update, no_update
 
-            # --- ユーザーの役割に応じて開くモーダルを決定 ---
+            is_admin = user_info and user_info.get('role') == 'admin'
+
+            # --- ユーザーロールに応じて表示 ---
             if is_admin:
-                print("User is admin, preparing admin modal.")
-                # 管理者モーダルを開く準備
+                print("Admin user - opening admin modal")
+                # 管理者用モーダルを開く
                 details = html.Div([
                     html.H5(report['title']),
                     html.Small(f"報告者: {report['reporter_username']} | 日時: {report['report_date']}"),
                     dbc.Card(dbc.CardBody(report['description']), className="mt-2 mb-3 bg-light")
                 ])
-                # Detail Modal Outputs , Admin Modal Outputs
-                return False, no_update, no_update, True, report_id, report['status'], report.get('resolution_message', ''), details
+                # is_open=True, title, body, is_open_admin=True, admin_details, editing_id, status, message
+                return False, no_update, no_update, True, details, report_id, report['status'], report.get('resolution_message', '')
             else:
-                print("User is not admin, preparing detail modal.")
-                # 詳細モーダルを開く準備
+                print("Non-admin user - opening detail modal")
+                # 詳細モーダルを開く
                 body = [
                     html.P([html.Strong("報告者: "), report['reporter_username']]),
                     html.P([html.Strong("報告日時: "), report['report_date']]),
@@ -234,14 +245,19 @@ def register_bug_report_callbacks(app):
                         html.Strong(f"{status_label}:"),
                         dbc.Card(dbc.CardBody(report['resolution_message']), className="mt-2 bg-light")
                     ])
-                # Detail Modal Outputs , Admin Modal Outputs
+                # is_open=True, title, body, is_open_admin=False, admin_details, editing_id, status, message
                 return True, report['title'], body, False, no_update, no_update, no_update, no_update
 
-        # 上記のいずれにも該当しない場合（予期せぬトリガーなど）は更新しない
-        print("Trigger type not matched, preventing update.")
-        raise PreventUpdate # または return [no_update] * 8 でも可
+        # その他のトリガーの場合は更新しない
+        print("Unhandled trigger, preventing update.")
+        raise PreventUpdate
+    # ★★★★★★★★★★★★★★★★★★★★
+    # ★★★ 修正箇所ここまで ★★★
+    # ★★★★★★★★★★★★★★★★★★★★
+
 
     # --- Callback 1: 管理者によるステータス更新 (MATCHED Outputs: Alert, Modal) ---
+    # (変更なし)
     @app.callback(
         [Output({'type': 'admin-alert', 'report_type': MATCH}, 'children'),
          Output({'type': 'admin-alert', 'report_type': MATCH}, 'is_open'),
@@ -250,20 +266,24 @@ def register_bug_report_callbacks(app):
         [State({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
          State({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
          State({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
-         State({'type': 'save-status-btn', 'report_type': MATCH}, 'id')],
+         State({'type': 'save-status-btn', 'report_type': MATCH}, 'id')], # ボタン自体のIDを取得して report_type を特定
         prevent_initial_call=True
     )
     def save_status_matched(n_clicks, bug_id, status, message, button_id):
         if not n_clicks or not bug_id:
             raise PreventUpdate
 
+        # ボタンのIDから report_type を取得
         report_type = button_id['report_type']
+
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
 
         if status in ['対応済', '見送り']:
             success, msg = resolve_func(bug_id, message, status)
         elif status in ['未対応', '対応中']:
+             # 対応メッセージはステータス更新時にはクリア（もしくはそのまま保持）するか、別途UIで制御する
+             # ここでは resolve_func ではないので message は無視
             success, msg = update_func(bug_id, status)
         else:
             success = False
@@ -276,7 +296,9 @@ def register_bug_report_callbacks(app):
             # エラーアラート表示、モーダル開いたまま
             return dbc.Alert(f"エラー: {msg}", color="danger"), True, True
 
+
     # --- Callback 2: 管理者によるステータス更新 (Non-MATCHED Outputs: Stores) ---
+    # (変更なし)
     @app.callback(
         [Output('toast-trigger', 'data', allow_duplicate=True),
          Output('report-update-trigger', 'data', allow_duplicate=True)],
@@ -290,25 +312,36 @@ def register_bug_report_callbacks(app):
     def save_status_stores(n_clicks_list, bug_id_list, status_list, message_list, button_id_list):
         ctx = callback_context
         # Find which button was actually clicked
-        triggered_button_id_str = ctx.triggered_id
-        if not triggered_button_id_str:
+        triggered_prop_id_str = ctx.triggered_prop_ids.get('.') # Get the full property ID string
+        if not triggered_prop_id_str:
             raise PreventUpdate
 
-        # Parse the triggered ID string back into a dictionary
+        # Parse the component ID part of the string
         try:
-            triggered_button_id = json.loads(triggered_button_id_str)
-        except json.JSONDecodeError:
+            triggered_id_str = triggered_prop_id_str.split('.')[0]
+            # Check if it starts with '{' to ensure it's likely a JSON string
+            if triggered_id_str.startswith('{'):
+                 triggered_button_id = json.loads(triggered_id_str)
+            else:
+                 # Handle cases where the ID might not be JSON (shouldn't happen with pattern matching)
+                 print(f"Warning: Triggered ID is not a JSON string: {triggered_id_str}")
+                 raise PreventUpdate
+        except (json.JSONDecodeError, IndexError) as e:
+            print(f"Error parsing triggered ID: {e}, ID string: {triggered_prop_id_str}")
             raise PreventUpdate # Should not happen if IDs are correct
 
         # Find the index corresponding to the triggered button
         triggered_index = -1
         for i, btn_id in enumerate(button_id_list):
+            # Compare the dictionary IDs directly
             if btn_id == triggered_button_id:
                 triggered_index = i
                 break
 
-        if triggered_index == -1 or n_clicks_list[triggered_index] is None:
-            raise PreventUpdate # Click not found or n_clicks is None
+        # Check if the click actually happened (n_clicks > 0 and not None)
+        # ctx.triggered gives [{'prop_id': '...', 'value': n_clicks}, ...]
+        if triggered_index == -1 or not ctx.triggered or ctx.triggered[0].get('value') is None:
+             raise PreventUpdate # Click not found or n_clicks is None/0
 
         # Get the corresponding states using the found index
         bug_id = bug_id_list[triggered_index]
@@ -326,6 +359,7 @@ def register_bug_report_callbacks(app):
         if status in ['対応済', '見送り']:
             success, msg = resolve_func(bug_id, message, status)
         elif status in ['未対応', '対応中']:
+             # Here, we only update the status. Message is ignored unless resolving.
              success, msg = update_func(bug_id, status)
         else:
             success = False
@@ -338,7 +372,10 @@ def register_bug_report_callbacks(app):
             return toast_data, update_trigger
         else:
             # 失敗時は何もしない (アラートは別コールバックで表示)
-            return no_update, no_update
+            # toast_data for error? Could be useful.
+            error_toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"更新失敗: {msg}", 'source': f'{report_type}_report_error'}
+            # return error_toast_data, no_update # Optionally show error toast
+            return no_update, no_update # Or show nothing on failure here
 
     # --- IDを汎用化するためのヘルパー ---
     # (不要になったため削除)
