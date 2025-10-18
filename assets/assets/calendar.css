@@ -84,16 +84,16 @@
 }
 
 .app-deadline-cell { /* 出願期日 */
-    background-color: #fffacd !important; /* 黄色 (LemonChiffon) */
+    background-color: #ffff7f !important; /* 黄色 (LemonChiffon) */
 }
 .exam-date-cell { /* 受験日 */
-    background-color: #ffd700 !important; /* オレンジ (Gold - 少し濃いオレンジ) */
+    background-color: #ff7f7f !important; /* 赤 (LightCoral) */
 }
 .announcement-date-cell { /* 合格発表日 */
-    background-color: #90ee90 !important; /* 緑 (LightGreen) */
+    background-color: #7fff7f !important; /* 緑 (LightGreen) */
 }
 .proc-deadline-cell { /* 手続期日 */
-    background-color: #e6e6fa !important; /* 紫 (Lavender) */
+    background-color: #bf7fff !important; /* 紫 (Lavender) */
 }
 
 /* 複数のイベントが重なった場合の優先度 (背景色) */
