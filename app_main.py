@@ -79,6 +79,7 @@ app.layout = html.Div([
     dcc.Store(id='admin-update-trigger', storage_type='memory'),
     dcc.Store(id='toast-trigger', storage_type='memory'),
     dcc.Store(id='item-to-delete-store', storage_type='memory'),
+    dcc.Store(id='save-status-result-store', storage_type='memory'),
 
     html.Div(id='dummy-clientside-output', style={'display': 'none'}),
     dcc.Store(id='report-content-store', storage_type='session'),

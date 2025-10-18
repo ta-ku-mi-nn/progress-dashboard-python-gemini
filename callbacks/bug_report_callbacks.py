@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
+import json # jsonをインポート
 
 from data.nested_json_processor import (
     add_bug_report, get_all_bug_reports, update_bug_status, resolve_bug,
@@ -43,6 +44,7 @@ def register_bug_report_callbacks(app):
                 return no_update, no_update, alert, True, no_update, no_update, no_update, no_update, no_update, no_update
 
         reporter = user_info['username']
+        # triggered_id を直接比較
         title, description, report_type = (bug_title, bug_desc, 'bug') if ctx.triggered_id == 'submit-bug-btn' else (req_title, req_desc, 'request')
         add_func = add_bug_report if report_type == 'bug' else add_feature_request
 
@@ -115,50 +117,50 @@ def register_bug_report_callbacks(app):
             return no_update, list_content
 
     # --- 詳細モーダル表示 (共通化) ---
+    # `Input` ID を修正 (str -> dict)
     @app.callback(
         [Output({'type': 'detail-modal', 'report_type': MATCH}, 'is_open'),
          Output({'type': 'detail-modal-title', 'report_type': MATCH}, 'children'),
          Output({'type': 'detail-modal-body', 'report_type': MATCH}, 'children')],
         [Input({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'n_clicks'),
-         Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks')],
+         Input({'type': 'close-detail-modal', 'report_type': MATCH}, 'n_clicks')], # ID を dict に
         [State('auth-store', 'data'),
          State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id')],
         prevent_initial_call=True
     )
     def toggle_detail_modal(item_clicks, close_clicks, user_info, item_ids):
         ctx = callback_context
-        if not ctx.triggered_id or not any(item_clicks + [close_clicks]):
+        # 最初のクリックがない場合や、クリックされた値がない場合は更新しない
+        if not ctx.triggered_id or not any(ctx.triggered_prop_ids.values()):
              raise PreventUpdate
-
-        # クリックされたボタンの report_type を取得
-        triggered_prop_id = ctx.triggered_prop_ids.get('.')
-        if not triggered_prop_id: raise PreventUpdate # トリガーIDがなければ中断
-
-        try:
-             # Input IDが辞書形式の場合
-             triggered_id_dict = json.loads(triggered_prop_id.split('.')[0])
-             report_type = triggered_id_dict.get('report_type')
-        except (json.JSONDecodeError, AttributeError):
-             # Input IDが単純な文字列の場合 (closeボタンなど)
-             # この書き方だと report_type が取れないので工夫が必要
-             # closeボタンのIDに type と report_type を含めるように変更
-              if triggered_prop_id.startswith('close-'):
-                  report_type = triggered_prop_id.split('-')[1] # e.g., "close-bug-detail-modal" -> "bug"
-              else:
-                   raise PreventUpdate
-
 
         # 管理者の場合は管理者モーダルを開くため、このコールバックは動作させない
         if user_info and user_info.get('role') == 'admin':
             raise PreventUpdate
 
+        triggered_id = ctx.triggered_id
+        report_type = triggered_id.get('report_type')
+
         # Closeボタンが押された場合
-        if isinstance(ctx.triggered_id, str) and ctx.triggered_id.startswith('close-'):
+        if triggered_id.get('type') == 'close-detail-modal':
              return False, no_update, no_update
 
         # report-item がクリックされた場合
-        if isinstance(ctx.triggered_id, dict) and ctx.triggered_id.get('type') == 'report-item':
-            bug_id = ctx.triggered_id['index']
+        if triggered_id.get('type') == 'report-item':
+            # クリックされたアイテムのn_clicksがNoneでないことを確認
+            clicked_item_index = -1
+            for i, clicks in enumerate(item_clicks):
+                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type') :
+                    # 現在のトリガーのクリック回数がNoneでないか、または以前のクリック回数より大きいか確認
+                    # (単純にNoneでないことを確認する方が安全かもしれない)
+                    if clicks > 0: # clicksがNoneでないことを確認
+                      clicked_item_index = i
+                      break
+
+            if clicked_item_index == -1:
+                 raise PreventUpdate # 該当するクリックイベントが見つからない
+
+            bug_id = triggered_id['index']
             get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == bug_id), None)
@@ -173,7 +175,7 @@ def register_bug_report_callbacks(app):
                 html.P(report['description'], style={'whiteSpace': 'pre-wrap'}),
             ]
 
-            if report['status'] in ['対応済', '見送り'] and report['resolution_message']:
+            if report['status'] in ['対応済', '見送り'] and report.get('resolution_message'): # .get() を使用
                 status_label = "対応内容" if report['status'] == '対応済' else "コメント"
                 body.extend([
                     html.Hr(),
@@ -187,6 +189,7 @@ def register_bug_report_callbacks(app):
 
 
     # --- 管理者向け編集モーダル表示 (共通化) ---
+    # `Input` ID を修正 (str -> dict)
     @app.callback(
         [Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open'),
          Output({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
@@ -194,39 +197,42 @@ def register_bug_report_callbacks(app):
          Output({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
          Output({'type': 'admin-detail-display', 'report_type': MATCH}, 'children')],
         [Input({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'n_clicks'),
-         Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')],
+         Input({'type': 'cancel-admin-modal', 'report_type': MATCH}, 'n_clicks')], # ID を dict に
         [State('auth-store', 'data'),
          State({'type': 'report-item', 'report_type': MATCH, 'index': ALL}, 'id')],
         prevent_initial_call=True
     )
     def toggle_admin_modal(edit_clicks, cancel_clicks, user_info, item_ids):
         ctx = callback_context
-        if not ctx.triggered_id or not any(edit_clicks + [cancel_clicks]):
+        # 最初のクリックがない場合や、クリックされた値がない場合は更新しない
+        if not ctx.triggered_id or not any(ctx.triggered_prop_ids.values()):
             raise PreventUpdate
-
-        triggered_prop_id = ctx.triggered_prop_ids.get('.')
-        if not triggered_prop_id: raise PreventUpdate
-
-        try:
-             triggered_id_dict = json.loads(triggered_prop_id.split('.')[0])
-             report_type = triggered_id_dict.get('report_type')
-        except (json.JSONDecodeError, AttributeError):
-             if triggered_prop_id.startswith('cancel-'):
-                 report_type = triggered_prop_id.split('-')[1]
-             else:
-                  raise PreventUpdate
 
         # 管理者でなければこのコールバックは動作しない
         if not user_info or user_info.get('role') != 'admin':
             raise PreventUpdate
 
+        triggered_id = ctx.triggered_id
+        report_type = triggered_id.get('report_type')
+
         # Cancelボタンが押された場合
-        if isinstance(ctx.triggered_id, str) and ctx.triggered_id.startswith('cancel-'):
+        if triggered_id.get('type') == 'cancel-admin-modal':
             return False, None, no_update, no_update, None
 
         # report-item がクリックされた場合
-        if isinstance(ctx.triggered_id, dict) and ctx.triggered_id.get('type') == 'report-item':
-            bug_id = ctx.triggered_id['index']
+        if triggered_id.get('type') == 'report-item':
+             # クリックされたアイテムのn_clicksがNoneでないことを確認
+            clicked_item_index = -1
+            for i, clicks in enumerate(edit_clicks):
+                if clicks is not None and item_ids[i]['index'] == triggered_id.get('index') and item_ids[i]['report_type'] == triggered_id.get('report_type') :
+                    if clicks > 0: # clicksがNoneでないことを確認
+                      clicked_item_index = i
+                      break
+
+            if clicked_item_index == -1:
+                 raise PreventUpdate
+
+            bug_id = triggered_id['index']
             get_func = get_all_bug_reports if report_type == 'bug' else get_all_feature_requests
             reports = get_func()
             report = next((r for r in reports if r['id'] == bug_id), None)
@@ -242,17 +248,16 @@ def register_bug_report_callbacks(app):
         return no_update, no_update, no_update, no_update, None
 
     # --- 管理者によるステータス更新 (共通化) ---
+    # Output を修正
     @app.callback(
         [Output({'type': 'admin-alert', 'report_type': MATCH}, 'children'),
          Output({'type': 'admin-alert', 'report_type': MATCH}, 'is_open'),
-         Output('toast-trigger', 'data', allow_duplicate=True),
          Output({'type': 'admin-modal', 'report_type': MATCH}, 'is_open', allow_duplicate=True),
-         Output('report-update-trigger', 'data', allow_duplicate=True)], # リスト更新トリガー
+         Output('save-status-result-store', 'data')], # <= 変更: 中間Storeに出力
         Input({'type': 'save-status-btn', 'report_type': MATCH}, 'n_clicks'),
         [State({'type': 'editing-id-store', 'report_type': MATCH}, 'data'),
          State({'type': 'status-dropdown', 'report_type': MATCH}, 'value'),
          State({'type': 'resolution-message-input', 'report_type': MATCH}, 'value'),
-         # report_type を State として取得
          State({'type': 'save-status-btn', 'report_type': MATCH}, 'id')],
         prevent_initial_call=True
     )
@@ -264,19 +269,67 @@ def register_bug_report_callbacks(app):
         resolve_func = resolve_bug if report_type == 'bug' else resolve_request
         update_func = update_bug_status if report_type == 'bug' else update_request_status
 
+        # resolve_request 関数は status を受け取るように修正されている前提
         if status in ['対応済', '見送り']:
-            success, msg = resolve_func(bug_id, message, status) # resolve関数にもstatusを渡すように変更が必要な場合
-        else:
+            success, msg = resolve_func(bug_id, message, status)
+        elif status in ['未対応', '対応中']: # '見送り' 以外の更新
             success, msg = update_func(bug_id, status)
+        else:
+            success = False
+            msg = "無効なステータスです。"
+
+
+        result_data = {
+            'timestamp': datetime.now().isoformat(),
+            'success': success,
+            'message': msg,
+            'report_type': report_type
+        }
 
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type}_report'}
-            update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type}
-            # アラートはクリア、トースト表示、モーダル閉じる、リスト更新トリガー
-            return "", False, toast_data, False, update_trigger
+            # アラートクリア、モーダル閉じる、結果をStoreへ
+            return "", False, False, result_data
         else:
-            # エラーアラート表示、トーストなし、モーダル開いたまま、リスト更新なし
-            return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update, no_update
+            # エラーアラート表示、モーダル開いたまま、結果をStoreへ
+            return dbc.Alert(f"エラー: {msg}", color="danger"), True, True, result_data
+
+
+    # --- ステータス保存結果を処理してトーストとリスト更新トリガーを発行 ---
+    @app.callback(
+        [Output('toast-trigger', 'data', allow_duplicate=True),
+         Output('report-update-trigger', 'data', allow_duplicate=True)],
+        Input('save-status-result-store', 'data'),
+        prevent_initial_call=True
+    )
+    def handle_save_status_result(result_data):
+        if not result_data:
+            return no_update, no_update
+
+        report_type = result_data.get('report_type', 'unknown')
+        message = result_data.get('message', '処理が完了しました。')
+        success = result_data.get('success', False)
+
+        toast_data = {
+            'timestamp': result_data.get('timestamp', datetime.now().isoformat()),
+            'message': message,
+            'source': f'{report_type}_report' # sourceを明確に
+        }
+
+        # 成功した場合のみリスト更新トリガーを発行
+        update_trigger = {'timestamp': result_data.get('timestamp'), 'type': report_type} if success else no_update
+
+        return toast_data, update_trigger
 
     # --- IDを汎用化するためのヘルパー ---
-    # (既存のコールバック内で直接MATCHを使用するため、このセクションは不要)
+    # (不要になったため削除)
+
+# コールバックIDの修正（submitボタンなど）
+# components/bug_report_layout.py の create_report_form 内のボタンIDも修正が必要です。
+# 例: id=f"submit-{form_id_prefix}-btn"
+
+# components/bug_report_layout.py の create_admin_modal 内のボタンIDも修正が必要です。
+# 例: id={'type': 'save-status-btn', 'report_type': report_type}
+# 例: id={'type': 'cancel-admin-modal', 'report_type': report_type}
+
+# components/bug_report_layout.py の create_detail_modal 内のボタンIDも修正が必要です。
+# 例: id={'type': 'close-detail-modal', 'report_type': report_type}
