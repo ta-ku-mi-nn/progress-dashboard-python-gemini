@@ -139,7 +139,7 @@ def display_page(pathname, auth_store_data):
     if pathname == '/past-exam':
         page_content = create_past_exam_layout()
         return page_content, navbar
-    
+
     if pathname == '/statistics': # このブロックを追加
         if user_info.get('role') != 'admin':
             return create_access_denied_layout(), navbar
@@ -164,7 +164,7 @@ def display_page(pathname, auth_store_data):
             dcc.ConfirmDialog(id='delete-student-confirm', message='本当にこの生徒を削除しますか？'),
             dcc.ConfirmDialog(id='delete-textbook-confirm', message='本当にこの参考書を削除しますか？'),
             dcc.ConfirmDialog(id='delete-preset-confirm', message='本当にこのプリセットを削除しますか？'),
-            
+
             dbc.Row([
                 # --- 左列 ---
                 dbc.Col([
@@ -202,7 +202,7 @@ def display_page(pathname, auth_store_data):
                         html.P("アプリケーションの更新履歴を追加します。", className="card-text small text-muted"),
                         dbc.Button("更新履歴を追加", id="add-changelog-btn", color="info")
                     ])], className="mb-3"),
-                    
+
                     dbc.Card([dbc.CardBody([
                         html.H5("💾 データバックアップ", className="card-title"),
                         html.P("データベースの全データをJSONファイルとしてダウンロードします。", className="card-text small text-muted"),

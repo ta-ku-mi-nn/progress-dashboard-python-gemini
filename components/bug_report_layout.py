@@ -9,7 +9,7 @@ def create_bug_report_layout(user_info):
     is_admin = user_info.get('role') == 'admin'
 
     report_form = dbc.Card([
-        dbc.CardHeader("不具合を報告する(褒め言葉でもOK)"),
+        dbc.CardHeader("不具合を報告する(要望・褒め言葉でもOK)"),
         dbc.CardBody([
             dbc.Alert(id="bug-report-alert", is_open=False),
             dbc.Input(id="bug-report-title", placeholder="件名", className="mb-3"),
@@ -65,7 +65,7 @@ def create_bug_report_layout(user_info):
     ) if is_admin else html.Div()
 
     return dbc.Container([
-        html.H3("不具合報告", className="my-4"),
+        html.H3("不具合・要望報告", className="my-4"),
         dbc.Row([
             dbc.Col(report_form, md=4),
             dbc.Col(report_list, md=8),
