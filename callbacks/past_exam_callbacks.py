@@ -349,7 +349,7 @@ def register_past_exam_callbacks(app):
             return "", False, toast_data, False, target_month_str
         else: return dbc.Alert(message, color="danger"), True, no_update, no_update, no_update
 
-    # --- update_acceptance_table 関数 ---
+    # --- update_acceptance_table 関数 (修正後) ---
     @app.callback(
         Output('acceptance-table-container', 'children'),
         [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
@@ -368,6 +368,65 @@ def register_past_exam_callbacks(app):
 
         if not student_id:
             return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
+
+        # --- ここからテーブル生成ロジックを追加 ---
+        try:
+            results = get_acceptance_results_for_student(student_id)
+
+            if not results:
+                return dbc.Alert("この生徒の入試情報はありません。", color="info", className="mt-4")
+
+            df = pd.DataFrame(results)
+
+            # 結果選択ドロップダウンの定義
+            result_options = [
+                {'label': '未定', 'value': ''}, # value を空文字列に変更
+                {'label': '合格', 'value': '合格'},
+                {'label': '補欠', 'value': '補欠'},
+                {'label': '不合格', 'value': '不合格'},
+            ]
+
+            # テーブルヘッダー
+            table_header = [html.Thead(html.Tr([
+                html.Th("大学名"), html.Th("学部名"), html.Th("学科名"), html.Th("受験方式"),
+                html.Th("出願期日"), html.Th("受験日"), html.Th("発表日"), html.Th("手続期日"),
+                html.Th("合否", style={'width': '120px'}), html.Th("操作", style={'width': '120px'}) # 幅調整
+            ]))]
+
+            # テーブルボディ
+            table_body = [html.Tbody([
+                html.Tr([
+                    html.Td(row['university_name']),
+                    html.Td(row['faculty_name']),
+                    html.Td(row.get('department_name', '')),
+                    html.Td(row.get('exam_system', '')),
+                    html.Td(row.get('application_deadline', '')), # .get() を使用
+                    html.Td(row.get('exam_date', '')), # .get() を使用
+                    html.Td(row.get('announcement_date', '')), # .get() を使用
+                    html.Td(row.get('procedure_deadline', '')), # .get() を使用
+                    html.Td(
+                        dcc.Dropdown(
+                            id={'type': 'acceptance-result-dropdown', 'index': row['id']},
+                            options=result_options,
+                            # DBのNULLを空文字列 '' にマッピング
+                            value=row.get('result') if row.get('result') is not None else '',
+                            clearable=False,
+                            style={'fontSize': '0.85rem'} # 文字サイズ調整
+                        )
+                    ),
+                    html.Td([
+                        dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': row['id']}, size="sm", className="me-1"),
+                        dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': row['id']}, color="danger", size="sm", outline=True)
+                    ])
+                ]) for _, row in df.iterrows() # df を使用
+            ])]
+
+            return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True, size='sm') # size='sm' を追加
+
+        except Exception as e:
+            print(f"Error in update_acceptance_table: {e}") # エラーログ出力
+            return dbc.Alert(f"テーブル表示中にエラーが発生しました: {e}", color="danger")
+        # --- ここまでテーブル生成ロジックを追加 ---
 
     @app.callback(
         [Output('delete-acceptance-confirm', 'displayed'),
