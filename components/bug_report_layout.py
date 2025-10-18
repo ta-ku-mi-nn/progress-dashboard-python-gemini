@@ -9,7 +9,7 @@ def create_bug_report_layout(user_info):
     is_admin = user_info.get('role') == 'admin'
 
     report_form = dbc.Card([
-        dbc.CardHeader("不具合を報告する"),
+        dbc.CardHeader("不具合を報告する(褒め言葉でもOK)"),
         dbc.CardBody([
             dbc.Alert(id="bug-report-alert", is_open=False),
             dbc.Input(id="bug-report-title", placeholder="件名", className="mb-3"),
