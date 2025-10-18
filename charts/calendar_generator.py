@@ -1,4 +1,4 @@
-# charts/calendar_generator.py
+# charts/calendar_generator.py (修正版)
 
 import pandas as pd
 from dash import html
@@ -10,6 +10,7 @@ def create_html_calendar(acceptance_data, target_year_month):
     """
     指定された年月のカレンダーHTML構造を生成する。
     左側に大学情報列を追加し、受験日と発表日を色付けする。
+    表示月の予定有無に関わらず、全合否データを左列に表示する。
     target_year_month: 'YYYY-MM' 形式の文字列
     """
     try:
@@ -26,7 +27,7 @@ def create_html_calendar(acceptance_data, target_year_month):
     weekday_names_jp = ["月", "火", "水", "木", "金", "土", "日"]
 
     # --- テーブルヘッダー (情報列 + 日付と曜日) ---
-    header_cells = [html.Th("大学・学部等", className="calendar-info-header-cell")] # 情報列ヘッダーを追加
+    header_cells = [html.Th("大学・学部等", className="calendar-info-header-cell")]
     for day in range(1, num_days + 1):
         current_date = date(year, month, day)
         weekday_index = current_date.weekday() # 0:月, 6:日
@@ -36,7 +37,6 @@ def create_html_calendar(acceptance_data, target_year_month):
             cell_class += " saturday"
         elif weekday_index == 6: # 日曜日
             cell_class += " sunday"
-        # ツールチップに曜日も表示
         header_cells.append(html.Th([str(day), html.Br(), weekday_name], className=cell_class, title=f"{year}-{month:02d}-{day:02d} ({weekday_name})"))
 
     # --- テーブルボディ (イベントごとに1行) ---
@@ -46,18 +46,16 @@ def create_html_calendar(acceptance_data, target_year_month):
     df['exam_dt'] = pd.to_datetime(df['exam_date'], errors='coerce')
     df['announcement_dt'] = pd.to_datetime(df['announcement_date'], errors='coerce')
 
-    # 表示月に関連するデータのみフィルタリングし、受験日でソート
-    df_month_related = df[
-        ((df['exam_dt'].dt.year == year) & (df['exam_dt'].dt.month == month)) |
-        ((df['announcement_dt'].dt.year == year) & (df['announcement_dt'].dt.month == month))
-    ].sort_values(by='exam_dt', ascending=True, na_position='last')
+    # ★★★ 修正箇所: 月によるフィルタリングを削除し、全データを表示対象とする ★★★
+    # 受験日でソート (受験日がないものは最後に)
+    df_all_sorted = df.sort_values(by='exam_dt', ascending=True, na_position='last')
+    # ★★★ ここまで修正 ★★★
 
-
-    if df_month_related.empty:
+    if df_all_sorted.empty: # 変数名を変更
         return html.Div(dbc.Alert("表示する受験・合否データがありません。", color="info"))
 
-    for _, row in df_month_related.iterrows():
-        # --- 1列目: 大学情報セル ---
+    for _, row in df_all_sorted.iterrows(): # 変数名を変更
+        # --- 1列目: 大学情報セル (変更なし) ---
         info_parts = [
             html.Strong(f"{row['university_name']} {row['faculty_name']}"),
             html.Br(),
@@ -69,8 +67,10 @@ def create_html_calendar(acceptance_data, target_year_month):
 
         # --- 2列目以降: 日付セル ---
         date_cells = []
+        # ★★★ 修正箇所: 日付が「表示月」に含まれるかチェックする ★★★
         exam_day = row['exam_dt'].day if pd.notna(row['exam_dt']) and row['exam_dt'].year == year and row['exam_dt'].month == month else None
         announcement_day = row['announcement_dt'].day if pd.notna(row['announcement_dt']) and row['announcement_dt'].year == year and row['announcement_dt'].month == month else None
+        # ★★★ ここまで修正 ★★★
 
         for day in range(1, num_days + 1):
             cell_class = "calendar-date-cell"
@@ -82,22 +82,19 @@ def create_html_calendar(acceptance_data, target_year_month):
             if weekday_index == 5: cell_class += " saturday"
             elif weekday_index == 6: cell_class += " sunday"
 
-            if day == exam_day:
+            # ★★★ 修正箇所: exam_day と announcement_day が None でない場合のみ色付けとアイコン表示 ★★★
+            if exam_day is not None and day == exam_day:
                 cell_class += " exam-date-cell"
-                content = "📝" # アイコン表示
+                content = "📝"
                 title_text = "受験日"
-            if day == announcement_day:
-                # 発表日は色を優先し、既存の色クラスがあれば上書き
-                cell_class = cell_class.replace(" exam-date-cell", "") # 受験日と重なる場合、発表日を優先
+            if announcement_day is not None and day == announcement_day:
+                cell_class = cell_class.replace(" exam-date-cell", "")
                 cell_class += " announcement-date-cell"
                 result_text = row.get('result', '未定')
                 result_icon = "🎉" if result_text == '合格' else ("❌" if result_text == '不合格' else "❓")
-                content = result_icon # アイコン表示
+                content = result_icon
                 title_text = f"発表日 ({result_text})"
-
-            # 今日の日付を強調表示 (オプション)
-            # if date(year, month, day) == date.today():
-            #    cell_class += " today-cell"
+            # ★★★ ここまで修正 ★★★
 
             date_cells.append(html.Td(content, className=cell_class, title=title_text))
 
@@ -105,7 +102,7 @@ def create_html_calendar(acceptance_data, target_year_month):
 
     # テーブル構造を組み立て
     calendar_table = html.Table(
-        className="calendar-table", # 新しいクラス名に変更
+        className="calendar-table",
         children=[
             html.Thead(html.Tr(header_cells)),
             html.Tbody(body_rows)
