@@ -1057,7 +1057,7 @@ def get_acceptance_results_for_student(student_id):
         cur.execute(
             """
             SELECT id, university_name, faculty_name, department_name, exam_system, result,
-                   exam_date, announcement_date  -- 日付列を追加
+                   exam_date, announcement_date, application_deadline, procedure_deadline
             FROM university_acceptance
             WHERE student_id = %s
             ORDER BY exam_date DESC, university_name, faculty_name -- 受験日で降順ソートに変更
@@ -1078,8 +1078,8 @@ def add_acceptance_result(student_id, data):
                 """
                 INSERT INTO university_acceptance (
                     student_id, university_name, faculty_name, department_name, exam_system, result,
-                    exam_date, announcement_date -- 日付列を追加
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) -- VALUES にも追加
+                    exam_date, announcement_date, application_deadline, procedure_deadline
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     student_id,
@@ -1124,14 +1124,18 @@ def update_acceptance_result(result_id, data):
                  result_value = data['result'] if data['result'] else None
                  set_clauses.append("result = %s")
                  params.append(result_value)
-            # ↓↓↓ 以下を追加 ↓↓↓
             if 'exam_date' in data:
                 set_clauses.append("exam_date = %s")
                 params.append(data.get('exam_date')) # Noneを許容
             if 'announcement_date' in data:
                 set_clauses.append("announcement_date = %s")
                 params.append(data.get('announcement_date')) # Noneを許容
-            # ↑↑↑ ここまで追加 ↑↑↑
+            if 'application_deadline' in data:
+                set_clauses.append("application_deadline = %s")
+                params.append(data.get('application_deadline')) # Noneを許容
+            if 'procedure_deadline' in data:
+                set_clauses.append("procedure_deadline = %s")
+                params.append(data.get('procedure_deadline')) # Noneを許容
 
             if not set_clauses:
                 return False, "更新するデータがありません。"

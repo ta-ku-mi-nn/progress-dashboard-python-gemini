@@ -208,7 +208,9 @@ def register_past_exam_callbacks(app):
          Output('editing-acceptance-id-store', 'data'),
          Output('acceptance-university', 'value'), Output('acceptance-faculty', 'value'),
          Output('acceptance-department', 'value'), Output('acceptance-system', 'value'),
+         Output('acceptance-application-deadline', 'date'),
          Output('acceptance-exam-date', 'date'), Output('acceptance-announcement-date', 'date'),
+         Output('acceptance-procedure-deadline', 'date'),
          Output('acceptance-modal-alert', 'is_open')],
         [Input('open-acceptance-modal-btn', 'n_clicks'), Input({'type': 'edit-acceptance-btn', 'index': ALL}, 'n_clicks'),
          Input('cancel-acceptance-modal-btn', 'n_clicks')],
@@ -219,24 +221,31 @@ def register_past_exam_callbacks(app):
         ctx = callback_context
         if not ctx.triggered or (isinstance(ctx.triggered_id, dict) and not ctx.triggered[0]['value']): raise PreventUpdate
         trigger_id = ctx.triggered_id
-        if trigger_id == 'cancel-acceptance-modal-btn': return False, no_update, None, "", "", "", "", None, None, False
-        if trigger_id == 'open-acceptance-modal-btn': return True, "大学合否結果の追加", None, "", "", "", "", None, None, False
+        if trigger_id == 'cancel-acceptance-modal-btn': return False, no_update, None, "", "", "", "", None, None, None, None, False
+        if trigger_id == 'open-acceptance-modal-btn': return True, "大学合否結果の追加", None, "", "", "", "", None, None, None, None, False
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-acceptance-btn':
             result_id = trigger_id['index']
             results = get_acceptance_results_for_student(student_id)
             result_to_edit = next((r for r in results if r['id'] == result_id), None)
             if result_to_edit:
-                exam_date = result_to_edit.get('exam_date')
-                announcement_date = result_to_edit.get('announcement_date')
-                try: exam_date = date.fromisoformat(exam_date) if exam_date else None
-                except ValueError: exam_date = None
-                try: announcement_date = date.fromisoformat(announcement_date) if announcement_date else None
-                except ValueError: announcement_date = None
+                # 日付変換関数を定義
+                def parse_date(date_str):
+                    try: return date.fromisoformat(date_str) if date_str else None
+                    except ValueError: return None
+
+                app_deadline = parse_date(result_to_edit.get('application_deadline')) # ★追加
+                exam_date = parse_date(result_to_edit.get('exam_date'))
+                announcement_date = parse_date(result_to_edit.get('announcement_date'))
+                proc_deadline = parse_date(result_to_edit.get('procedure_deadline')) # ★追加
+
+                # ★戻り値に期日を追加
                 return (True, "大学合否結果の編集", result_id, result_to_edit['university_name'], result_to_edit['faculty_name'],
-                        result_to_edit.get('department_name', ''), result_to_edit.get('exam_system', ''), exam_date, announcement_date, False)
-        return False, no_update, None, "", "", "", "", None, None, False
+                        result_to_edit.get('department_name', ''), result_to_edit.get('exam_system', ''),
+                        app_deadline, exam_date, announcement_date, proc_deadline, False)
+        # ★出力変数が2つ増えたので no_update の数を調整
+        return False, no_update, None, "", "", "", "", None, None, None, None, False
 
-
+# --- save_acceptance_result 関数 ---
     @app.callback(
         [Output('acceptance-modal-alert', 'children'),
          Output('acceptance-modal-alert', 'is_open', allow_duplicate=True),
@@ -247,29 +256,74 @@ def register_past_exam_callbacks(app):
         [State('editing-acceptance-id-store', 'data'), State('student-selection-store', 'data'),
          State('acceptance-university', 'value'), State('acceptance-faculty', 'value'),
          State('acceptance-department', 'value'), State('acceptance-system', 'value'),
-         State('acceptance-exam-date', 'date'), State('acceptance-announcement-date', 'date')],
+         State('acceptance-application-deadline', 'date'), # ★追加
+         State('acceptance-exam-date', 'date'),
+         State('acceptance-announcement-date', 'date'),
+         State('acceptance-procedure-deadline', 'date')], # ★追加
         prevent_initial_call=True
     )
-    def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system, exam_date, announcement_date):
+    def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system,
+                             app_deadline, exam_date, announcement_date, proc_deadline): # ★引数追加
         if not n_clicks or not student_id: raise PreventUpdate
         if not university or not faculty: return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update, no_update
         result_data = {'university_name': university, 'faculty_name': faculty, 'department_name': department, 'exam_system': system,
-                       'exam_date': exam_date, 'announcement_date': announcement_date}
+                       'application_deadline': app_deadline, # ★追加
+                       'exam_date': exam_date,
+                       'announcement_date': announcement_date,
+                       'procedure_deadline': proc_deadline} # ★追加
+
         target_month_str = no_update
-        if exam_date:
-            try: target_month_str = datetime.strptime(exam_date, '%Y-%m-%d').strftime('%Y-%m')
+        # カレンダー表示月の決定ロジック (出願期日も考慮)
+        date_candidates = [d for d in [app_deadline, exam_date, announcement_date, proc_deadline] if d]
+        if date_candidates:
+            try:
+                # 最も早い日付を基準にする
+                earliest_date = min(date_candidates)
+                target_month_str = datetime.strptime(earliest_date, '%Y-%m-%d').strftime('%Y-%m')
             except ValueError: pass
-        elif announcement_date:
-             try: target_month_str = datetime.strptime(announcement_date, '%Y-%m-%d').strftime('%Y-%m')
-             except ValueError: pass
+
         if result_id: success, message = update_acceptance_result(result_id, result_data)
         else: result_data['result'] = None; success, message = add_acceptance_result(student_id, result_data)
+
         if success:
             toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message, 'source': 'acceptance'}
             return "", False, toast_data, False, target_month_str
         else: return dbc.Alert(message, color="danger"), True, no_update, no_update, no_update
 
+    # --- update_acceptance_table 関数 ---
+    @app.callback(
+        Output('acceptance-table-container', 'children'),
+        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data')]
+    )
+    def update_acceptance_table(student_id, toast_data):
+        ctx = callback_context
+        # ... (既存のトリガーチェック) ...
+        if not student_id: return []
+        results = get_acceptance_results_for_student(student_id)
+        if not results: return dbc.Alert("この生徒の大学合否結果はまだありません。", color="info", className="mt-4")
+
+        # ★テーブルヘッダーに期日列を追加
+        table_header = [html.Thead(html.Tr([
+            html.Th("大学名"), html.Th("学部名"), html.Th("学科名"), html.Th("受験方式"),
+            html.Th("出願期日"), html.Th("受験日"), html.Th("発表日"), html.Th("手続期日"), # ★列名変更・追加
+            html.Th("合否", style={'width': '150px'}), html.Th("操作", style={'width': '120px'})]))]
+
+        # ★テーブルボディに期日データを追加
+        table_body = [html.Tbody([html.Tr([
+            html.Td(r['university_name']), html.Td(r['faculty_name']), html.Td(r.get('department_name', '')),
+            html.Td(r.get('exam_system', '')),
+            html.Td(r.get('application_deadline', '')), # ★追加
+            html.Td(r.get('exam_date', '')),
+            html.Td(r.get('announcement_date', '')),
+            html.Td(r.get('procedure_deadline', '')), # ★追加
+            html.Td(dcc.Dropdown(id={'type': 'acceptance-result-dropdown', 'index': r['id']},
+                                 options=[{'label': '未選択', 'value': ''}, {'label': '合格', 'value': '合格'}, {'label': '不合格', 'value': '不合格'}],
+                                 value=r.get('result') if r.get('result') is not None else '', clearable=False, style={'minWidth': '100px'})),
+            html.Td([dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': r['id']}, size="sm", className="me-1"),
+                     dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': r['id']}, color="danger", size="sm", outline=True)])
+        ]) for r in results])]
+        return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
 
     @app.callback(
         [Output('delete-acceptance-confirm', 'displayed'),
@@ -293,31 +347,6 @@ def register_past_exam_callbacks(app):
         success, message = delete_acceptance_result(result_id)
         toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'acceptance'}
         return toast_data
-
-
-    @app.callback(
-        Output('acceptance-table-container', 'children'),
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data')]
-    )
-    def update_acceptance_table(student_id, toast_data):
-        ctx = callback_context
-        if ctx.triggered_id == 'toast-trigger' and toast_data:
-            if toast_data.get('source') != 'acceptance': raise PreventUpdate
-        if not student_id: return []
-        results = get_acceptance_results_for_student(student_id)
-        if not results: return dbc.Alert("この生徒の大学合否結果はまだありません。", color="info", className="mt-4")
-        table_header = [html.Thead(html.Tr([html.Th("大学名"), html.Th("学部名"), html.Th("学科名"), html.Th("受験方式"), html.Th("受験日"), html.Th("発表日"),
-                                            html.Th("合否", style={'width': '150px'}), html.Th("操作", style={'width': '120px'})]))]
-        table_body = [html.Tbody([html.Tr([html.Td(r['university_name']), html.Td(r['faculty_name']), html.Td(r.get('department_name', '')),
-                                            html.Td(r.get('exam_system', '')), html.Td(r.get('exam_date', '')), html.Td(r.get('announcement_date', '')),
-                                            html.Td(dcc.Dropdown(id={'type': 'acceptance-result-dropdown', 'index': r['id']},
-                                                                 options=[{'label': '未選択', 'value': ''}, {'label': '合格', 'value': '合格'}, {'label': '不合格', 'value': '不合格'}],
-                                                                 value=r.get('result') if r.get('result') is not None else '', clearable=False, style={'minWidth': '100px'})),
-                                            html.Td([dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': r['id']}, size="sm", className="me-1"),
-                                                     dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': r['id']}, color="danger", size="sm", outline=True)])
-                                          ]) for r in results])]
-        return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
-
 
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),

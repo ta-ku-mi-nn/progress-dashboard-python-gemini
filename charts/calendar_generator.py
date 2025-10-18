@@ -43,17 +43,20 @@ def create_html_calendar(acceptance_data, target_year_month):
     body_rows = []
     df = pd.DataFrame(acceptance_data)
     # 日付列をdatetimeオブジェクトに変換（変換できないものはNaT）
+    df['app_deadline_dt'] = pd.to_datetime(df['application_deadline'], errors='coerce') # ★追加
     df['exam_dt'] = pd.to_datetime(df['exam_date'], errors='coerce')
     df['announcement_dt'] = pd.to_datetime(df['announcement_date'], errors='coerce')
+    df['proc_deadline_dt'] = pd.to_datetime(df['procedure_deadline'], errors='coerce') # ★追加
 
-    # 月によるフィルタリングを削除し、全データを表示対象とする
+
     # 受験日でソート (受験日がないものは最後に)
-    df_all_sorted = df.sort_values(by='exam_dt', ascending=True, na_position='last')
+    # ソートキーに application_deadline も追加（出願日が早い順）
+    df_all_sorted = df.sort_values(by=['app_deadline_dt', 'exam_dt'], ascending=True, na_position='last')
 
-    if df_all_sorted.empty: # 変数名を変更
+    if df_all_sorted.empty:
         return html.Div(dbc.Alert("表示する受験・合否データがありません。", color="info"))
 
-    for _, row in df_all_sorted.iterrows(): # 変数名を変更
+    for _, row in df_all_sorted.iterrows():
         # --- 1列目: 大学情報セル (変更なし) ---
         info_parts = [
             html.Strong(f"{row['university_name']} {row['faculty_name']}"),
@@ -67,33 +70,41 @@ def create_html_calendar(acceptance_data, target_year_month):
         # --- 2列目以降: 日付セル ---
         date_cells = []
         # 日付が「表示月」に含まれるかチェックする
+        app_day = row['app_deadline_dt'].day if pd.notna(row['app_deadline_dt']) and row['app_deadline_dt'].year == year and row['app_deadline_dt'].month == month else None # ★追加
         exam_day = row['exam_dt'].day if pd.notna(row['exam_dt']) and row['exam_dt'].year == year and row['exam_dt'].month == month else None
         announcement_day = row['announcement_dt'].day if pd.notna(row['announcement_dt']) and row['announcement_dt'].year == year and row['announcement_dt'].month == month else None
+        proc_day = row['proc_deadline_dt'].day if pd.notna(row['proc_deadline_dt']) and row['proc_deadline_dt'].year == year and row['proc_deadline_dt'].month == month else None # ★追加
 
         for day in range(1, num_days + 1):
             cell_class = "calendar-date-cell"
-            content = ""
-            title_text = "" # ツールチップ用テキスト
+            content = [] # ★文字列からリストに変更
+            title_texts = [] # ★ツールチップ用テキストリスト
             current_date_obj = date(year, month, day)
             weekday_index = current_date_obj.weekday()
 
             if weekday_index == 5: cell_class += " saturday"
             elif weekday_index == 6: cell_class += " sunday"
 
-            # exam_day と announcement_day が None でない場合のみ色付けとアイコン表示
+            # 各日付のチェックとコンテンツ追加
+            if app_day is not None and day == app_day: # ★追加
+                content.append("出")
+                title_texts.append("出願期日")
             if exam_day is not None and day == exam_day:
-                cell_class += " exam-date-cell"
-                content = "📝"
-                title_text = "受験日"
+                content.append("受")
+                title_texts.append("受験日")
             if announcement_day is not None and day == announcement_day:
-                cell_class = cell_class.replace(" exam-date-cell", "")
-                cell_class += " announcement-date-cell"
                 result_text = row.get('result', '未定')
-                result_icon = "🎉" if result_text == '合格' else ("❌" if result_text == '不合格' else "❓")
-                content = result_icon
-                title_text = f"発表日 ({result_text})"
+                result_char = "合" if result_text == '合格' else ("否" if result_text == '不合格' else "？")
+                content.append(result_char)
+                title_texts.append(f"発表日({result_text})")
+            if proc_day is not None and day == proc_day: # ★追加
+                content.append("手")
+                title_texts.append("手続期日")
 
-            date_cells.append(html.Td(content, className=cell_class, title=title_text))
+            # コンテンツがあれば結合してセルに追加
+            final_content = "/".join(content) if content else ""
+            final_title = ", ".join(title_texts) if title_texts else ""
+            date_cells.append(html.Td(final_content, className=cell_class, title=final_title))
 
         body_rows.append(html.Tr([info_cell] + date_cells))
 

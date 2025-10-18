@@ -123,12 +123,20 @@ def create_past_exam_layout():
                     dbc.Col(dbc.Input(id='acceptance-system', type='text'), width=8)
                 ], className="mb-3"),
                 dbc.Row([
+                    dbc.Col(dbc.Label("出願期日"), width=4),
+                    dbc.Col(dcc.DatePickerSingle(id='acceptance-application-deadline', date=None, display_format='YYYY-MM-DD'), width=8)
+                ], className="mb-3"),
+                dbc.Row([
                     dbc.Col(dbc.Label("受験日"), width=4),
                     dbc.Col(dcc.DatePickerSingle(id='acceptance-exam-date', date=None, display_format='YYYY-MM-DD'), width=8)
                 ], className="mb-3"),
                 dbc.Row([
                     dbc.Col(dbc.Label("合格発表日"), width=4),
                     dbc.Col(dcc.DatePickerSingle(id='acceptance-announcement-date', date=None, display_format='YYYY-MM-DD'), width=8)
+                ], className="mb-3"),
+                dbc.Row([
+                    dbc.Col(dbc.Label("入学手続期日"), width=4),
+                    dbc.Col(dcc.DatePickerSingle(id='acceptance-procedure-deadline', date=None, display_format='YYYY-MM-DD'), width=8)
                 ], className="mb-3"),
             ]),
             dbc.ModalFooter([
