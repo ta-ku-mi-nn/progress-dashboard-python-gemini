@@ -295,6 +295,17 @@ def register_bug_report_callbacks(app):
             else:
                 success = False; msg = "無効なステータスです。"
 
+            if success:
+                toast_data = {'timestamp': datetime.now().isoformat(), 'message': msg, 'source': f'{report_type_match}_report'}
+                update_trigger = {'timestamp': datetime.now().isoformat(), 'type': report_type_match}
+                # ★★★ モーダルを閉じるためのデータ ★★★
+                close_modal_data = {'report_type': report_type_match, 'modal_type': 'close', 'is_open': False, 'timestamp': datetime.now().isoformat()}
+                # アラートクリア、Toast表示、リスト更新トリガー発行、モーダル閉じる指示
+                return "", False, toast_data, update_trigger, close_modal_data
+            else:
+                # 失敗時はアラート表示のみ
+                return dbc.Alert(f"エラー: {msg}", color="danger"), True, no_update, no_update, no_update
+
     # Register save status callbacks
     create_save_status_callback('bug')
     create_save_status_callback('request')
