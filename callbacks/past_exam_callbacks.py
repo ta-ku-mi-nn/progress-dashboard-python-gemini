@@ -497,10 +497,9 @@ def register_past_exam_callbacks(app):
 
         # --- 表示期間の決定 ---
         today = date.today()
-        start_year_month = today.strftime('%Y-%m')
-        # 来年の3月を計算
-        march_next_year = date(today.year + 1, 3, 1)
-        end_year_month = march_next_year.strftime('%Y-%m')
+        current_year = today.year
+        start_year_month = f"{current_year}-12"
+        end_year_month = f"{current_year + 1}-03"
         # --- ここまで変更 ---
 
         # if not target_month: target_month = date.today().strftime('%Y-%m') # ← 削除
