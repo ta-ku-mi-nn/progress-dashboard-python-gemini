@@ -96,8 +96,8 @@
 
 /* --- ↓↓↓ Web表示用の日付セル幅指定を追加 ↓↓↓ --- */
 .calendar-header-cell, .calendar-date-cell {
-    width: 20px !important;
-    min-width: 20px !important;
+    width: 40px !important;
+    min-width: 40px !important;
 }
 /* --- ↑↑↑ ここまで追加 ↑↑↑ --- */
 
