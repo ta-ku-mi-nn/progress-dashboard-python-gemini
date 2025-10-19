@@ -304,42 +304,38 @@ def register_past_exam_callbacks(app):
         # ★出力変数が2つ増えたので no_update の数を調整
         return False, no_update, None, "", "", "", "", None, None, None, None, False
 
-# --- save_acceptance_result 関数 ---
+    # --- save_acceptance_result コールバックの修正 ---
     @app.callback(
         [Output('acceptance-modal-alert', 'children'),
          Output('acceptance-modal-alert', 'is_open', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True),
-         Output('acceptance-modal', 'is_open', allow_duplicate=True),
-         Output('current-calendar-month-store', 'data', allow_duplicate=True)],
+         Output('acceptance-modal', 'is_open', allow_duplicate=True)],
+         # Output('current-calendar-month-store', 'data', allow_duplicate=True)], # ← 削除
         [Input('save-acceptance-modal-btn', 'n_clicks')],
         [State('editing-acceptance-id-store', 'data'), State('student-selection-store', 'data'),
          State('acceptance-university', 'value'), State('acceptance-faculty', 'value'),
          State('acceptance-department', 'value'), State('acceptance-system', 'value'),
-         State('acceptance-application-deadline', 'date'), # ★追加
+         State('acceptance-application-deadline', 'date'),
          State('acceptance-exam-date', 'date'),
          State('acceptance-announcement-date', 'date'),
-         State('acceptance-procedure-deadline', 'date')], # ★追加
+         State('acceptance-procedure-deadline', 'date')],
         prevent_initial_call=True
     )
     def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system,
-                             app_deadline, exam_date, announcement_date, proc_deadline): # ★引数追加
+                             app_deadline, exam_date, announcement_date, proc_deadline):
         if not n_clicks or not student_id: raise PreventUpdate
-        if not university or not faculty: return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update, no_update
+        if not university or not faculty: return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update # , no_update 削除
         result_data = {'university_name': university, 'faculty_name': faculty, 'department_name': department, 'exam_system': system,
-                       'application_deadline': app_deadline, # ★追加
-                       'exam_date': exam_date,
-                       'announcement_date': announcement_date,
-                       'procedure_deadline': proc_deadline} # ★追加
+                       'application_deadline': app_deadline, 'exam_date': exam_date,
+                       'announcement_date': announcement_date, 'procedure_deadline': proc_deadline}
 
-        target_month_str = no_update
-        # カレンダー表示月の決定ロジック (出願期日も考慮)
-        date_candidates = [d for d in [app_deadline, exam_date, announcement_date, proc_deadline] if d]
-        if date_candidates:
-            try:
-                # 最も早い日付を基準にする
-                earliest_date = min(date_candidates)
-                target_month_str = datetime.strptime(earliest_date, '%Y-%m-%d').strftime('%Y-%m')
-            except ValueError: pass
+        # target_month_str = no_update # ← 削除
+        # date_candidates = [d for d in [app_deadline, exam_date, announcement_date, proc_deadline] if d] # ← 削除
+        # if date_candidates: # ← 削除
+        #     try: # ← 削除
+        #         earliest_date = min(date_candidates) # ← 削除
+        #         target_month_str = datetime.strptime(earliest_date, '%Y-%m-%d').strftime('%Y-%m') # ← 削除
+        #     except ValueError: pass # ← 削除
 
         if result_id: success, message = update_acceptance_result(result_id, result_data)
         else: result_data['result'] = None; success, message = add_acceptance_result(student_id, result_data)
@@ -347,8 +343,8 @@ def register_past_exam_callbacks(app):
         if success:
             toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message, 'source': 'acceptance'}
-            return "", False, toast_data, False, target_month_str
-        else: return dbc.Alert(message, color="danger"), True, no_update, no_update, no_update
+            return "", False, toast_data, False # , target_month_str 削除
+        else: return dbc.Alert(message, color="danger"), True, no_update, no_update # , no_update 削除
 
     # --- update_acceptance_table 関数 (修正後) ---
     @app.callback(
@@ -483,85 +479,98 @@ def register_past_exam_callbacks(app):
     # --- 大学合否カレンダーの更新 ---
     @app.callback(
         Output('acceptance-calendar-container', 'children'),
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
-         Input('current-calendar-month-store', 'data'), Input('refresh-calendar-btn', 'n_clicks')],
+        [Input('student-selection-store', 'data'),
+         Input('toast-trigger', 'data'),
+         # Input('current-calendar-month-store', 'data'), # ← 削除
+         Input('refresh-calendar-btn', 'n_clicks')],
         State('past-exam-tabs', 'active_tab')
     )
-    def update_acceptance_calendar(student_id, toast_data, target_month, refresh_clicks, active_tab): # 引数に refresh_clicks を追加
+    def update_acceptance_calendar(student_id, toast_data, refresh_clicks, active_tab): # target_month 引数を削除
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # カレンダータブ以外 or toast の source が違う or 更新ボタンで n_clicks が None の場合早期リターン
         if active_tab != 'tab-gantt': raise PreventUpdate
         if triggered_id == 'toast-trigger':
             if not toast_data or toast_data.get('source') != 'acceptance': raise PreventUpdate
         elif triggered_id == 'refresh-calendar-btn' and refresh_clicks is None:
              raise PreventUpdate
 
-        if not target_month: target_month = date.today().strftime('%Y-%m')
-        if not student_id: return create_html_calendar([], target_month)
+        # --- 表示期間の決定 ---
+        today = date.today()
+        start_year_month = today.strftime('%Y-%m')
+        # 来年の3月を計算
+        march_next_year = date(today.year + 1, 3, 1)
+        end_year_month = march_next_year.strftime('%Y-%m')
+        # --- ここまで変更 ---
+
+        # if not target_month: target_month = date.today().strftime('%Y-%m') # ← 削除
+        if not student_id:
+            # 生徒が選択されていない場合も期間を指定
+            return create_html_calendar([], start_year_month, end_year_month)
+
         acceptance_data = get_acceptance_results_for_student(student_id)
-        calendar_html = create_html_calendar(acceptance_data, target_month)
+        # 期間を渡すように変更
+        calendar_html = create_html_calendar(acceptance_data, start_year_month, end_year_month)
         return calendar_html
 
-    # カレンダーの表示年月を更新するコールバック
-    @app.callback(
-        Output('current-calendar-month-store', 'data'), # allow_duplicate=True を削除
-        [Input('prev-month-btn', 'n_clicks'), Input('next-month-btn', 'n_clicks'), Input('past-exam-tabs', 'active_tab')],
-        [State('current-calendar-month-store', 'data'),
-         # ★★★ Stateを追加 ★★★
-         State('student-selection-store', 'data')],
-        prevent_initial_call=True
-    )
-    def update_calendar_month(prev_clicks, next_clicks, active_tab, current_month_str, student_id): # student_id を追加
-        ctx = callback_context
-        trigger_id = ctx.triggered_id
+    # # カレンダーの表示年月を更新するコールバック
+    # @app.callback(
+    #     Output('current-calendar-month-store', 'data'), # allow_duplicate=True を削除
+    #     [Input('prev-month-btn', 'n_clicks'), Input('next-month-btn', 'n_clicks'), Input('past-exam-tabs', 'active_tab')],
+    #     [State('current-calendar-month-store', 'data'),
+    #      # ★★★ Stateを追加 ★★★
+    #      State('student-selection-store', 'data')],
+    #     prevent_initial_call=True
+    # )
+    # def update_calendar_month(prev_clicks, next_clicks, active_tab, current_month_str, student_id): # student_id を追加
+    #     ctx = callback_context
+    #     trigger_id = ctx.triggered_id
 
-        # カレンダータブがアクティブになった時
-        if trigger_id == 'past-exam-tabs' and active_tab == 'tab-gantt':
-            if current_month_str: # 既に月が設定されていれば（例：保存直後など）、それを維持
-                 return no_update
-            else: # まだ月が設定されていない場合
-                 if student_id:
-                     # ★★★ 生徒の合否データを取得して最も近い未来の月を計算 ★★★
-                     acceptance_data = get_acceptance_results_for_student(student_id)
-                     return find_nearest_future_month(acceptance_data)
-                 else:
-                     # 生徒が選択されていない場合は当月
-                     return date.today().strftime('%Y-%m')
+    #     # カレンダータブがアクティブになった時
+    #     if trigger_id == 'past-exam-tabs' and active_tab == 'tab-gantt':
+    #         if current_month_str: # 既に月が設定されていれば（例：保存直後など）、それを維持
+    #              return no_update
+    #         else: # まだ月が設定されていない場合
+    #              if student_id:
+    #                  # ★★★ 生徒の合否データを取得して最も近い未来の月を計算 ★★★
+    #                  acceptance_data = get_acceptance_results_for_student(student_id)
+    #                  return find_nearest_future_month(acceptance_data)
+    #              else:
+    #                  # 生徒が選択されていない場合は当月
+    #                  return date.today().strftime('%Y-%m')
 
-        # 前月/次月ボタンが押された場合のみ処理
-        if trigger_id not in ['prev-month-btn', 'next-month-btn']:
-             raise PreventUpdate
+    #     # 前月/次月ボタンが押された場合のみ処理
+    #     if trigger_id not in ['prev-month-btn', 'next-month-btn']:
+    #          raise PreventUpdate
 
-        # current_month_str がない場合は当月を基準にする (念のため)
-        if not current_month_str:
-            current_month_str = date.today().strftime('%Y-%m')
+    #     # current_month_str がない場合は当月を基準にする (念のため)
+    #     if not current_month_str:
+    #         current_month_str = date.today().strftime('%Y-%m')
 
-        try: current_month = datetime.strptime(current_month_str, '%Y-%m').date()
-        except (ValueError, TypeError): current_month = date.today()
+    #     try: current_month = datetime.strptime(current_month_str, '%Y-%m').date()
+    #     except (ValueError, TypeError): current_month = date.today()
 
-        if trigger_id == 'prev-month-btn':
-            first_day_current_month = current_month.replace(day=1)
-            last_day_prev_month = first_day_current_month - timedelta(days=1)
-            new_month = last_day_prev_month.replace(day=1)
-            return new_month.strftime('%Y-%m')
-        elif trigger_id == 'next-month-btn':
-            days_in_month = calendar.monthrange(current_month.year, current_month.month)[1]
-            first_day_next_month = current_month.replace(day=1) + timedelta(days=days_in_month)
-            return first_day_next_month.strftime('%Y-%m')
+    #     if trigger_id == 'prev-month-btn':
+    #         first_day_current_month = current_month.replace(day=1)
+    #         last_day_prev_month = first_day_current_month - timedelta(days=1)
+    #         new_month = last_day_prev_month.replace(day=1)
+    #         return new_month.strftime('%Y-%m')
+    #     elif trigger_id == 'next-month-btn':
+    #         days_in_month = calendar.monthrange(current_month.year, current_month.month)[1]
+    #         first_day_next_month = current_month.replace(day=1) + timedelta(days=days_in_month)
+    #         return first_day_next_month.strftime('%Y-%m')
 
-        raise PreventUpdate
+    #     raise PreventUpdate
 
 
-    @app.callback(
-        Output('current-month-display', 'children'),
-        Input('current-calendar-month-store', 'data')
-    )
-    def display_current_month(month_str):
-        if not month_str: month_str = date.today().strftime('%Y-%m')
-        try: dt = datetime.strptime(month_str, '%Y-%m'); return f"{dt.year}年 {dt.month}月"
-        except (ValueError, TypeError): today = date.today(); return f"{today.year}年 {today.month}月"
+    # @app.callback(
+    #     Output('current-month-display', 'children'),
+    #     Input('current-calendar-month-store', 'data')
+    # )
+    # def display_current_month(month_str):
+    #     if not month_str: month_str = date.today().strftime('%Y-%m')
+    #     try: dt = datetime.strptime(month_str, '%Y-%m'); return f"{dt.year}年 {dt.month}月"
+    #     except (ValueError, TypeError): today = date.today(); return f"{today.year}年 {today.month}月"
 
     clientside_callback(
         """
