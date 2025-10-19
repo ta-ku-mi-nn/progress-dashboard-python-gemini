@@ -91,7 +91,6 @@ def create_bug_report_layout(user_info):
     request_tab_content = dbc.Row([ dbc.Col(create_report_form("request"), md=4), dbc.Col(create_report_list("request"), md=8), ])
 
     return dbc.Container([
-        html.H3("不具合報告・要望", className="my-4"),
         dbc.Tabs(
             [ dbc.Tab(bug_report_tab_content, label="不具合報告", tab_id="tab-bug-report"), dbc.Tab(request_tab_content, label="要望", tab_id="tab-request"), ],
             id="report-tabs", active_tab="tab-bug-report",
