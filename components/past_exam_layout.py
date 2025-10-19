@@ -183,7 +183,6 @@ def create_past_exam_layout():
 
     # --- タブ構造 ---
     return html.Div([
-        html.H3("過去問・入試管理", className="my-4"),
         dbc.Tabs(
             [
                 dbc.Tab(past_exam_tab_content, label="過去問管理", tab_id="tab-past-exam"),
