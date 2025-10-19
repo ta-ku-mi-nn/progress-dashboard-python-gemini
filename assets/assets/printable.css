@@ -18,76 +18,84 @@
     }
 
 /* --- カレンダー印刷スタイルの調整 --- */
-    .multi-month-calendar-wrapper { /* 不要になったため削除またはコメントアウト */
-        /* display: flex !important; */
-        /* flex-direction: row !important; */
-        /* justify-content: space-between; */
-        /* width: 100% !important; */
-        /* page-break-inside: avoid !important; */
-        /* gap: 5px; */
+    .multi-month-calendar-wrapper { /* ラッパーはブロック要素に */
+        display: block !important;
+        width: 100% !important;
+         /* page-break-inside: avoid !important; */ /* ラッパーでの改ページ禁止を解除 */
     }
 
-    .calendar-month-header { /* 月ヘッダーのスタイルはテーブルヘッダーセルに適用 */
-         display: none; /* 個別のH5ヘッダーは非表示 */
-    }
-    .calendar-month-header-cell { /* テーブル内の月ヘッダーセル */
+    /* テーブルヘッダー内の月表示 */
+    .calendar-month-header-cell {
          font-size: 8pt !important;
          font-weight: bold;
          text-align: center;
          padding: 2px !important;
          border: 1px solid #ccc !important;
-         background-color: #e9ecef !important; /* 背景色 */
+         background-color: #e9ecef !important;
+         page-break-inside: avoid !important; /* ヘッダー内では改ページしない */
     }
 
 
     .calendar-table {
-        width: 100% !important; /* テーブル幅を100%に */
-        font-size: 6pt !important;
+        width: 100% !important;
+        font-size: 6pt !important; /* フォント縮小 */
         border: 1px solid #ccc !important;
         table-layout: fixed !important;
-        page-break-inside: avoid !important;
+        /* page-break-inside: avoid !important; */ /* テーブル全体での改ページ禁止を解除 */
+        page-break-inside: auto !important; /* ★ テーブル内での改ページを許可 */
         margin-bottom: 0 !important;
-        border-collapse: collapse !important; /* 罫線を結合 */
+        border-collapse: collapse !important;
     }
+
+    /* ★ テーブルの行ごとに改ページを制御 */
+    .calendar-table thead, .calendar-table tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto !important;
+    }
+
 
     .calendar-table th, .calendar-table td {
         border: 1px solid #ccc !important;
         padding: 1px !important;
-        white-space: normal !important; /* 必要に応じて改行を許可 */
+        white-space: normal !important;
         word-wrap: break-word;
         vertical-align: middle !important;
-        height: 20px !important; /* ★ 高さをさらに縮小 */
+        height: 20px !important;
         text-align: center !important;
-        overflow: hidden; /* 内容がはみ出したら隠す */
-        text-overflow: ellipsis; /* はみ出した内容を ... で表示 (オプション) */
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .calendar-info-header-cell, .calendar-info-cell {
-        width: 50px !important; /* ★ 情報列の幅を少し広げる */
+        width: 60px !important; /* ★ 情報列の幅を再調整 */
         font-size: 5pt !important;
         vertical-align: top !important;
-        white-space: normal !important; /* 情報セルは折り返し必須 */
+        white-space: normal !important;
         height: auto !important; /* 情報セルは高さを自動に */
+        /* ★ 印刷時に左端に固定表示させる (長いテーブル用) */
+        position: sticky;
+        left: 0;
+        background-color: white !important; /* 背景色を指定しないと透ける */
+        z-index: 1; /* 日付セルより手前に */
     }
     .calendar-info-header-cell {
-         vertical-align: middle !important; /* ヘッダーは中央揃え */
+         vertical-align: middle !important;
          font-weight: bold;
+         z-index: 2; /* 月ヘッダーよりさらに手前 */
     }
 
 
     /* 日付ヘッダーと日付データセル */
     .calendar-header-cell, .calendar-date-cell {
-        /* width指定は削除し、table-layout:fixedに任せる */
-        /* A4横幅 (約277mm) から情報列(50mm)と余白(10mm)を引き、残り日数(約120日)で割る */
-        /* (277 - 50 - 10) / 120 ≒ 1.8mm -> CSSでは非常に小さい値になる */
-        width: 1.5% !important; /* ★ パーセントで幅を指定 (試行錯誤が必要) */
-        min-width: 0 !important;
-        font-size: 6pt !important;
+        /* 固定幅ではなく、均等割りを基本とする */
+         width: auto !important; /* 自動幅 */
+         min-width: 12px !important; /* ★ 最小幅を指定して潰れすぎを防ぐ */
+         font-size: 6pt !important;
     }
     .calendar-header-cell {
          font-size: 5pt !important;
     }
-     .calendar-table th br { /* 日付ヘッダー内の改行は不要 */
+     .calendar-table th br {
         display: none;
     }
 

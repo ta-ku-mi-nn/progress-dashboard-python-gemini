@@ -9,7 +9,9 @@ from dateutil.relativedelta import relativedelta
 def create_html_calendar(acceptance_data, start_year_month, end_year_month):
     try:
         start_date = datetime.strptime(start_year_month, '%Y-%m').date().replace(day=1)
-        end_date = (datetime.strptime(end_year_month, '%Y-%m').date().replace(day=1) + relativedelta(months=+1)) - timedelta(days=1)
+        # 終了日は end_year_month の最終日を計算
+        end_month_start = datetime.strptime(end_year_month, '%Y-%m').date().replace(day=1)
+        end_date = (end_month_start + relativedelta(months=+1)) - timedelta(days=1)
     except (ValueError, TypeError):
         today = date.today()
         start_date = today.replace(day=1, month=12) # 当年12月開始
@@ -37,37 +39,39 @@ def create_html_calendar(acceptance_data, start_year_month, end_year_month):
     df_all_sorted = df.sort_values(by=sort_keys, ascending=True, na_position='last') if sort_keys else df
 
     # --- 単一テーブルのヘッダー生成 ---
-    header_cells = [html.Th("大学・学部等", className="calendar-info-header-cell", rowSpan=2)] # 2行分結合
+    header_cells = [html.Th("大学・学部等", className="calendar-info-header-cell", rowSpan=2)]
     month_cells = []
     day_cells = []
-    current_date = start_date
+    current_date_header = start_date
     month_colspan = 0
     current_header_month = None
     weekday_names_jp = ["月", "火", "水", "木", "金", "土", "日"]
 
-    while current_date <= end_date:
-        year, month, day = current_date.year, current_date.month, current_date.day
+    while current_date_header <= end_date:
+        year, month, day = current_date_header.year, current_date_header.month, current_date_header.day
 
-        # 月ヘッダーの処理
+        # 月ヘッダー
         if current_header_month != month:
-            if current_header_month is not None: # 前の月のcolspanを確定
-                month_cells.append(html.Th(f"{year if month==1 else ''}{current_header_month}月", colSpan=month_colspan, className="calendar-month-header-cell"))
+            if current_header_month is not None:
+                month_cells.append(html.Th(f"{last_year if current_header_month==12 else ''}{current_header_month}月", colSpan=month_colspan, className="calendar-month-header-cell"))
             current_header_month = month
             month_colspan = 0
+            last_year = year # 年が変わる場合のために保持
         month_colspan += 1
 
-        # 日ヘッダーの処理
-        weekday_index = current_date.weekday()
+        # 日ヘッダー
+        weekday_index = current_date_header.weekday()
         weekday_name = weekday_names_jp[weekday_index]
         cell_class = "calendar-header-cell"
         if weekday_index == 5: cell_class += " saturday"
         elif weekday_index == 6: cell_class += " sunday"
-        day_cells.append(html.Th([str(day), html.Br(), weekday_name], className=cell_class, title=f"{year}-{month:02d}-{day:02d} ({weekday_name})"))
+        # 曜日を表示しないように変更
+        day_cells.append(html.Th(str(day), className=cell_class, title=f"{year}-{month:02d}-{day:02d} ({weekday_name})"))
 
-        current_date += timedelta(days=1)
+        current_date_header += timedelta(days=1)
 
-    # 最後の月のcolspanを追加
-    month_cells.append(html.Th(f"{end_date.year if end_date.month==1 else ''}{current_header_month}月", colSpan=month_colspan, className="calendar-month-header-cell"))
+    # 最後の月
+    month_cells.append(html.Th(f"{last_year if current_header_month==12 else ''}{current_header_month}月", colSpan=month_colspan, className="calendar-month-header-cell"))
 
     header_row1 = html.Tr(header_cells + month_cells)
     header_row2 = html.Tr(day_cells)
@@ -76,7 +80,7 @@ def create_html_calendar(acceptance_data, start_year_month, end_year_month):
     # --- テーブルボディ生成 ---
     body_rows = []
     for _, row in df_all_sorted.iterrows():
-        # 情報セル (変更なし)
+        # 情報セル (学科名・方式を戻す)
         info_parts = [
             html.Strong(f"{row.get('university_name','')} {row.get('faculty_name','') }"), html.Br(),
             row.get('department_name', ''), html.Br() if row.get('department_name') else '',
@@ -84,14 +88,12 @@ def create_html_calendar(acceptance_data, start_year_month, end_year_month):
         ]
         info_cell = html.Td(info_parts, className="calendar-info-cell")
 
-        # 日付セル (期間全体をループ)
+        # 日付セル (期間全体をループ - 変更なし)
         date_cells = []
         current_date_loop = start_date
         while current_date_loop <= end_date:
-            year, month, day = current_date_loop.year, current_date_loop.month, current_date_loop.day
             current_date_dt = current_date_loop # dateオブジェクトとして保持
 
-            # 各日付がイベント日に該当するかチェック
             app_day = pd.notna(row.get('app_deadline_dt')) and row['app_deadline_dt'].date() == current_date_dt
             exam_day = pd.notna(row.get('exam_dt')) and row['exam_dt'].date() == current_date_dt
             announcement_day = pd.notna(row.get('announcement_dt')) and row['announcement_dt'].date() == current_date_dt
@@ -123,9 +125,11 @@ def create_html_calendar(acceptance_data, start_year_month, end_year_month):
         body_rows.append(html.Tr([info_cell] + date_cells))
 
     # --- テーブル全体を返す ---
+    # ★ table タグに id を追加
     calendar_table = html.Table(
+        id="full-calendar-table", # ★ ID追加
         className="calendar-table",
         children=[table_header, html.Tbody(body_rows)]
     )
-    # ラッパーDivは不要になったので削除
-    return calendar_table
+    # ★ ラッパーDivを再度追加
+    return html.Div(calendar_table, className="multi-month-calendar-wrapper") # ラッパークラス名変更
