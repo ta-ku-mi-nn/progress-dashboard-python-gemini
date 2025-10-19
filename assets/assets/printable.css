@@ -17,56 +17,78 @@
         display: none !important;
     }
 
-/* --- ↓↓↓ カレンダー印刷スタイルの調整 ↓↓↓ --- */
-    .multi-month-calendar-wrapper { /* 複数月カレンダーのラッパー */
-        display: flex !important; /* 横並びにする */
-        flex-direction: row !important;
-        justify-content: space-between; /* 間隔を均等に */
-        width: 100% !important; /* 幅を100%に */
-        page-break-inside: avoid !important; /* ラッパー内で改ページしない */
+/* --- カレンダー印刷スタイルの調整 --- */
+    .multi-month-calendar-wrapper { /* 不要になったため削除またはコメントアウト */
+        /* display: flex !important; */
+        /* flex-direction: row !important; */
+        /* justify-content: space-between; */
+        /* width: 100% !important; */
+        /* page-break-inside: avoid !important; */
+        /* gap: 5px; */
     }
 
-    .calendar-month-header { /* 各月のヘッダー */
-        page-break-before: avoid !important; /* 月の開始での改ページを禁止 */
-        page-break-after: avoid !important;
-        font-size: 9pt !important; /* フォントサイズ調整 */
-        text-align: center;
-        margin-bottom: 5px !important;
+    .calendar-month-header { /* 月ヘッダーのスタイルはテーブルヘッダーセルに適用 */
+         display: none; /* 個別のH5ヘッダーは非表示 */
     }
+    .calendar-month-header-cell { /* テーブル内の月ヘッダーセル */
+         font-size: 8pt !important;
+         font-weight: bold;
+         text-align: center;
+         padding: 2px !important;
+         border: 1px solid #ccc !important;
+         background-color: #e9ecef !important; /* 背景色 */
+    }
+
 
     .calendar-table {
-        width: 24% !important; /* 4つのテーブルを横に並べるための幅 (約1/4) */
-        font-size: 6pt !important; /* フォントをさらに縮小 */
+        width: 100% !important; /* テーブル幅を100%に */
+        font-size: 6pt !important;
         border: 1px solid #ccc !important;
-        table-layout: fixed;
+        table-layout: fixed !important;
         page-break-inside: avoid !important;
-        margin-bottom: 0 !important; /* 月ごとの下の間隔を削除 */
-        vertical-align: top; /* テーブル自体を上に揃える */
+        margin-bottom: 0 !important;
+        border-collapse: collapse !important; /* 罫線を結合 */
     }
 
     .calendar-table th, .calendar-table td {
         border: 1px solid #ccc !important;
-        padding: 1px !important; /* パディングをさらに縮小 */
-        white-space: normal !important;
+        padding: 1px !important;
+        white-space: normal !important; /* 必要に応じて改行を許可 */
         word-wrap: break-word;
         vertical-align: middle !important;
-        height: auto !important; /* 高さを自動に */
-        min-height: 25px; /* 最低限の高さを確保 */
+        height: 20px !important; /* ★ 高さをさらに縮小 */
+        text-align: center !important;
+        overflow: hidden; /* 内容がはみ出したら隠す */
+        text-overflow: ellipsis; /* はみ出した内容を ... で表示 (オプション) */
     }
+
     .calendar-info-header-cell, .calendar-info-cell {
-        width: 45px !important; /* 情報列の幅を縮小 */
-        font-size: 5pt !important; /* 情報列のフォントをさらに縮小 */
+        width: 50px !important; /* ★ 情報列の幅を少し広げる */
+        font-size: 5pt !important;
+        vertical-align: top !important;
+        white-space: normal !important; /* 情報セルは折り返し必須 */
+        height: auto !important; /* 情報セルは高さを自動に */
+    }
+    .calendar-info-header-cell {
+         vertical-align: middle !important; /* ヘッダーは中央揃え */
+         font-weight: bold;
+    }
+
+
+    /* 日付ヘッダーと日付データセル */
+    .calendar-header-cell, .calendar-date-cell {
+        /* width指定は削除し、table-layout:fixedに任せる */
+        /* A4横幅 (約277mm) から情報列(50mm)と余白(10mm)を引き、残り日数(約120日)で割る */
+        /* (277 - 50 - 10) / 120 ≒ 1.8mm -> CSSでは非常に小さい値になる */
+        width: 1.5% !important; /* ★ パーセントで幅を指定 (試行錯誤が必要) */
+        min-width: 0 !important;
+        font-size: 6pt !important;
     }
     .calendar-header-cell {
-         font-size: 5pt !important; /* 日付ヘッダーのフォント縮小 */
+         font-size: 5pt !important;
     }
-    .calendar-date-cell {
-        width: auto !important;
-        min-width: 10px !important; /* 日付セルの最小幅をさらに縮小 */
-        text-align: center;
-    }
-     .calendar-table th br {
-        display: none; /* ヘッダーの改行を削除 */
+     .calendar-table th br { /* 日付ヘッダー内の改行は不要 */
+        display: none;
     }
 
     /* セルの背景色を強制表示 */
@@ -83,10 +105,7 @@
     }
 }
 
-@page {
-    size: A4 portrait;
-    margin: 10mm;
-}
+
 
 @media print {
     /* =================================== */
@@ -236,5 +255,10 @@
 
     h2, h4 {
         page-break-after: avoid;
+    }
+
+    @page {
+    size: A4 portrait;
+    margin: 10mm;
     }
 }
