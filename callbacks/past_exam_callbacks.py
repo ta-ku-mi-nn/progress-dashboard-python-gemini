@@ -1,6 +1,7 @@
 # callbacks/past_exam_callbacks.py
 
 from dash import Input, Output, State, html, no_update, callback_context, ALL, MATCH, dcc
+from dash import clientside_callback
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -561,3 +562,20 @@ def register_past_exam_callbacks(app):
         if not month_str: month_str = date.today().strftime('%Y-%m')
         try: dt = datetime.strptime(month_str, '%Y-%m'); return f"{dt.year}年 {dt.month}月"
         except (ValueError, TypeError): today = date.today(); return f"{today.year}年 {today.month}月"
+
+    clientside_callback(
+        """
+        function(n_clicks) {
+            if (n_clicks > 0) {
+                // 少し待ってから印刷ダイアログを開く（レンダリング待ち）
+                setTimeout(function() {
+                    window.print();
+                }, 500); // 500ms待機 (必要に応じて調整)
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output('print-calendar-btn', 'n_clicks', allow_duplicate=True), # allow_duplicate=True を追加
+        Input('print-calendar-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )

@@ -1,5 +1,82 @@
 /* assets/assets/printable.css */
 
+/* --- ↓↓↓ カレンダー印刷用スタイルを追加 ↓↓↓ --- */
+@media print {
+    /* 非表示にする要素 */
+    #navbar-container, /* ナビゲーションバー */
+    #school-dropdown-container, /* 校舎ドロップダウン */
+    #student-dropdown-container, /* 生徒ドロップダウン */
+    #past-exam-tabs .nav-tabs, /* タブヘッダー */
+    #tab-past-exam, /* 過去問管理タブ */
+    #tab-acceptance, /* 入試管理タブ */
+    #calendar-header-row #calendar-action-buttons, /* カレンダーの操作ボタン群 */
+    #calendar-print-hide-text, /* カレンダーの説明テキスト */
+    #success-toast, /* トースト */
+    ._dash-loading /* ローディング表示 */
+     {
+        display: none !important;
+    }
+
+    /* 印刷対象のタブとコンテナを表示 */
+    body, #page-content, #calendar-tab-content-wrapper, #tab-gantt {
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        background-color: white !important; /* 背景を白に */
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* カレンダーコンテナ */
+    #acceptance-calendar-container {
+        overflow-x: visible !important; /* 横スクロールを解除 */
+        width: 100% !important;
+    }
+
+    /* カレンダーテーブル */
+    .calendar-table {
+        width: 100% !important;
+        font-size: 7pt !important; /* フォントサイズ縮小 */
+        border: 1px solid #ccc !important;
+        table-layout: fixed; /* レイアウト崩れ防止 */
+        page-break-inside: avoid !important; /* テーブル内で改ページしない */
+    }
+    .calendar-table th, .calendar-table td {
+        border: 1px solid #ccc !important;
+        padding: 2px !important; /* パディング縮小 */
+        white-space: normal !important; /* 大学名などを折り返す */
+        word-wrap: break-word; /* 長い単語を折り返す */
+        vertical-align: middle !important;
+    }
+    .calendar-info-header-cell, .calendar-info-cell {
+        width: 100px !important; /* 情報列の幅を調整 */
+    }
+    .calendar-date-cell {
+        width: auto !important; /* 日付列の幅は自動 */
+        min-width: 20px !important; /* 最小幅 */
+        height: auto !important; /* 高さを自動に */
+        text-align: center;
+    }
+    .calendar-table th br {
+        display: none; /* ヘッダーの改行を削除 */
+    }
+
+    /* セルの背景色を強制表示 */
+    .app-deadline-cell, .exam-date-cell, .announcement-date-cell, .proc-deadline-cell,
+    .saturday, .sunday {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ページ設定 */
+    @page {
+        size: A4 landscape; /* 横向きに変更 */
+        margin: 10mm;
+    }
+}
+
 @page {
     size: A4 portrait;
     margin: 10mm;

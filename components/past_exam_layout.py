@@ -165,13 +165,14 @@ def create_past_exam_layout():
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted")
             ]),
             dbc.Col([ # Pass children as a list
+                dbc.Button(html.I(className="fas fa-print"), id="print-calendar-btn", color="info", outline=True, title="カレンダーを印刷", size="sm", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
                 dbc.ButtonGroup([
                     dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary", size="sm"),
                     dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary", size="sm")
                 ]),
-            ], width='auto', className="ms-auto") # Pass className as a keyword argument
-        ], align="center", className="my-4"),
+            ], width='auto', className="ms-auto", id="calendar-action-buttons") # Pass className as a keyword argument
+        ], align="center", className="my-4", id="calendar-header-row"),
         html.H5(id="current-month-display", className="text-center mb-3"), # 表示年月を表示
 
         # ↓↓↓ dcc.Graph から html.Div に変更 ↓↓↓
@@ -179,7 +180,7 @@ def create_past_exam_layout():
             html.Div(id="acceptance-calendar-container", style={'overflowX': 'auto'}) # カレンダーテーブルのコンテナ, 横スクロール可能に
         )
         # ↑↑↑ ここまで変更 ↑↑↑
-    ])
+    ], id="calendar-tab-content-wrapper")
 
     # --- タブ構造 ---
     return html.Div([
