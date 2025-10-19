@@ -89,18 +89,10 @@
     height: 50px;
     font-size: 1rem;
     position: relative;
-    /* width は削除 */
-    /* min-width: 40px; */ /* ← コメントアウトまたは削除 */
+    width : 40px;
+    min-width: 40px; /* ← コメントアウトまたは削除 */
     box-sizing: border-box; /* ★ 追加 */
 }
-
-/* --- ↓↓↓ Web表示用の日付セル幅指定を追加 ↓↓↓ --- */
-.calendar-header-cell, .calendar-date-cell {
-    width: 40px !important;
-    min-width: 40px !important;
-}
-/* --- ↑↑↑ ここまで追加 ↑↑↑ --- */
-
 
 /* 土日の日付セル背景色 */
 .calendar-date-cell.saturday {
