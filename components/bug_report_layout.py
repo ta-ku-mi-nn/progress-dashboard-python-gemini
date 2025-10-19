@@ -13,10 +13,8 @@ def create_report_form(report_type):
     alert_id = f"{form_id_prefix}-submit-alert"
 
     return dbc.Card([
-        dbc.CardHeader(header_text + "(褒め言葉でもOK)"),
+        dbc.CardHeader(header_text),
         dbc.CardBody([
-            # ★★★ 単純なIDを使用 ★★★
-            dbc.Alert(id=alert_id, is_open=False),
             dbc.Input(id=f"{form_id_prefix}-title", placeholder="件名", className="mb-3"),
             dbc.Textarea(id=f"{form_id_prefix}-description", placeholder=placeholder_text, className="mb-3", rows=5),
             dbc.Button(button_text, id=f"submit-{form_id_prefix}-btn", color="primary", className="w-100")
