@@ -21,8 +21,8 @@
     font-weight: normal;
     font-size: 0.75rem;
     vertical-align: middle;
-    /* width は削除 */
-    /* min-width: 40px; */ /* ← コメントアウトまたは削除 */
+    width : 40px;
+    min-width: 40px;
     box-sizing: border-box; /* ★ 追加 */
 }
 
