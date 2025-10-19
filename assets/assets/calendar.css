@@ -3,34 +3,49 @@
 /* --- テーブル全体のスタイル --- */
 .calendar-table {
     width: 100%;
-    /* min-width: 1200px; /* 必要に応じて調整 */
+    /* min-width: 1200px; */ /* ← 必要であればコメント解除または値を調整 */
     border-collapse: collapse;
-    table-layout: fixed; /* 列幅を固定 */
+    table-layout: fixed; /* ★ fixed を指定 */
     margin-bottom: 2rem;
     font-size: 0.8rem;
     border: 1px solid #dee2e6;
-    white-space: nowrap; /* セル内での改行を防ぐ */
+    /* white-space: nowrap; */ /* ← コメントアウトまたは削除 */
 }
 
 /* --- ヘッダーセルのスタイル --- */
 .calendar-table th {
     border: 1px solid #dee2e6;
-    padding: 6px 4px; /* 上下左右のパディング調整 */
+    padding: 6px 4px;
     text-align: center;
     background-color: #f8f9fa;
     font-weight: normal;
-    font-size: 0.75rem; /* ヘッダーの文字を少し小さく */
-    vertical-align: middle; /* 上下中央揃え */
-    /* width: calc((100% - 220px) / 31); /* 日付列の幅を計算 (31日分で割る例) */
-    min-width: 40px; /* 日付セルの最小幅 */
+    font-size: 0.75rem;
+    vertical-align: middle;
+    /* width は削除 */
+    /* min-width: 40px; */ /* ← コメントアウトまたは削除 */
+    box-sizing: border-box; /* ★ 追加 */
 }
 
 /* 情報列ヘッダーのスタイル */
 .calendar-info-header-cell {
-    width: 220px; /* 情報列の幅を固定 (調整可能) */
-    background-color: #e9ecef; /* 少し濃い背景色 */
+    width: 180px; /* ★ 幅を調整 (日付セル20pxを考慮) */
+    background-color: #e9ecef;
     font-weight: bold;
+    position: sticky; /* ★ 追加: スクロール時に固定 */
+    left: 0;         /* ★ 追加 */
+    z-index: 1;      /* ★ 追加 */
 }
+/* ★ 追加: 月ヘッダーセル */
+.calendar-month-header-cell {
+     font-size: 8pt !important;
+     font-weight: bold;
+     text-align: center;
+     padding: 4px !important; /* Web表示用に調整 */
+     border: 1px solid #dee2e6 !important;
+     background-color: #e0e0e0 !important; /* 少し濃いグレー */
+     page-break-inside: avoid !important;
+}
+
 
 /* ヘッダーの曜日表示用の改行 */
 .calendar-table th br {
@@ -54,26 +69,38 @@
     border: 1px solid #dee2e6;
     padding: 8px;
     text-align: left;
-    vertical-align: top; /* 上寄せ */
+    vertical-align: top;
     font-size: 0.75rem;
-    white-space: normal; /* 大学名は折り返す */
+    white-space: normal;
     line-height: 1.3;
-    width: 220px; /* ヘッダーと合わせる */
-    background-color: #f8f9fa; /* ヘッダーより少し薄い背景 */
+    width: 180px; /* ★ ヘッダーと合わせる */
+    background-color: #f8f9fa;
+    position: sticky; /* ★ 追加: スクロール時に固定 */
+    left: 0;         /* ★ 追加 */
+    z-index: 1;      /* ★ 追加 */
 }
 
 /* --- ボディセル (日付列) のスタイル --- */
 .calendar-date-cell {
     border: 1px solid #dee2e6;
-    padding: 4px; /* パディングを小さく */
+    padding: 4px;
     text-align: center;
-    vertical-align: middle; /* アイコンを中央揃え */
-    height: 50px; /* 各行の高さを固定 (調整可能) */
-    font-size: 1rem; /* アイコンサイズ調整用 */
-    position: relative; /* 今日の日付マーカー用 (オプション) */
-    /* width: calc((100% - 220px) / 31); /* ヘッダーと合わせる */
-    min-width: 40px; /* ヘッダーと合わせる */
+    vertical-align: middle;
+    height: 50px;
+    font-size: 1rem;
+    position: relative;
+    /* width は削除 */
+    /* min-width: 40px; */ /* ← コメントアウトまたは削除 */
+    box-sizing: border-box; /* ★ 追加 */
 }
+
+/* --- ↓↓↓ Web表示用の日付セル幅指定を追加 ↓↓↓ --- */
+.calendar-header-cell, .calendar-date-cell {
+    width: 20px !important;
+    min-width: 20px !important;
+}
+/* --- ↑↑↑ ここまで追加 ↑↑↑ --- */
+
 
 /* 土日の日付セル背景色 */
 .calendar-date-cell.saturday {
@@ -83,51 +110,14 @@
     background-color: #fff7f0;
 }
 
-.app-deadline-cell { /* 出願期日 */
-    background-color: #ffff7f !important; /* 黄色 (LemonChiffon) */
-}
-.exam-date-cell { /* 受験日 */
-    background-color: #ff7f7f !important; /* 赤 (LightCoral) */
-}
-.announcement-date-cell { /* 合格発表日 */
-    background-color: #7fff7f !important; /* 緑 (LightGreen) */
-}
-.proc-deadline-cell { /* 手続期日 */
-    background-color: #bf7fff !important; /* 紫 (Lavender) */
-}
+/* --- イベントセルのスタイル (変更なし) --- */
+.app-deadline-cell { background-color: #ffff7f !important; }
+.exam-date-cell { background-color: #ff7f7f !important; }
+.announcement-date-cell { background-color: #7fff7f !important; }
+.proc-deadline-cell { background-color: #bf7fff !important; }
+.exam-date-cell.app-deadline-cell { background-color: #ffd700 !important; }
+.announcement-date-cell.exam-date-cell, .announcement-date-cell.app-deadline-cell { background-color: #90ee90 !important; }
+.proc-deadline-cell.announcement-date-cell, .proc-deadline-cell.exam-date-cell, .proc-deadline-cell.app-deadline-cell { background-color: #e6e6fa !important; }
 
-/* 複数のイベントが重なった場合の優先度 (背景色) */
-/* 手続期日 > 合格発表日 > 受験日 > 出願期日 */
-.exam-date-cell.app-deadline-cell {
-    background-color: #ffd700 !important; /* 受験日優先 */
-}
-.announcement-date-cell.exam-date-cell,
-.announcement-date-cell.app-deadline-cell {
-    background-color: #90ee90 !important; /* 発表日優先 */
-}
-.proc-deadline-cell.announcement-date-cell,
-.proc-deadline-cell.exam-date-cell,
-.proc-deadline-cell.app-deadline-cell {
-    background-color: #e6e6fa !important; /* 手続期日優先 */
-}
-
-/* オプション: 今日の日付を視覚的に示す */
-/*
-.today-cell::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 6px;
-    height: 6px;
-    background-color: #0d6efd;
-    border-radius: 50%;
-}
-*/
-
-/* --- 不要になったスタイルを削除 --- */
-/*
-.horizontal-calendar td { ... }
-.event-item { ... }
-.event-item-placeholder { ... }
-.event { ... }
+/* --- 横スクロール用ラッパー --- */
+/* (これは components/past_exam_layout.py の dcc.Loading の中の Div に style={'overflowX': 'auto'} で指定されているため、ここでは不要) */
