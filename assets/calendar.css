@@ -99,12 +99,33 @@
 .calendar-date-cell.sunday { background-color: #fff7f0; }
 
 /* --- イベントセルのスタイル (変更なし) --- */
-/* ... (app-deadline-cell など) ... */
+.app-deadline-cell { background-color: #ffff7f !important; }
+.exam-date-cell { background-color: #ff7f7f !important; }
+.announcement-date-cell { background-color: #7fff7f !important; }
+.proc-deadline-cell { background-color: #bf7fff !important; }
+.exam-date-cell.app-deadline-cell { background-color: #ffd700 !important; }
+.announcement-date-cell.exam-date-cell, .announcement-date-cell.app-deadline-cell { background-color: #90ee90 !important; }
+.proc-deadline-cell.announcement-date-cell, .proc-deadline-cell.exam-date-cell, .proc-deadline-cell.app-deadline-cell { background-color: #e6e6fa !important; }
+
 
 
 /* --- ↓↓↓ 印刷用スタイルを修正 ↓↓↓ --- */
 @media print {
-    /* ... (既存の非表示要素の指定はそのまま) ... */
+    /* 非表示にする要素 */
+    #navbar-container, /* ナビゲーションバー */
+    #school-dropdown-container, /* 校舎ドロップダウン */
+    #student-dropdown-container, /* 生徒ドロップダウン */
+    #past-exam-tabs .nav-tabs, /* タブヘッダー */
+    #tab-past-exam, /* 過去問管理タブ */
+    #tab-acceptance, /* 入試管理タブ */
+    #calendar-header-row #calendar-action-buttons, /* カレンダーの操作ボタン群 */
+    #calendar-print-hide-text, /* カレンダーの説明テキスト */
+    #success-toast, /* トースト */
+    ._dash-loading /* ローディング表示 */
+    {
+        display: none !important;
+    }
+
     #calendar-header-row #calendar-action-buttons { /* ボタン全体を非表示 */
          display: none !important;
     }
