@@ -544,17 +544,17 @@ def register_past_exam_callbacks(app):
                         #printable-calendar-area .calendar-table { page-break-inside: avoid !important; table-layout: fixed !important; font-size: 7pt !important;}
                         #printable-calendar-area .calendar-table th, #printable-calendar-area .calendar-table td { height: 22px !important; padding: 2px !important; border: 1px solid #ccc !important; }
                         #printable-calendar-area .calendar-info-header-cell, #printable-calendar-area .calendar-info-cell { width: 80px !important; font-size: 6pt !important; background-color: #f8f9fa !important; vertical-align: top !important;}
-                         #printable-calendar-area .calendar-info-header-cell { background-color: #e9ecef !important; vertical-align: middle !important;}
-                         #printable-calendar-area .calendar-header-cell, #printable-calendar-area .calendar-date-cell { width: auto !important; min-width: 0 !important; font-size: 7pt !important; }
-                         #printable-calendar-area .calendar-header-cell { font-size: 6pt !important; }
-                         #printable-calendar-area .calendar-table th br { display: block !important; }
-                         #printable-calendar-area .saturday { background-color: #f0f8ff !important; } /* 背景色も !important */
-                         #printable-calendar-area .sunday { background-color: #fff7f0 !important; }
-                         #printable-calendar-area .app-deadline-cell { background-color: #ffff7f !important; }
-                         #printable-calendar-area .exam-date-cell { background-color: #ff7f7f !important; }
-                         #printable-calendar-area .announcement-date-cell { background-color: #7fff7f !important; }
-                         #printable-calendar-area .proc-deadline-cell { background-color: #bf7fff !important; }
-                         @page { size: A4 portrait; margin: 10mm; }
+                        #printable-calendar-area .calendar-info-header-cell { background-color: #e9ecef !important; vertical-align: middle !important;}
+                        #printable-calendar-area .calendar-header-cell, #printable-calendar-area .calendar-date-cell { width: auto !important; min-width: 0 !important; font-size: 7pt !important; }
+                        #printable-calendar-area .calendar-header-cell { font-size: 6pt !important; }
+                        #printable-calendar-area .calendar-table th br { display: block !important; }
+                        #printable-calendar-area .saturday { background-color: #f0f8ff !important; } /* 背景色も !important */
+                        #printable-calendar-area .sunday { background-color: #fff7f0 !important; }
+                        #printable-calendar-area .app-deadline-cell { background-color: #ffff7f !important; }
+                        #printable-calendar-area .exam-date-cell { background-color: #ff7f7f !important; }
+                        #printable-calendar-area .announcement-date-cell { background-color: #7fff7f !important; }
+                        #printable-calendar-area .proc-deadline-cell { background-color: #bf7fff !important; }
+                        @page { size: A4 portrait; margin: 10mm; }
                     }
                 `;
                 document.head.appendChild(style);
