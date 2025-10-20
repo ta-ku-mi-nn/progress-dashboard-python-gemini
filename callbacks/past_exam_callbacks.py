@@ -574,3 +574,135 @@ def register_past_exam_callbacks(app):
         Input('print-calendar-btn', 'n_clicks'),
         prevent_initial_call=True
     )
+
+    # --- 大学合否テーブルの更新コールバック (新規追加) ---
+    @app.callback(
+        Output('acceptance-table-container', 'children'),
+        [Input('student-selection-store', 'data'),
+         Input('toast-trigger', 'data'), # データ更新時にも再描画
+         Input('refresh-acceptance-table-btn', 'n_clicks')], # 更新ボタン
+        State('past-exam-tabs', 'active_tab') # 入試管理タブがアクティブか確認
+    )
+    def update_acceptance_table(student_id, toast_data, refresh_clicks, active_tab):
+        ctx = callback_context
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
+
+        # --- PreventUpdate 条件 ---
+        # 1. 入試管理タブが表示されていない場合は更新しない
+        if active_tab != 'tab-acceptance':
+            raise PreventUpdate
+        # 2. toast トリガーだが、関連する更新でない場合は更新しない
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') != 'acceptance':
+                raise PreventUpdate
+        # 3. 更新ボタンが押されたわけではない場合 (初期表示以外)
+        elif triggered_id == 'refresh-acceptance-table-btn' and refresh_clicks is None:
+             raise PreventUpdate
+
+        # --- テーブル生成ロジック ---
+        if not student_id:
+            return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
+
+        try:
+            results = get_acceptance_results_for_student(student_id) # データを取得
+            if not results:
+                return dbc.Alert("この生徒の入試予定・結果はまだありません。", color="info", className="mt-4")
+
+            # Pandas DataFrame に変換
+            df = pd.DataFrame(results)
+
+            # 合否結果のドロップダウンを作成する関数
+            def create_result_dropdown(id_val, result_val):
+                options = [
+                    {'label': '未定', 'value': ''},
+                    {'label': '合格', 'value': '合格'},
+                    {'label': '不合格', 'value': '不合格'},
+                    {'label': '補欠', 'value': '補欠'}, # 必要に応じて追加
+                ]
+                # result_valがNoneや空文字列の場合、''をvalueとする
+                value_to_set = result_val if result_val else ''
+                return dcc.Dropdown(
+                    id={'type': 'acceptance-result-dropdown', 'index': id_val},
+                    options=options,
+                    value=value_to_set, # Noneの代わりに空文字列を設定
+                    placeholder="結果を選択...",
+                    clearable=False, # 未定を選びやすくするためクリア不可に
+                    style={'minWidth': '100px'} # 幅調整
+                )
+
+            # テーブルヘッダー
+            table_header = [
+                html.Thead(html.Tr([
+                    html.Th("大学名"),
+                    html.Th("学部"),
+                    html.Th("学科"),
+                    html.Th("方式"),
+                    html.Th("出願"),
+                    html.Th("受験日"),
+                    html.Th("発表日"),
+                    html.Th("手続"),
+                    html.Th("合否", style={'width': '120px'}), # 幅を指定
+                    html.Th("操作", style={'width': '120px'}), # 幅を指定
+                ]))
+            ]
+
+            # テーブルボディ
+            table_body_rows = []
+            for _, row in df.iterrows():
+                table_body_rows.append(html.Tr([
+                    html.Td(row.get('university_name', '')),
+                    html.Td(row.get('faculty_name', '')),
+                    html.Td(row.get('department_name', '') or '-'), # Noneなら'-'
+                    html.Td(row.get('exam_system', '') or '-'), # Noneなら'-'
+                    html.Td(row.get('application_deadline', '') or '-'), # 日付列も同様
+                    html.Td(row.get('exam_date', '') or '-'),
+                    html.Td(row.get('announcement_date', '') or '-'),
+                    html.Td(row.get('procedure_deadline', '') or '-'),
+                    html.Td(create_result_dropdown(row['id'], row.get('result'))), # ドロップダウンを配置
+                    html.Td([ # 操作ボタン
+                        dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': row['id']}, size="sm", className="me-1"),
+                        dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': row['id']}, color="danger", size="sm", outline=True)
+                    ])
+                ]))
+            table_body = [html.Tbody(table_body_rows)]
+
+            # テーブル全体を返す
+            return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True)
+
+        except Exception as e:
+            print(f"Error in update_acceptance_table: {e}") # エラーログ
+            return dbc.Alert(f"テーブル表示中にエラーが発生しました: {e}", color="danger")
+
+    # --- 削除確認ダイアログ表示コールバック (新規追加) ---
+    @app.callback(
+        [Output('delete-acceptance-confirm', 'displayed'),
+         Output('editing-acceptance-id-store', 'data', allow_duplicate=True)], # 削除対象IDを一時保存
+        Input({'type': 'delete-acceptance-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def display_delete_acceptance_confirmation(delete_clicks):
+        ctx = callback_context
+        # ボタンがクリックされていなければ何もしない
+        if not ctx.triggered or not ctx.triggered[0]['value']:
+            raise PreventUpdate
+        # クリックされたボタンのID (index) を取得
+        result_id = ctx.triggered_id['index']
+        # 確認ダイアログを表示し、削除対象のIDをストアに保存
+        return True, result_id
+
+    # --- 削除実行コールバック (新規追加) ---
+    @app.callback(
+        Output('toast-trigger', 'data', allow_duplicate=True),
+        Input('delete-acceptance-confirm', 'submit_n_clicks'),
+        State('editing-acceptance-id-store', 'data'), # 保存した削除対象IDを取得
+        prevent_initial_call=True
+    )
+    def execute_acceptance_delete(submit_n_clicks, result_id):
+        # 確認ダイアログの「はい」が押され、IDがあれば削除実行
+        if not submit_n_clicks or not result_id:
+            raise PreventUpdate
+        # 削除関数を呼び出し
+        success, message = delete_acceptance_result(result_id) #
+        # 結果をトーストで表示
+        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'acceptance'}
+        return toast_data
