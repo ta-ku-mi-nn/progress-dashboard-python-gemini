@@ -12,7 +12,7 @@ def create_single_month_table(acceptance_data_df, year, month):
     weekday_names_jp = ["月", "火", "水", "木", "金", "土", "日"]
 
     # --- テーブルヘッダー ---
-    header_cells = [html.Th("大学・学部等", className="calendar-info-header-cell")]
+    header_cells = [html.Th(f"{year}年 {month}月", className="calendar-info-header-cell")]
     for day in range(1, num_days + 1):
         current_date = date(year, month, day)
         weekday_index = current_date.weekday()
