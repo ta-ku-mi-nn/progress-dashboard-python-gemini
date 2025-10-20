@@ -158,7 +158,6 @@ def create_past_exam_layout():
 
     # --- 「受験スケジュール」タブの内容 ---
     calendar_tab_content = html.Div([
-        dcc.Store(id='current-calendar-month-store'), # ★ Storeを復活
         dbc.Row([
             dbc.Col([
                 html.H4("受験カレンダー"),
