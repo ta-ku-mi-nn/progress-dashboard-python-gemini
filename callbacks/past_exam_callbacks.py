@@ -7,6 +7,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime, date, timedelta
 import calendar
+from dateutil.relativedelta import relativedelta
 
 # --- 既存のimport ---
 from data.nested_json_processor import (
@@ -17,8 +18,9 @@ from data.nested_json_processor import (
     update_acceptance_result,
     delete_acceptance_result
 )
-from charts.calendar_generator import create_html_calendar
+from charts.calendar_generator import create_html_calendar, create_single_month_table
 
+# --- find_nearest_future_month 関数を復活 ---
 def find_nearest_future_month(acceptance_data):
     """
     合否データの中から、今日以降で最も近い「出願期日」の年月('YYYY-MM')を返す。
@@ -32,41 +34,27 @@ def find_nearest_future_month(acceptance_data):
         return today.strftime('%Y-%m')
 
     df = pd.DataFrame(acceptance_data)
-    # 日付文字列をdatetimeオブジェクトに変換（不正な形式は無視）
-    df['app_deadline_dt'] = pd.to_datetime(df['application_deadline'], errors='coerce').dt.date # ★追加
-    df['exam_dt'] = pd.to_datetime(df['exam_date'], errors='coerce').dt.date
-    df['announcement_dt'] = pd.to_datetime(df['announcement_date'], errors='coerce').dt.date
-    df['proc_deadline_dt'] = pd.to_datetime(df['procedure_deadline'], errors='coerce').dt.date # ★追加
+    df['app_deadline_dt'] = pd.to_datetime(df.get('application_deadline'), errors='coerce').dt.date
+    df['exam_dt'] = pd.to_datetime(df.get('exam_date'), errors='coerce').dt.date
+    df['announcement_dt'] = pd.to_datetime(df.get('announcement_date'), errors='coerce').dt.date
+    df['proc_deadline_dt'] = pd.to_datetime(df.get('procedure_deadline'), errors='coerce').dt.date
 
-    # --- ★ここからロジック変更★ ---
-    # 今日以降の「出願期日」をリストアップ
-    future_app_deadlines = []
-    if 'app_deadline_dt' in df.columns:
-        future_app_deadlines = df[df['app_deadline_dt'] >= today]['app_deadline_dt'].dropna().tolist()
-
-    # 今日以降の出願期日があれば、最も近いものを返す
+    future_app_deadlines = df[df['app_deadline_dt'] >= today]['app_deadline_dt'].dropna().tolist()
     if future_app_deadlines:
         nearest_date = min(future_app_deadlines)
         return nearest_date.strftime('%Y-%m')
 
-    # 出願期日がない場合、他の今日以降の日付をリストアップ
     future_other_dates = []
-    if 'exam_dt' in df.columns:
-        future_other_dates.extend(df[df['exam_dt'] >= today]['exam_dt'].dropna().tolist())
-    if 'announcement_dt' in df.columns:
-        future_other_dates.extend(df[df['announcement_dt'] >= today]['announcement_dt'].dropna().tolist())
-    if 'proc_deadline_dt' in df.columns:
-         future_other_dates.extend(df[df['proc_deadline_dt'] >= today]['proc_deadline_dt'].dropna().tolist())
+    future_other_dates.extend(df[df['exam_dt'] >= today]['exam_dt'].dropna().tolist())
+    future_other_dates.extend(df[df['announcement_dt'] >= today]['announcement_dt'].dropna().tolist())
+    future_other_dates.extend(df[df['proc_deadline_dt'] >= today]['proc_deadline_dt'].dropna().tolist())
 
-    # 他の日付があれば、最も近いものを返す
     if future_other_dates:
         nearest_date = min(future_other_dates)
         return nearest_date.strftime('%Y-%m')
-    # --- ★ここまでロジック変更★ ---
 
-    # 未来の日付が全くない場合は当月
     return today.strftime('%Y-%m')
-# --- ★★★ ここまで修正 ★★★ ---
+# --- ここまで復活 ---
 
 def register_past_exam_callbacks(app):
     """過去問管理ページのコールバックを登録する"""
@@ -304,13 +292,13 @@ def register_past_exam_callbacks(app):
         # ★出力変数が2つ増えたので no_update の数を調整
         return False, no_update, None, "", "", "", "", None, None, None, None, False
 
-    # --- save_acceptance_result コールバックの修正 ---
+# --- save_acceptance_result コールバックの修正 ---
     @app.callback(
         [Output('acceptance-modal-alert', 'children'),
          Output('acceptance-modal-alert', 'is_open', allow_duplicate=True),
          Output('toast-trigger', 'data', allow_duplicate=True),
-         Output('acceptance-modal', 'is_open', allow_duplicate=True)],
-         # Output('current-calendar-month-store', 'data', allow_duplicate=True)], # ← 削除
+         Output('acceptance-modal', 'is_open', allow_duplicate=True),
+         Output('current-calendar-month-store', 'data', allow_duplicate=True)], # ★ StoreへのOutput復活
         [Input('save-acceptance-modal-btn', 'n_clicks')],
         [State('editing-acceptance-id-store', 'data'), State('student-selection-store', 'data'),
          State('acceptance-university', 'value'), State('acceptance-faculty', 'value'),
@@ -324,18 +312,20 @@ def register_past_exam_callbacks(app):
     def save_acceptance_result(n_clicks, result_id, student_id, university, faculty, department, system,
                              app_deadline, exam_date, announcement_date, proc_deadline):
         if not n_clicks or not student_id: raise PreventUpdate
-        if not university or not faculty: return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update # , no_update 削除
+        if not university or not faculty: return dbc.Alert("大学名と学部名は必須です。", color="warning"), True, no_update, no_update, no_update
         result_data = {'university_name': university, 'faculty_name': faculty, 'department_name': department, 'exam_system': system,
                        'application_deadline': app_deadline, 'exam_date': exam_date,
                        'announcement_date': announcement_date, 'procedure_deadline': proc_deadline}
 
-        # target_month_str = no_update # ← 削除
-        # date_candidates = [d for d in [app_deadline, exam_date, announcement_date, proc_deadline] if d] # ← 削除
-        # if date_candidates: # ← 削除
-        #     try: # ← 削除
-        #         earliest_date = min(date_candidates) # ← 削除
-        #         target_month_str = datetime.strptime(earliest_date, '%Y-%m-%d').strftime('%Y-%m') # ← 削除
-        #     except ValueError: pass # ← 削除
+        # ★ カレンダー表示月の決定ロジックを復活
+        target_month_str = no_update
+        date_candidates = [d for d in [app_deadline, exam_date, announcement_date, proc_deadline] if d]
+        if date_candidates:
+            try:
+                # ISOフォーマットの日付文字列からdatetime.dateオブジェクトに変換して比較
+                earliest_date_obj = min([date.fromisoformat(d_str) for d_str in date_candidates])
+                target_month_str = earliest_date_obj.strftime('%Y-%m')
+            except (ValueError, TypeError): pass # 不正な日付フォーマットは無視
 
         if result_id: success, message = update_acceptance_result(result_id, result_data)
         else: result_data['result'] = None; success, message = add_acceptance_result(student_id, result_data)
@@ -343,111 +333,11 @@ def register_past_exam_callbacks(app):
         if success:
             toast_message = message.replace("大学合否結果", f"'{university} {faculty}' の合否結果")
             toast_data = {'timestamp': datetime.now().isoformat(), 'message': toast_message, 'source': 'acceptance'}
-            return "", False, toast_data, False # , target_month_str 削除
-        else: return dbc.Alert(message, color="danger"), True, no_update, no_update # , no_update 削除
+            # ★ target_month_str を返すように修正
+            return "", False, toast_data, False, target_month_str
+        else: return dbc.Alert(message, color="danger"), True, no_update, no_update, no_update
 
-    # --- update_acceptance_table 関数 (修正後) ---
-    @app.callback(
-        Output('acceptance-table-container', 'children'),
-        [Input('student-selection-store', 'data'), Input('toast-trigger', 'data'),
-         Input('refresh-acceptance-table-btn', 'n_clicks')]
-    )
-    def update_acceptance_table(student_id, toast_data, refresh_clicks): # 引数に refresh_clicks を追加
-        ctx = callback_context
-        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
-
-        # toast 由来で source が違う場合 or 更新ボタンでも n_clicks が None の場合は早期リターン
-        if triggered_id == 'toast-trigger':
-            if not toast_data or toast_data.get('source') != 'acceptance':
-                raise PreventUpdate
-        elif triggered_id == 'refresh-acceptance-table-btn' and refresh_clicks is None:
-            raise PreventUpdate
-
-        if not student_id:
-            return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
-
-        # --- ここからテーブル生成ロジックを追加 ---
-        try:
-            results = get_acceptance_results_for_student(student_id)
-
-            if not results:
-                return dbc.Alert("この生徒の入試情報はありません。", color="info", className="mt-4")
-
-            df = pd.DataFrame(results)
-
-            # 結果選択ドロップダウンの定義
-            result_options = [
-                {'label': '未定', 'value': ''}, # value を空文字列に変更
-                {'label': '合格', 'value': '合格'},
-                {'label': '補欠', 'value': '補欠'},
-                {'label': '不合格', 'value': '不合格'},
-            ]
-
-            # テーブルヘッダー
-            table_header = [html.Thead(html.Tr([
-                html.Th("大学名"), html.Th("学部名"), html.Th("学科名"), html.Th("受験方式"),
-                html.Th("出願期日"), html.Th("受験日"), html.Th("発表日"), html.Th("手続期日"),
-                html.Th("合否", style={'width': '120px'}), html.Th("操作", style={'width': '120px'}) # 幅調整
-            ]))]
-
-            # テーブルボディ
-            table_body = [html.Tbody([
-                html.Tr([
-                    html.Td(row['university_name']),
-                    html.Td(row['faculty_name']),
-                    html.Td(row.get('department_name', '')),
-                    html.Td(row.get('exam_system', '')),
-                    html.Td(row.get('application_deadline', '')), # .get() を使用
-                    html.Td(row.get('exam_date', '')), # .get() を使用
-                    html.Td(row.get('announcement_date', '')), # .get() を使用
-                    html.Td(row.get('procedure_deadline', '')), # .get() を使用
-                    html.Td(
-                        dcc.Dropdown(
-                            id={'type': 'acceptance-result-dropdown', 'index': row['id']},
-                            options=result_options,
-                            # DBのNULLを空文字列 '' にマッピング
-                            value=row.get('result') if row.get('result') is not None else '',
-                            clearable=False,
-                            style={'fontSize': '0.85rem'} # 文字サイズ調整
-                        )
-                    ),
-                    html.Td([
-                        dbc.Button("編集", id={'type': 'edit-acceptance-btn', 'index': row['id']}, size="sm", className="me-1"),
-                        dbc.Button("削除", id={'type': 'delete-acceptance-btn', 'index': row['id']}, color="danger", size="sm", outline=True)
-                    ])
-                ]) for _, row in df.iterrows() # df を使用
-            ])]
-
-            return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True, size='sm') # size='sm' を追加
-
-        except Exception as e:
-            print(f"Error in update_acceptance_table: {e}") # エラーログ出力
-            return dbc.Alert(f"テーブル表示中にエラーが発生しました: {e}", color="danger")
-        # --- ここまでテーブル生成ロジックを追加 ---
-
-    @app.callback(
-        [Output('delete-acceptance-confirm', 'displayed'),
-         Output('editing-acceptance-id-store', 'data', allow_duplicate=True)],
-        Input({'type': 'delete-acceptance-btn', 'index': ALL}, 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def display_acceptance_delete_confirmation(delete_clicks):
-        ctx = callback_context
-        if not ctx.triggered or not ctx.triggered[0]['value']: raise PreventUpdate
-        result_id = ctx.triggered_id['index']; return True, result_id
-
-    @app.callback(
-        Output('toast-trigger', 'data', allow_duplicate=True),
-        Input('delete-acceptance-confirm', 'submit_n_clicks'),
-        State('editing-acceptance-id-store', 'data'),
-        prevent_initial_call=True
-    )
-    def execute_acceptance_delete(n_clicks, result_id):
-        if not n_clicks or not result_id: raise PreventUpdate
-        success, message = delete_acceptance_result(result_id)
-        toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'acceptance'}
-        return toast_data
-
+    # --- 合否ステータス更新コールバック (変更なし) ---
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
         Input({'type': 'acceptance-result-dropdown', 'index': ALL}, 'value'),
@@ -456,12 +346,13 @@ def register_past_exam_callbacks(app):
         prevent_initial_call=True
     )
     def update_acceptance_status_dropdown(dropdown_values, dropdown_ids, student_id):
+        # ... (内容は変更なし) ...
         ctx = callback_context
         if not ctx.triggered_id: raise PreventUpdate
         triggered_id_dict = ctx.triggered_id
         result_id = triggered_id_dict['index']
         new_result = ctx.triggered[0]['value']
-        success, message = update_acceptance_result(result_id, {'result': new_result})
+        success, message = update_acceptance_result(result_id, {'result': new_result if new_result else None}) # 空文字列をNoneに
         if success:
             if student_id:
                 results = get_acceptance_results_for_student(student_id)
@@ -476,16 +367,16 @@ def register_past_exam_callbacks(app):
         return toast_data
 
 
-    # --- 大学合否カレンダーの更新 ---
+    # --- Web表示用カレンダーの更新 ---
     @app.callback(
-        Output('acceptance-calendar-container', 'children'),
+        Output('web-calendar-container', 'children'), # ★ Output ID を変更
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
-         # Input('current-calendar-month-store', 'data'), # ← 削除
+         Input('current-calendar-month-store', 'data'), # ★ Input を復活
          Input('refresh-calendar-btn', 'n_clicks')],
         State('past-exam-tabs', 'active_tab')
     )
-    def update_acceptance_calendar(student_id, toast_data, refresh_clicks, active_tab): # target_month 引数を削除
+    def update_acceptance_calendar(student_id, toast_data, target_month, refresh_clicks, active_tab): # ★ target_month 引数を復活
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
@@ -494,96 +385,192 @@ def register_past_exam_callbacks(app):
             if not toast_data or toast_data.get('source') != 'acceptance': raise PreventUpdate
         elif triggered_id == 'refresh-calendar-btn' and refresh_clicks is None:
              raise PreventUpdate
+        # target_monthがない場合、find_nearest_future_monthを呼び出すロジックは update_calendar_month に移譲
 
-        # --- 表示期間の決定 ---
-        today = date.today()
-        current_year = today.year
-        start_year_month = f"{current_year}-12"
-        end_year_month = f"{current_year + 1}-03"
-        # --- ここまで変更 ---
+        if not target_month: # 初回表示などでtarget_monthがない場合
+             if student_id:
+                 acceptance_data_for_init = get_acceptance_results_for_student(student_id)
+                 target_month = find_nearest_future_month(acceptance_data_for_init)
+             else:
+                 target_month = date.today().strftime('%Y-%m') # 生徒未選択なら当月
 
-        # if not target_month: target_month = date.today().strftime('%Y-%m') # ← 削除
         if not student_id:
-            # 生徒が選択されていない場合も期間を指定
-            return create_html_calendar([], start_year_month, end_year_month)
+             # 空のデータで単月カレンダー生成
+            return create_html_calendar([], target_month)
 
         acceptance_data = get_acceptance_results_for_student(student_id)
-        # 期間を渡すように変更
-        calendar_html = create_html_calendar(acceptance_data, start_year_month, end_year_month)
+        # 単月カレンダー生成関数を呼び出す
+        calendar_html = create_html_calendar(acceptance_data, target_month)
         return calendar_html
 
-    # # カレンダーの表示年月を更新するコールバック
-    # @app.callback(
-    #     Output('current-calendar-month-store', 'data'), # allow_duplicate=True を削除
-    #     [Input('prev-month-btn', 'n_clicks'), Input('next-month-btn', 'n_clicks'), Input('past-exam-tabs', 'active_tab')],
-    #     [State('current-calendar-month-store', 'data'),
-    #      # ★★★ Stateを追加 ★★★
-    #      State('student-selection-store', 'data')],
-    #     prevent_initial_call=True
-    # )
-    # def update_calendar_month(prev_clicks, next_clicks, active_tab, current_month_str, student_id): # student_id を追加
-    #     ctx = callback_context
-    #     trigger_id = ctx.triggered_id
+    # --- ★ カレンダーの表示年月を更新するコールバック (復活) ★ ---
+    @app.callback(
+        Output('current-calendar-month-store', 'data'),
+        [Input('prev-month-btn', 'n_clicks'),
+         Input('next-month-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab'),
+         Input('student-selection-store', 'data')], # ★ 生徒変更もトリガーに追加
+        [State('current-calendar-month-store', 'data')],
+        prevent_initial_call=True
+    )
+    def update_calendar_month(prev_clicks, next_clicks, active_tab, student_id, current_month_str):
+        ctx = callback_context
+        trigger_id = ctx.triggered_id
 
-    #     # カレンダータブがアクティブになった時
-    #     if trigger_id == 'past-exam-tabs' and active_tab == 'tab-gantt':
-    #         if current_month_str: # 既に月が設定されていれば（例：保存直後など）、それを維持
-    #              return no_update
-    #         else: # まだ月が設定されていない場合
-    #              if student_id:
-    #                  # ★★★ 生徒の合否データを取得して最も近い未来の月を計算 ★★★
-    #                  acceptance_data = get_acceptance_results_for_student(student_id)
-    #                  return find_nearest_future_month(acceptance_data)
-    #              else:
-    #                  # 生徒が選択されていない場合は当月
-    #                  return date.today().strftime('%Y-%m')
+        # カレンダータブ以外 or 生徒未選択なら更新しない
+        if active_tab != 'tab-gantt' or not student_id:
+             raise PreventUpdate
 
-    #     # 前月/次月ボタンが押された場合のみ処理
-    #     if trigger_id not in ['prev-month-btn', 'next-month-btn']:
-    #          raise PreventUpdate
+        # タブ切り替え時 or 生徒変更時
+        if trigger_id in ['past-exam-tabs', 'student-selection-store']:
+            # ★ 生徒の合否データを取得して最も近い未来の月 or 当月を計算 ★
+            acceptance_data = get_acceptance_results_for_student(student_id)
+            return find_nearest_future_month(acceptance_data)
 
-    #     # current_month_str がない場合は当月を基準にする (念のため)
-    #     if not current_month_str:
-    #         current_month_str = date.today().strftime('%Y-%m')
+        # 前月/次月ボタンが押された場合のみ処理
+        if trigger_id not in ['prev-month-btn', 'next-month-btn']:
+             raise PreventUpdate
 
-    #     try: current_month = datetime.strptime(current_month_str, '%Y-%m').date()
-    #     except (ValueError, TypeError): current_month = date.today()
+        if not current_month_str:
+            current_month_str = date.today().strftime('%Y-%m')
 
-    #     if trigger_id == 'prev-month-btn':
-    #         first_day_current_month = current_month.replace(day=1)
-    #         last_day_prev_month = first_day_current_month - timedelta(days=1)
-    #         new_month = last_day_prev_month.replace(day=1)
-    #         return new_month.strftime('%Y-%m')
-    #     elif trigger_id == 'next-month-btn':
-    #         days_in_month = calendar.monthrange(current_month.year, current_month.month)[1]
-    #         first_day_next_month = current_month.replace(day=1) + timedelta(days=days_in_month)
-    #         return first_day_next_month.strftime('%Y-%m')
+        try: current_month = datetime.strptime(current_month_str, '%Y-%m').date()
+        except (ValueError, TypeError): current_month = date.today()
 
-    #     raise PreventUpdate
+        if trigger_id == 'prev-month-btn':
+            new_month = (current_month.replace(day=1) - timedelta(days=1)).replace(day=1)
+            return new_month.strftime('%Y-%m')
+        elif trigger_id == 'next-month-btn':
+            days_in_month = calendar.monthrange(current_month.year, current_month.month)[1]
+            new_month = current_month.replace(day=1) + timedelta(days=days_in_month)
+            return new_month.strftime('%Y-%m')
 
+        raise PreventUpdate
 
-    # @app.callback(
-    #     Output('current-month-display', 'children'),
-    #     Input('current-calendar-month-store', 'data')
-    # )
-    # def display_current_month(month_str):
-    #     if not month_str: month_str = date.today().strftime('%Y-%m')
-    #     try: dt = datetime.strptime(month_str, '%Y-%m'); return f"{dt.year}年 {dt.month}月"
-    #     except (ValueError, TypeError): today = date.today(); return f"{today.year}年 {today.month}月"
+    # --- ★ 現在の年月を表示するコールバック (復活) ★ ---
+    @app.callback(
+        Output('current-month-display', 'children'),
+        Input('current-calendar-month-store', 'data')
+    )
+    def display_current_month(month_str):
+        # 初回など month_str が None の場合があるためデフォルトを設定
+        if not month_str:
+             month_str = date.today().strftime('%Y-%m') # デフォルトを当月に
+        try:
+             dt = datetime.strptime(month_str, '%Y-%m')
+             return f"{dt.year}年 {dt.month}月"
+        except (ValueError, TypeError):
+             # month_str が不正な場合も当月を表示
+             today = date.today()
+             return f"{today.year}年 {today.month}月"
 
+    # --- ★ 印刷用カレンダーエリアを更新するコールバック (新規追加) ★ ---
+    @app.callback(
+        Output('printable-calendar-area', 'children'),
+        [Input('student-selection-store', 'data'),
+         Input('toast-trigger', 'data')], # データ更新時にも再生成
+        prevent_initial_call=True
+    )
+    def update_printable_calendar(student_id, toast_data):
+        ctx = callback_context
+        triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
+
+        # toastトリガーの場合、sourceをチェック
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') != 'acceptance':
+                raise PreventUpdate
+        # student_idがない場合は空にする
+        elif not student_id:
+            return []
+
+        acceptance_data = get_acceptance_results_for_student(student_id)
+        if not acceptance_data:
+            return [dbc.Alert("印刷対象の受験・合否データがありません。", color="info")]
+
+        # --- データの存在する最初の月と最後の月を決定 ---
+        df = pd.DataFrame(acceptance_data)
+        all_dates = []
+        date_cols = ['application_deadline', 'exam_date', 'announcement_date', 'procedure_deadline']
+        for col in date_cols:
+             if col in df.columns:
+                 # to_datetime でエラーを無視し、NaTでないものをリストに追加
+                 valid_dates = pd.to_datetime(df[col], errors='coerce').dropna().tolist()
+                 all_dates.extend(valid_dates)
+
+        if not all_dates:
+            return [dbc.Alert("有効な日付データがありません。", color="warning")]
+
+        min_date = min(all_dates).date().replace(day=1)
+        max_date = max(all_dates).date().replace(day=1)
+
+        # --- 必要な月のテーブルを生成 ---
+        printable_tables = []
+        current_month_loop = min_date
+        # DataFrame を再ソート (create_single_month_table内でのソートは非効率なため)
+        sort_keys_print = []
+        if 'app_deadline_dt' in df.columns: sort_keys_print.append('app_deadline_dt')
+        if 'exam_dt' in df.columns: sort_keys_print.append('exam_dt')
+        sort_keys_print.extend(['university_name', 'faculty_name'])
+        # dfの日付列を再生成（必要なら）
+        dt_cols_print = ['app_deadline_dt', 'exam_dt', 'announcement_dt', 'proc_deadline_dt']
+        for col, dt_col in zip(date_cols, dt_cols_print):
+            if col in df.columns: df[dt_col] = pd.to_datetime(df[col], errors='coerce')
+            else: df[dt_col] = pd.NaT
+        df_all_sorted_print = df.sort_values(by=sort_keys_print, ascending=True, na_position='last') if sort_keys_print and not df.empty else df
+
+        while current_month_loop <= max_date:
+            year, month = current_month_loop.year, current_month_loop.month
+            # create_single_month_table にソート済みDataFrameを渡す
+            printable_tables.append(create_single_month_table(df_all_sorted_print, year, month))
+            current_month_loop += relativedelta(months=+1)
+
+        return printable_tables
+
+    # --- 印刷用clientside_callback (変更なし) ---
     clientside_callback(
         """
         function(n_clicks) {
             if (n_clicks > 0) {
-                // 少し待ってから印刷ダイアログを開く（レンダリング待ち）
+                // printable-only クラスを持つ要素を表示し、
+                // printable-hide クラスを持つ要素を非表示にするスタイルを一時的に適用
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    @media print {
+                        .printable-only { display: block !important; }
+                        .printable-hide { display: none !important; }
+                        /* 必要に応じて他の印刷専用スタイルもここに追加 */
+                        body, #page-content { background-color: white !important; }
+                        #printable-calendar-area .single-month-wrapper { page-break-inside: avoid !important; }
+                        #printable-calendar-area .calendar-table { page-break-inside: avoid !important; table-layout: fixed !important; font-size: 7pt !important;}
+                        #printable-calendar-area .calendar-table th, #printable-calendar-area .calendar-table td { height: 22px !important; padding: 2px !important; border: 1px solid #ccc !important; }
+                        #printable-calendar-area .calendar-info-header-cell, #printable-calendar-area .calendar-info-cell { width: 80px !important; font-size: 6pt !important; background-color: #f8f9fa !important; vertical-align: top !important;}
+                         #printable-calendar-area .calendar-info-header-cell { background-color: #e9ecef !important; vertical-align: middle !important;}
+                         #printable-calendar-area .calendar-header-cell, #printable-calendar-area .calendar-date-cell { width: auto !important; min-width: 0 !important; font-size: 7pt !important; }
+                         #printable-calendar-area .calendar-header-cell { font-size: 6pt !important; }
+                         #printable-calendar-area .calendar-table th br { display: block !important; }
+                         #printable-calendar-area .saturday { background-color: #f0f8ff !important; } /* 背景色も !important */
+                         #printable-calendar-area .sunday { background-color: #fff7f0 !important; }
+                         #printable-calendar-area .app-deadline-cell { background-color: #ffff7f !important; }
+                         #printable-calendar-area .exam-date-cell { background-color: #ff7f7f !important; }
+                         #printable-calendar-area .announcement-date-cell { background-color: #7fff7f !important; }
+                         #printable-calendar-area .proc-deadline-cell { background-color: #bf7fff !important; }
+                         @page { size: A4 portrait; margin: 10mm; }
+                    }
+                `;
+                document.head.appendChild(style);
+
                 setTimeout(function() {
                     window.print();
-                }, 500); // 500ms待機 (必要に応じて調整)
+                    // 印刷ダイアログが閉じた後にスタイルを削除
+                    setTimeout(() => {
+                         document.head.removeChild(style);
+                    }, 500); // 印刷ダイアログが閉じるのを待つ時間
+                }, 500); // スタイルの適用とレンダリング待ち
             }
             return window.dash_clientside.no_update;
         }
         """,
-        Output('print-calendar-btn', 'n_clicks', allow_duplicate=True), # allow_duplicate=True を追加
+        Output('print-calendar-btn', 'n_clicks', allow_duplicate=True),
         Input('print-calendar-btn', 'n_clicks'),
         prevent_initial_call=True
     )

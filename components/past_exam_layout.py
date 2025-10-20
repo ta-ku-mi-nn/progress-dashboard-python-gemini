@@ -156,41 +156,46 @@ def create_past_exam_layout():
         ),
     ])
 
-    # --- 新しい「受験スケジュール」タブの内容 (カレンダー表示用) ---
+    # --- 「受験スケジュール」タブの内容 ---
     calendar_tab_content = html.Div([
-        dcc.Store(id='current-calendar-month-store'), # 表示年月を保持 (YYYY-MM形式)
+        dcc.Store(id='current-calendar-month-store'), # ★ Storeを復活
         dbc.Row([
             dbc.Col([
                 html.H4("受験カレンダー"),
-                html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted")
+                html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted", id="calendar-print-hide-text")
             ]),
-            dbc.Col([ # Pass children as a list
+            dbc.Col([
                 dbc.Button(html.I(className="fas fa-print"), id="print-calendar-btn", color="info", outline=True, title="カレンダーを印刷", size="sm", className="me-2"),
                 dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", size="sm", className="me-2"),
+                # ★ ボタンを復活
                 dbc.ButtonGroup([
                     dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary", size="sm"),
                     dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary", size="sm")
                 ]),
-            ], width='auto', className="ms-auto", id="calendar-action-buttons") # Pass className as a keyword argument
+            ], width='auto', className="ms-auto", id="calendar-action-buttons")
         ], align="center", className="my-4", id="calendar-header-row"),
-        html.H5(id="current-month-display", className="text-center mb-3"), # 表示年月を表示
 
-        # ↓↓↓ dcc.Graph から html.Div に変更 ↓↓↓
+        html.H5(id="current-month-display", className="text-center mb-3"), # ★ 年月表示を復活
+
+        # Web表示用カレンダー
         dcc.Loading(
-            html.Div(id="acceptance-calendar-container", style={'overflowX': 'auto'}) # カレンダーテーブルのコンテナ, 横スクロール可能に
-        )
-        # ↑↑↑ ここまで変更 ↑↑↑
+            # IDを変更し、印刷時は非表示にするクラスを追加
+            html.Div(id="web-calendar-container", className="printable-hide", style={'overflowX': 'auto'})
+        ),
+        # ★ 印刷専用エリアを追加 (通常は非表示)
+        html.Div(id="printable-calendar-area", className="printable-only", style={'display': 'none'}),
+
     ], id="calendar-tab-content-wrapper")
 
-    # --- タブ構造 ---
+    # --- タブ構造 (変更なし) ---
     return html.Div([
         dbc.Tabs(
             [
                 dbc.Tab(past_exam_tab_content, label="過去問管理", tab_id="tab-past-exam"),
                 dbc.Tab(acceptance_tab_content, label="入試管理", tab_id="tab-acceptance"),
-                dbc.Tab(calendar_tab_content, label="受験スケジュール", tab_id="tab-gantt"), # コンテンツ変数を変更
+                dbc.Tab(calendar_tab_content, label="受験スケジュール", tab_id="tab-gantt"),
             ],
             id="past-exam-tabs",
-            active_tab="tab-past-exam", # デフォルトは過去問タブ
+            active_tab="tab-past-exam",
         )
     ])
