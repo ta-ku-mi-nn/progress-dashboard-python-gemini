@@ -167,10 +167,10 @@ def create_past_exam_layout():
             dbc.Col([
                 dbc.ButtonGroup([
                     dbc.Button("<< 前月", id="prev-month-btn", outline=True, color="secondary"),
-                    dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary")
+                    dbc.Button("次月 >>", id="next-month-btn", outline=True, color="secondary"),
                 ]),
-                dbc.Button(html.I(className="fas fa-print"), id="print-calendar-btn", color="info", outline=True, title="カレンダーを印刷", className="me-2"),
-                dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", className="me-2"),
+                dbc.Button(html.I(className="fas fa-print"), id="print-calendar-btn", color="info", outline=True, title="カレンダーを印刷", className="ms-2"),
+                dbc.Button(html.I(className="fas fa-sync-alt"), id="refresh-calendar-btn", color="secondary", outline=True, title="最新の情報に更新", className="ms-2"),
             ], width='auto', className="ms-auto", id="calendar-action-buttons")
         ], align="center", className="my-4", id="calendar-header-row"),
 
