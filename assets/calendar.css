@@ -1,15 +1,25 @@
 /* assets/calendar.css */
 
+/* --- Web表示用スタイル --- */
+.multi-month-vertical-wrapper { /* 追加: 全体のラッパー */
+    width: 100%;
+}
+.single-month-wrapper { /* 追加: 各月のラッパー */
+    margin-bottom: 2rem; /* 月ごとの間隔 */
+}
+.calendar-month-header { /* 追加: H5の月ヘッダー */
+     font-weight: bold;
+     margin-bottom: 0.5rem;
+}
+
 /* --- テーブル全体のスタイル --- */
 .calendar-table {
     width: 100%;
-    /* min-width: 1200px; */ /* ← 必要であればコメント解除または値を調整 */
-    border-collapse: collapse;
-    table-layout: fixed; /* ★ fixed を指定 */
-    margin-bottom: 2rem;
+    border-collapse: collapse; /* collapse を推奨 */
+    table-layout: auto; /* ★ auto に戻す (Web表示用) */
+    margin-bottom: 0; /* ラッパー側でmargin指定 */
     font-size: 0.8rem;
     border: 1px solid #dee2e6;
-    /* white-space: nowrap; */ /* ← コメントアウトまたは削除 */
 }
 
 /* --- ヘッダーセルのスタイル --- */
@@ -21,48 +31,38 @@
     font-weight: normal;
     font-size: 0.75rem;
     vertical-align: middle;
-    width : 40px!important;
-    min-width: 40px!important; /* ← コメントアウトまたは削除 */
-    box-sizing: border-box; /* ★ 追加 */
+    box-sizing: border-box;
 }
 
 /* 情報列ヘッダーのスタイル */
 .calendar-info-header-cell {
-    width: 180px; /* ★ 幅を調整 (日付セル20pxを考慮) */
+    width: 180px; /* Web表示用の情報列幅 */
     background-color: #e9ecef;
     font-weight: bold;
-    position: sticky; /* ★ 追加: スクロール時に固定 */
-    left: 0;         /* ★ 追加 */
-    z-index: 1;      /* ★ 追加 */
-}
-/* ★ 追加: 月ヘッダーセル */
-.calendar-month-header-cell {
-     font-size: 8pt !important;
-     font-weight: bold;
-     text-align: center;
-     padding: 4px !important; /* Web表示用に調整 */
-     border: 1px solid #dee2e6 !important;
-     background-color: #e0e0e0 !important; /* 少し濃いグレー */
-     page-break-inside: avoid !important;
+    /* position: sticky; */ /* ← sticky削除 */
+    /* left: 0; */ /* ← sticky削除 */
+    /* z-index: 1; */ /* ← sticky削除 */
 }
 
+/* 月ヘッダーセルはWeb表示では使用しない */
+/* .calendar-month-header-cell { ... } */
+
+/* 日付ヘッダーセル */
+.calendar-header-cell {
+     min-width: 40px; /* Web表示用の最小幅 */
+     /* width: 20px !important; ← 削除 */
+}
 
 /* ヘッダーの曜日表示用の改行 */
 .calendar-table th br {
-    display: block;
+    display: block; /* 曜日を表示 */
     content: "";
     margin-top: 2px;
 }
 
-/* 土日のヘッダー背景色 */
-.calendar-table th.saturday {
-    background-color: #dcedfc;
-    color: #006eda;
-}
-.calendar-table th.sunday {
-    background-color: #ffe8d9;
-    color: #e57300;
-}
+/* 土日のヘッダー背景色 (変更なし) */
+.calendar-table th.saturday { background-color: #dcedfc; color: #006eda; }
+.calendar-table th.sunday { background-color: #ffe8d9; color: #e57300; }
 
 /* --- ボディセル (情報列) のスタイル --- */
 .calendar-info-cell {
@@ -73,11 +73,11 @@
     font-size: 0.75rem;
     white-space: normal;
     line-height: 1.3;
-    width: 180px; /* ★ ヘッダーと合わせる */
+    width: 180px; /* ヘッダーと合わせる */
     background-color: #f8f9fa;
-    position: sticky; /* ★ 追加: スクロール時に固定 */
-    left: 0;         /* ★ 追加 */
-    z-index: 1;      /* ★ 追加 */
+    /* position: sticky; */ /* ← sticky削除 */
+    /* left: 0; */ /* ← sticky削除 */
+    /* z-index: 1; */ /* ← sticky削除 */
 }
 
 /* --- ボディセル (日付列) のスタイル --- */
@@ -86,30 +86,115 @@
     padding: 4px;
     text-align: center;
     vertical-align: middle;
-    height: 50px;
+    height: 50px; /* Web表示用の高さ */
     font-size: 1rem;
     position: relative;
-    width : 40px!important;
-    min-width: 40px!important; /* ← コメントアウトまたは削除 */
-    box-sizing: border-box; /* ★ 追加 */
+    box-sizing: border-box;
+    /* width: 20px !important; ← 削除 */
+    min-width: 40px; /* Web表示用の最小幅 */
 }
 
-/* 土日の日付セル背景色 */
-.calendar-date-cell.saturday {
-    background-color: #f0f8ff;
-}
-.calendar-date-cell.sunday {
-    background-color: #fff7f0;
-}
+/* 土日の日付セル背景色 (変更なし) */
+.calendar-date-cell.saturday { background-color: #f0f8ff; }
+.calendar-date-cell.sunday { background-color: #fff7f0; }
 
 /* --- イベントセルのスタイル (変更なし) --- */
-.app-deadline-cell { background-color: #ffff7f !important; }
-.exam-date-cell { background-color: #ff7f7f !important; }
-.announcement-date-cell { background-color: #7fff7f !important; }
-.proc-deadline-cell { background-color: #bf7fff !important; }
-.exam-date-cell.app-deadline-cell { background-color: #ffd700 !important; }
-.announcement-date-cell.exam-date-cell, .announcement-date-cell.app-deadline-cell { background-color: #90ee90 !important; }
-.proc-deadline-cell.announcement-date-cell, .proc-deadline-cell.exam-date-cell, .proc-deadline-cell.app-deadline-cell { background-color: #e6e6fa !important; }
+/* ... (app-deadline-cell など) ... */
 
-/* --- 横スクロール用ラッパー --- */
-/* (これは components/past_exam_layout.py の dcc.Loading の中の Div に style={'overflowX': 'auto'} で指定されているため、ここでは不要) */
+
+/* --- ↓↓↓ 印刷用スタイルを修正 ↓↓↓ --- */
+@media print {
+    /* ... (既存の非表示要素の指定はそのまま) ... */
+    #calendar-header-row #calendar-action-buttons { /* ボタン全体を非表示 */
+         display: none !important;
+    }
+
+
+    .multi-month-vertical-wrapper { /* 全体のラッパー */
+        width: 100% !important;
+    }
+    .single-month-wrapper { /* 各月のラッパー */
+         page-break-inside: avoid !important; /* 月の途中で改ページしない */
+         margin-bottom: 15px !important; /* 印刷時の月間隔 */
+    }
+    .calendar-month-header { /* H5の月ヘッダー */
+        page-break-before: auto; /* 月の開始での改ページを許可 */
+        page-break-after: avoid; /* ヘッダー直後での改ページ禁止 */
+        font-size: 11pt !important;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 5px !important;
+    }
+
+    .calendar-table {
+        width: 100% !important;
+        font-size: 7pt !important; /* フォントサイズ調整 */
+        border: 1px solid #ccc !important;
+        table-layout: fixed !important; /* ★ fixed を維持 */
+        page-break-inside: avoid !important; /* テーブル内改ページ禁止 */
+        margin-bottom: 0 !important;
+        border-collapse: collapse !important;
+    }
+
+    /* テーブルの行ごとの改ページ制御 (不要かも) */
+    /* .calendar-table thead, .calendar-table tbody tr { ... } */
+
+    .calendar-table th, .calendar-table td {
+        border: 1px solid #ccc !important;
+        padding: 2px !important; /* パディング調整 */
+        white-space: normal !important;
+        word-wrap: break-word;
+        vertical-align: middle !important;
+        height: 22px !important; /* 高さを固定 */
+        text-align: center !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-sizing: border-box;
+    }
+
+    /* 情報列 */
+    .calendar-info-header-cell, .calendar-info-cell {
+        width: 80px !important; /* 印刷時の情報列幅 */
+        font-size: 6pt !important;
+        vertical-align: top !important;
+        white-space: normal !important;
+        height: auto !important;
+        position: static !important; /* ★ sticky を解除 */
+        left: auto !important;
+        z-index: auto !important;
+        background-color: #f8f9fa !important; /* 通常の背景色 */
+    }
+     .calendar-info-header-cell {
+         vertical-align: middle !important;
+         font-weight: bold;
+         background-color: #e9ecef !important; /* ヘッダー背景色 */
+    }
+
+    /* 日付ヘッダーと日付データセル */
+    .calendar-header-cell, .calendar-date-cell {
+        /* table-layout: fixed により残りが均等分配される */
+         width: auto !important; /* 自動幅 */
+         min-width: 0 !important; /* 最小幅リセット */
+         font-size: 7pt !important;
+    }
+    .calendar-header-cell {
+         font-size: 6pt !important;
+    }
+     .calendar-table th br { /* 曜日の改行を表示 */
+        display: block !important;
+    }
+
+    /* セルの背景色 (変更なし) */
+    .app-deadline-cell, .exam-date-cell, .announcement-date-cell, .proc-deadline-cell,
+    .saturday, .sunday {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ページ設定: 縦向きに戻す */
+    @page {
+        size: A4 portrait; /* ★ portrait に変更 */
+        margin: 10mm; /* 余白を調整 */
+    }
+}
+/* --- ↑↑↑ 印刷用スタイルここまで ↑↑↑ --- */
