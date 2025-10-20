@@ -151,7 +151,7 @@ def display_page(pathname, auth_store_data):
         return page_content, navbar
 
     if pathname == '/statistics': # このブロックを追加
-        page_content = create_statistics_layout()
+        page_content = create_statistics_layout(user_info)
         return page_content, navbar
 
     if pathname == '/howto':
