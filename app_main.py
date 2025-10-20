@@ -151,9 +151,8 @@ def display_page(pathname, auth_store_data):
         return page_content, navbar
 
     if pathname == '/statistics': # このブロックを追加
-        if user_info.get('role') != 'admin':
-            return create_access_denied_layout(), navbar
-        return create_statistics_layout(user_info), navbar
+        page_content = create_statistics_layout()
+        return page_content, navbar
 
     if pathname == '/howto':
         return create_howto_layout(user_info), navbar
