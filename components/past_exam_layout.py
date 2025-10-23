@@ -17,7 +17,7 @@ def create_past_exam_layout():
             dbc.Col([
                 html.H4("過去問演習記録"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("過去問結果入力フォームはこちら", href="https://forms.gle/tGSPWBU6tv5dUogNA")
+                html.A("過去問結果入力フォームはこちら", href="https://forms.gle/tGSPWBU6tv5dUogNA", target="_blank", rel="noopener noreferrer")
             ]), # H2からH4に変更
             dbc.Col([ # Pass children as a list
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success", className="me-2"),
@@ -102,7 +102,7 @@ def create_past_exam_layout():
             dbc.Col([
                 html.H4("入試管理"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("入試日程入力フォームはこちら", href="https://forms.gle/3PPyxk3Bw5vSsmBb8")
+                html.A("入試日程入力フォームはこちら", href="https://forms.gle/3PPyxk3Bw5vSsmBb8", target="_blank", rel="noopener noreferrer")
             ]),
             dbc.Col([ # Pass children as a list
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
