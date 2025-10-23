@@ -364,7 +364,7 @@ def create_progress_table(progress_data, student_info, active_tab):
             # ステータスバッジとアクションボタンの決定
             if achievement_rate >= 1 or is_done:
                 status_badge = dbc.Badge("達成済", color="success")
-                action_button = dbc.Button("解除", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="danger", outline=True)
+                action_button = dbc.Button("未達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="danger", outline=True)
             elif achievement_rate > 0:
                 status_badge = dbc.Badge("取組中", color="primary")
                 action_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)

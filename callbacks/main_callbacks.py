@@ -67,7 +67,7 @@ def register_main_callbacks(app):
         if can_access_student(user_info, student_info):
             action_buttons.append(dbc.Button("進捗を更新", id={'type': 'open-plan-modal', 'index': 'main'}, color="primary", outline=True))
 
-        action_buttons.append(dbc.Button("PDFレポート", id="download-report-btn", color="info", outline=True, className="ms-2"))
+        action_buttons.append(dbc.Button("印刷", id="download-report-btn", color="info", outline=True, className="ms-2"))
 
         actions = dbc.ButtonGroup(action_buttons)
 
