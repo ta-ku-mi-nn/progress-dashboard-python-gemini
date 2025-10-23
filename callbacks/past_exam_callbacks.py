@@ -868,17 +868,14 @@ def register_past_exam_callbacks(app):
 
     # ★★★ ここから模試結果関連のコールバック ★★★
 
-    # --- 模試結果モーダル表示/非表示 ---
+# --- 模試結果モーダル表示/非表示 ---
     @app.callback(
         [Output('mock-exam-modal', 'is_open'),
          Output('mock-exam-modal-title', 'children'),
          Output('editing-mock-exam-id-store', 'data'), # 編集/削除用IDストア
          # --- モーダル内の各入力フィールド ---
-         Output('mock-exam-result-type', 'value'),
-         Output('mock-exam-name', 'value'),
-         Output('mock-exam-format', 'value'),
-         Output('mock-exam-grade', 'value'),
-         Output('mock-exam-round', 'value'),
+         Output('mock-exam-result-type', 'value'), Output('mock-exam-name', 'value'),
+         Output('mock-exam-format', 'value'), Output('mock-exam-grade', 'value'), Output('mock-exam-round', 'value'),
          Output('mock-exam-date', 'date'),
          # 記述
          Output('mock-exam-kokugo-desc', 'value'), Output('mock-exam-math-desc', 'value'), Output('mock-exam-english-desc', 'value'),
@@ -904,10 +901,17 @@ def register_past_exam_callbacks(app):
 
         trigger_id = ctx.triggered_id
 
-        # デフォルト値（空）のリストを作成
-        num_fields = 28 # モーダル出力数 (is_open, title, store + 25 fields + alert_is_open)
-        no_update_list = [no_update] * num_fields
-        initial_values = [""] * 6 + [None] * 20 # 基本情報6つ + 点数19 + 日付1つ = 26
+        # デフォルト値（空）のリストを作成 (出力数: 3 + 6 + 7 + 12 + 1 = 29)
+        num_fields_total = 29
+        initial_values = [None] * (num_fields_total - 3 - 1) # is_open, title, store, alertを除く
+        initial_values = [ # より具体的に初期化
+            None, # result_type
+            None, # name
+            None, # format
+            None, # grade
+            None, # round
+            None, # date
+        ] + [None] * 20 # Scores
 
         # キャンセルボタン
         if trigger_id == 'cancel-mock-exam-modal-btn':
@@ -915,7 +919,9 @@ def register_past_exam_callbacks(app):
 
         # 新規追加ボタン
         if trigger_id == 'open-mock-exam-modal-btn':
-            return [True, "模試結果の入力", None] + initial_values + [False]
+            today_iso = date.today().isoformat() # 今日の日付を文字列で
+            return [True, "模試結果の入力", None] + [None]*5 + [today_iso] + [None]*20 + [False] # 日付だけ今日に
+
 
         # 編集ボタン (パターンマッチング)
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-mock-exam-btn':
@@ -942,11 +948,11 @@ def register_past_exam_callbacks(app):
                     result_to_edit.get('subject_shakai1_mark'), result_to_edit.get('subject_shakai2_mark'), result_to_edit.get('subject_rika_kiso1_mark'),
                     result_to_edit.get('subject_rika_kiso2_mark'), result_to_edit.get('subject_info_mark')
                 ]
+                # Noneの代わりに空文字列を使うべきか？ -> Noneのままの方が扱いやすい
                 return [True, "模試結果の編集", result_id] + values + [False]
 
         # 上記以外の場合はモーダルを閉じる
         return [False, no_update, None] + initial_values + [False]
-
 
     # --- 模試結果の保存 ---
     @app.callback(
@@ -1000,9 +1006,20 @@ def register_past_exam_callbacks(app):
             'subject_shakai1_mark': s1_m, 'subject_shakai2_mark': s2_m, 'subject_rika_kiso1_mark': rk1_m,
             'subject_rika_kiso2_mark': rk2_m, 'subject_info_mark': inf_m
         }
-        # 空文字列をNoneに変換 (add/update関数側でも処理するが一応)
+        # 空文字列やNoneでない数値以外をNoneに変換 (add/update関数側でも処理する)
         for key, value in data_to_save.items():
-            if value == '': data_to_save[key] = None
+            if key.startswith('subject_'):
+                try:
+                    # Allow 0 but treat empty string or non-numeric as None
+                    if value is None or str(value).strip() == '':
+                        data_to_save[key] = None
+                    else:
+                        data_to_save[key] = int(value)
+                except (ValueError, TypeError):
+                    data_to_save[key] = None
+            elif value == '': # 他のフィールドで空文字列はNoneに
+                 data_to_save[key] = None
+
 
         if result_id: success, message = update_mock_exam_result(result_id, data_to_save)
         else: success, message = add_mock_exam_result(student_id, data_to_save)
@@ -1013,11 +1030,13 @@ def register_past_exam_callbacks(app):
         else: return dbc.Alert(message, color="danger"), True, no_update, no_update
 
     # --- 模試結果削除確認表示 ---
+    # ★★★ 修正: editing-mock-exam-id-store への出力を追加 ★★★
     @app.callback(
-        Output('delete-mock-exam-confirm', 'displayed'),
-        Input({'type': 'delete-mock-exam-trigger-btn', 'index': ALL}, 'n_clicks'), # テーブル内のボタン
-        Input('delete-mock-exam-btn', 'n_clicks'), # モーダル内のボタン
-        State('editing-mock-exam-id-store', 'data'), # モーダル用ID
+        [Output('delete-mock-exam-confirm', 'displayed'),
+         Output('editing-mock-exam-id-store', 'data', allow_duplicate=True)], # IDをストアに出力
+        [Input({'type': 'delete-mock-exam-trigger-btn', 'index': ALL}, 'n_clicks'), # テーブル内のボタン
+         Input('delete-mock-exam-btn', 'n_clicks')], # モーダル内のボタン
+        [State('editing-mock-exam-id-store', 'data')], # モーダル用ID (モーダルボタン用)
         prevent_initial_call=True
     )
     def display_delete_mock_exam_confirmation(table_clicks, modal_click, result_id_from_modal):
@@ -1028,30 +1047,22 @@ def register_past_exam_callbacks(app):
         result_id_to_delete = None
 
         if isinstance(triggered_id, dict) and triggered_id.get('type') == 'delete-mock-exam-trigger-btn':
-            # テーブルのボタンが押された
-            if not any(nc > 0 for nc in table_clicks if nc is not None): raise PreventUpdate
+            # テーブルのボタンが押された場合
+            # any() を使ってクリックされたか確認
+            if not any(nc is not None and nc > 0 for nc in ctx.inputs_list[0]): raise PreventUpdate # inputs_list[0] が table_clicks に対応
             result_id_to_delete = triggered_id['index']
-            # このIDをStoreに保存する必要がある (次の削除実行コールバックで使うため)
-            # --> editing-mock-exam-id-store を流用する
         elif triggered_id == 'delete-mock-exam-btn':
-            # モーダルの削除ボタンが押された
+            # モーダルの削除ボタンが押された場合
             if not modal_click or result_id_from_modal is None: raise PreventUpdate
             result_id_to_delete = result_id_from_modal # StoreからIDを取得
         else:
              raise PreventUpdate
 
-        # IDが取得できたらダイアログ表示
+        # IDが取得できたらダイアログ表示し、IDをストアに保存
         if result_id_to_delete is not None:
-             # IDをストアに保存 (削除実行コールバックで使用)
-             # ここで直接 Output するのではなく、専用のコールバックでやった方が良いかも？
-             # ただ、このコールバックはDisplayedしか返さないので、ここでやる。
-             # app.clientside_callback などを使う方がDashの作法には合っている。
-             # とりあえず、このまま editing-mock-exam-id-store を上書きする。
-             app.callback_map['editing-mock-exam-id-store.data']['output'] # workaround
-             app.callback_map['editing-mock-exam-id-store.data']['state'] = [] # workaround
-             app.callback(Output('editing-mock-exam-id-store', 'data', allow_duplicate=True), Input('delete-mock-exam-confirm', 'cancel_n_clicks'))(lambda x: result_id_to_delete) # Hacky way
-             return True
-        return False
+             return True, result_id_to_delete
+        return False, no_update # ダイアログ非表示、ストアは更新しない
+
 
     # --- 模試結果削除実行 ---
     @app.callback(
@@ -1108,8 +1119,10 @@ def register_past_exam_callbacks(app):
 
             df_all = pd.DataFrame(results)
 
-            # 日付列をdatetimeオブジェクトに変換 (ソートや比較のため)
-            df_all['exam_date'] = pd.to_datetime(df_all['exam_date'], errors='coerce').dt.date
+            # 日付列をdatetimeオブジェクトに変換 (ソートや比較のため) - ここでは文字列のまま扱う方が安全かも
+            # df_all['exam_date'] = pd.to_datetime(df_all['exam_date'], errors='coerce').dt.date
+            # get_mock_exam_results_for_student で date オブジェクトが返るはずなので不要？
+            # → get_mock_exam_results_for_student は DictCursor なのでそのまま date オブジェクトのはず
 
             # マークと記述に分割
             df_mark = df_all[df_all['mock_exam_format'] == 'マーク'].copy()
