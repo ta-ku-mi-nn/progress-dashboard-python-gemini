@@ -103,9 +103,9 @@ def register_plan_callbacks(app):
         student_name = get_student_info_by_id(student_id).get('name', '') if student_id else ""
         base_title = f"{student_name}さん の学習計画"
 
-        if step == 0: return f"{base_title} - ステップ1: 科目選択"
-        if step == 1: return f"{base_title} - ステップ2: 参考書選択 ({subject})"
-        if step == 2: return f"{base_title} - ステップ3: 進捗入力 ({subject})"
+        if step == 0: return "①科目選択"
+        if step == 1: return f"②参考書選択 ({subject})"
+        if step == 2: return f"③進捗入力 ({subject})"
         return base_title
 
     @app.callback(

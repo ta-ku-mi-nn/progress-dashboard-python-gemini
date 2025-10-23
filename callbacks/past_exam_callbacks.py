@@ -486,7 +486,6 @@ def register_past_exam_callbacks(app):
         acceptance_data = get_acceptance_results_for_student(student_id)
         if not acceptance_data:
             return [dbc.Alert("印刷対象の受験・合否データがありません。", color="info")]
-
         # --- データの存在する最初の月と最後の月を決定 ---
         df = pd.DataFrame(acceptance_data)
         all_dates = []
