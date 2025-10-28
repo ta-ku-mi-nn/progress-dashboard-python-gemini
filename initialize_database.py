@@ -77,6 +77,9 @@ def create_all_tables(conn):
                 name TEXT NOT NULL,
                 school TEXT NOT NULL,
                 deviation_value INTEGER,
+                target_level TEXT,       -- ★ 追加: 志望校レベル
+                grade TEXT,              -- ★ 追加: 学年
+                previous_school TEXT,    -- ★ 追加: 出身校・在籍校
                 UNIQUE(school, name)
             )
         ''')

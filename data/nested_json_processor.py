@@ -1,7 +1,7 @@
 # data/nested_json_processor.py
 
 import psycopg2
-from psycopg2.extras import DictCursor
+from psycopg2.extras import DictCursor, execute_values
 import os
 import json
 import uuid
@@ -21,12 +21,48 @@ def get_db_connection():
 # --- (既存の関数は省略) ---
 
 def get_all_schools():
+    """データベースからすべての校舎名を取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT DISTINCT school FROM students ORDER BY school')
-        schools = cur.fetchall()
-    conn.close()
+    schools = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # usersテーブルとstudentsテーブルの両方から校舎名を取得し、重複を除外
+            cur.execute('''
+                SELECT DISTINCT school FROM users WHERE school IS NOT NULL
+                UNION
+                SELECT DISTINCT school FROM students WHERE school IS NOT NULL
+                ORDER BY school
+            ''')
+            schools = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_all_schools): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [school['school'] for school in schools]
+
+def get_all_grades():
+    """データベースからすべての学年を取得する"""
+    conn = get_db_connection()
+    grades = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT DISTINCT grade FROM students WHERE grade IS NOT NULL ORDER BY grade')
+            grades = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_all_grades): {e}")
+    finally:
+        if conn:
+            conn.close()
+    # 必要に応じて学年の順序をソートするロジックを追加
+    # 例: ['中1', '中2', '中3', '高1', '高2', '高3', '既卒']
+    grade_order = ['中1', '中2', '中3', '高1', '高2', '高3', '既卒']
+    raw_grades = [g['grade'] for g in grades]
+    sorted_grades = sorted(
+        raw_grades,
+        key=lambda x: grade_order.index(x) if x in grade_order else len(grade_order)
+    )
+    return sorted_grades
 
 def get_students_for_user(user_info):
     """
@@ -107,16 +143,17 @@ def get_student_progress(school, student_name):
     return progress_data
 
 def get_student_info_by_id(student_id):
-    """生徒IDに基づいて生徒情報を取得する"""
+    """生徒IDに基づいて生徒情報（追加項目含む）を取得する"""
     conn = get_db_connection()
-    student = None # student を None で初期化
-    instructors = [] # instructors を空リストで初期化
+    student = None
+    instructors = []
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
-            cur.execute('SELECT * FROM students WHERE id = %s', (student_id,))
+            # ★ 取得するカラムに target_level, grade, previous_school を追加
+            cur.execute('SELECT id, name, school, deviation_value, target_level, grade, previous_school FROM students WHERE id = %s', (student_id,))
             student = cur.fetchone()
             if not student:
-                return {} # 生徒が見つからなければ空の辞書を返す
+                return {}
 
             cur.execute('''
                 SELECT u.username, si.is_main
@@ -127,7 +164,7 @@ def get_student_info_by_id(student_id):
             instructors = cur.fetchall()
     except psycopg2.Error as e:
          print(f"データベースエラー (get_student_info_by_id): {e}")
-         return {} # エラー時も空の辞書を返す
+         return {}
     finally:
         if conn:
             conn.close()
@@ -646,12 +683,14 @@ def delete_master_textbook(book_id):
             conn.close()
 
 def get_all_students_with_details():
+    """すべての生徒情報を詳細（追加項目含む）付きで取得する"""
     conn = get_db_connection()
-    students_raw = [] # 初期化
-    instructors_raw = [] # 初期化
+    students_raw = []
+    instructors_raw = []
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
-            cur.execute('SELECT * FROM students ORDER BY school, name')
+            # ★ 取得するカラムに target_level, grade, previous_school を追加
+            cur.execute('SELECT id, name, school, deviation_value, target_level, grade, previous_school FROM students ORDER BY school, name')
             students_raw = cur.fetchall()
 
             cur.execute('''
@@ -684,15 +723,19 @@ def get_all_students_with_details():
 
     return students
 
-def add_student(name, school, deviation_value, main_instructor_id, sub_instructor_ids):
+def add_student(name, school, deviation_value, target_level, grade, previous_school, main_instructor_id, sub_instructor_ids):
+    """新しい生徒を追加（追加項目含む）"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # deviation_value が None でないことを確認し、NoneならNULLを挿入
-            dev_val = int(deviation_value) if deviation_value is not None else None
+            dev_val = int(deviation_value) if deviation_value is not None and str(deviation_value).strip() != '' else None
+            # ★ target_level, grade, previous_school を INSERT 文に追加
             cur.execute(
-                "INSERT INTO students (name, school, deviation_value) VALUES (%s, %s, %s) RETURNING id",
-                (name, school, dev_val)
+                """
+                INSERT INTO students (name, school, deviation_value, target_level, grade, previous_school)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                """,
+                (name, school, dev_val, target_level or None, grade or None, previous_school or None) # 空文字列はNoneとして登録
             )
             student_id = cur.fetchone()[0]
 
@@ -711,9 +754,13 @@ def add_student(name, school, deviation_value, main_instructor_id, sub_instructo
                  )
         conn.commit()
         return True, "生徒が正常に追加されました。"
-    except psycopg2.IntegrityError: # UNIQUE制約違反
+    except psycopg2.IntegrityError as e: # UNIQUE制約違反など
         conn.rollback()
-        return False, "同じ校舎に同名の生徒が既に存在します。"
+        if 'students_school_name_key' in str(e):
+             return False, "同じ校舎に同名の生徒が既に存在します。"
+        else:
+             print(f"データベース整合性エラー (add_student): {e}")
+             return False, f"追加中にエラーが発生しました: {e}"
     except psycopg2.Error as e: # その他のDBエラー
         conn.rollback()
         print(f"データベースエラー (add_student): {e}")
@@ -722,15 +769,20 @@ def add_student(name, school, deviation_value, main_instructor_id, sub_instructo
         if conn:
             conn.close()
 
-def update_student(student_id, name, deviation_value, main_instructor_id, sub_instructor_ids):
+def update_student(student_id, name, deviation_value, target_level, grade, previous_school, main_instructor_id, sub_instructor_ids):
+    """生徒情報を更新（追加項目含む）"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
             # 生徒情報の更新
-            dev_val = int(deviation_value) if deviation_value is not None else None
+            dev_val = int(deviation_value) if deviation_value is not None and str(deviation_value).strip() != '' else None
+            # ★ target_level, grade, previous_school を UPDATE 文に追加
             cur.execute(
-                "UPDATE students SET name = %s, deviation_value = %s WHERE id = %s",
-                (name, dev_val, student_id)
+                """
+                UPDATE students SET name = %s, deviation_value = %s, target_level = %s, grade = %s, previous_school = %s
+                WHERE id = %s
+                """,
+                (name, dev_val, target_level or None, grade or None, previous_school or None, student_id)
             )
             # 既存の講師関連を削除
             cur.execute("DELETE FROM student_instructors WHERE student_id = %s", (student_id,))
@@ -751,13 +803,16 @@ def update_student(student_id, name, deviation_value, main_instructor_id, sub_in
                  )
 
         conn.commit()
-        # 更新された行数をチェック (students テーブルのみ)
         if cur.rowcount == 0:
              return False, "指定されたIDの生徒が見つかりません。"
         return True, "生徒情報が正常に更新されました。"
-    except psycopg2.IntegrityError: # UNIQUE制約違反
+    except psycopg2.IntegrityError as e: # UNIQUE制約違反など
         conn.rollback()
-        return False, "更新後の生徒名が、校舎内で他の生徒と重複しています。"
+        if 'students_school_name_key' in str(e):
+            return False, "更新後の生徒名が、校舎内で他の生徒と重複しています。"
+        else:
+            print(f"データベース整合性エラー (update_student): {e}")
+            return False, f"更新中にエラーが発生しました: {e}"
     except psycopg2.Error as e: # その他のDBエラー
         conn.rollback()
         print(f"データベースエラー (update_student): {e}")
@@ -1313,16 +1368,16 @@ def add_changelog_entry(version, title, description):
         if conn:
             conn.close()
 
-def get_student_level_statistics(school):
+def get_student_level_statistics(target_school=None, target_grade=None):
     """
-    校舎ごとに、各科目のレベル（日大、MARCH、早慶）に到達している生徒数を集計する。
-    1冊でも該当レベルの参考書を '達成済' にしていれば、そのレベルに到達しているとみなす。
+    指定された校舎・学年の生徒について、各科目のレベル達成人数を集計する。
+    target_school が None の場合は全校舎を集計する。
     """
     conn = get_db_connection()
-    progress_data = [] # 初期化
+    progress_data = []
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
-            # (クエリ部分は変更なし)
+            # ★ ベースとなるクエリ
             query = """
                 SELECT
                     s.id as student_id,
@@ -1330,13 +1385,22 @@ def get_student_level_statistics(school):
                     p.level
                 FROM progress p
                 JOIN students s ON p.student_id = s.id
-                WHERE s.school = %s AND p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶');
+                WHERE p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶')
             """
-            cur.execute(query, (school,))
+            params = []
+            # ★ target_school が指定されている場合のみ WHERE句に追加
+            if target_school:
+                query += " AND s.school = %s"
+                params.append(target_school)
+            if target_grade:
+                query += " AND s.grade = %s"
+                params.append(target_grade)
+
+            cur.execute(query, tuple(params)) # params が空でも tuple() はOK
             progress_data = cur.fetchall()
     except psycopg2.Error as e:
          print(f"データベースエラー (get_student_level_statistics): {e}")
-         return {} # エラー時は空辞書を返す
+         return {}
     finally:
         if conn:
             conn.close()
@@ -1344,20 +1408,17 @@ def get_student_level_statistics(school):
     if not progress_data:
         return {}
 
-    # データベースから取得したデータを、より安全な辞書のリスト形式に変換
     progress_list = [dict(row) for row in progress_data]
     df = pd.DataFrame(progress_list)
 
-    # 生徒ごとに、科目とレベルの組み合わせでユニークにする
-    # df.columnsをチェックして、必要な列が存在するか確認
     required_columns = ['student_id', 'subject', 'level']
     if not all(col in df.columns for col in required_columns):
-        # 必要な列が不足している場合は、空の統計データを返す
         return {}
 
+    # ★ 生徒ごと、科目ごと、レベルごとの達成記録にユニーク化
     df_unique_students = df.drop_duplicates(subset=required_columns)
 
-    # (以降の処理は変更なし)
+    # 科目とレベルでグループ化し、生徒数をカウント
     level_counts = df_unique_students.groupby(['subject', 'level']).size().reset_index(name='student_count')
 
     stats = {}
@@ -1371,6 +1432,12 @@ def get_student_level_statistics(school):
 
         if level in stats[subject]:
             stats[subject][level] = count
+
+    # 集計結果に含まれない科目を追加し、カウントを0で初期化
+    all_subjects = get_all_subjects() # データベースから全科目リストを取得
+    for subj in all_subjects:
+        if subj not in stats:
+            stats[subj] = {'日大': 0, 'MARCH': 0, '早慶': 0}
 
     return stats
 
