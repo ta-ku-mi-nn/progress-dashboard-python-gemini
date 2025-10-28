@@ -296,6 +296,10 @@ def register_admin_callbacks(app):
          Output('student-school-input', 'value'),
          Output('student-name-input', 'value'),
          Output('student-deviation-input', 'value'),
+         # ★ Output に target_level, grade, previous_school を追加
+         Output('student-target-level-input', 'value'),
+         Output('student-grade-input', 'value'),
+         Output('student-previous-school-input', 'value'),
          Output('student-main-instructor-input', 'value'),
          Output('student-sub-instructor-input', 'options'),
          Output('student-sub-instructor-input', 'value'),
@@ -310,13 +314,15 @@ def register_admin_callbacks(app):
         ctx = callback_context
         trigger_id = ctx.triggered_id
 
+        # ★ no_update の数を 13 に増やす
         if not trigger_id or (isinstance(trigger_id, dict) and not ctx.triggered[0]['value']):
-            return [no_update] * 10
+            return [no_update] * 13
 
         admin_school = user_info.get('school', '')
 
+        # ★ キャンセル時の戻り値の数を 13 に増やす (None または [] を追加)
         if trigger_id == 'cancel-student-edit-btn':
-            return False, "", None, "", "", None, "", [], [], False
+            return False, "", None, "", "", None, None, None, None, "", [], [], False
 
         sub_instructors = get_all_instructors_for_school(admin_school, role='user')
         sub_instructor_options = [{'label': i['username'], 'value': i['id']} for i in sub_instructors]
@@ -324,11 +330,13 @@ def register_admin_callbacks(app):
         main_instructors = get_all_instructors_for_school(admin_school, role='admin')
         main_instructor_username = main_instructors[0]['username'] if main_instructors else ""
 
+        # ★ 新規追加時の戻り値の数を 13 に増やす (None を追加)
         if trigger_id == 'add-student-btn':
-            return True, "新規生徒の追加", None, admin_school, "", None, main_instructor_username, sub_instructor_options, [], False
+            return True, "新規生徒の追加", None, admin_school, "", None, None, None, None, main_instructor_username, sub_instructor_options, [], False
 
         if isinstance(trigger_id, dict) and trigger_id.get('type') == 'edit-student-btn':
             student_id = trigger_id['index']
+            # ★ get_all_students_with_details を使うように変更
             all_students = get_all_students_with_details()
             student_to_edit = next((s for s in all_students if s['id'] == student_id), None)
 
@@ -336,43 +344,58 @@ def register_admin_callbacks(app):
                 sub_instructor_users = [i for i in sub_instructors if i['username'] in student_to_edit.get('sub_instructors', [])]
                 sub_instructor_ids = [i['id'] for i in sub_instructor_users]
 
+                # ★ 戻り値に target_level, grade, previous_school を追加
                 return (True, f"編集: {student_to_edit['name']}", student_id,
                         student_to_edit['school'], student_to_edit['name'], student_to_edit.get('deviation_value'),
+                        student_to_edit.get('target_level'), # ★ 追加
+                        student_to_edit.get('grade'), # ★ 追加
+                        student_to_edit.get('previous_school'), # ★ 追加
                         main_instructor_username, sub_instructor_options, sub_instructor_ids, False)
 
-        return [no_update] * 10
+        # ★ no_update の数を 13 に増やす
+        return [no_update] * 13
 
     @app.callback(
         [Output('student-edit-alert', 'children'),
          Output('student-edit-alert', 'is_open'),
-         Output('admin-update-trigger', 'data')],
+         Output('admin-update-trigger', 'data', allow_duplicate=True)], # allow_duplicate=True が必要か確認
         Input('save-student-btn', 'n_clicks'),
         [State('editing-student-id-store', 'data'),
          State('student-name-input', 'value'),
          State('student-school-input', 'value'),
          State('student-deviation-input', 'value'),
+         # ★ State に target_level, grade, previous_school を追加
+         State('student-target-level-input', 'value'),
+         State('student-grade-input', 'value'),
+         State('student-previous-school-input', 'value'),
          State('student-main-instructor-input', 'value'),
          State('student-sub-instructor-input', 'value')],
         prevent_initial_call=True
     )
-    def save_student(n_clicks, student_id, name, school, deviation, main_instructor_username, sub_instructor_ids):
+    def save_student(n_clicks, student_id, name, school, deviation,
+                     target_level, grade, previous_school, # ★ 追加
+                     main_instructor_username, sub_instructor_ids):
         if not n_clicks:
             return "", False, no_update
 
+        # ★ name と school の必須チェックは維持
         if not name or not school:
             return dbc.Alert("生徒名と校舎は必須です。", color="warning"), True, no_update
 
+        # メイン講師IDを取得
         main_instructors = get_all_instructors_for_school(school, role='admin')
         main_instructor_user = next((i for i in main_instructors if i['username'] == main_instructor_username), None)
         main_instructor_id = main_instructor_user['id'] if main_instructor_user else None
 
+        # ★ add_student と update_student の引数を修正
         if student_id is None:
-            success, message = add_student(name, school, deviation, main_instructor_id, sub_instructor_ids)
+            success, message = add_student(name, school, deviation, target_level, grade, previous_school, main_instructor_id, sub_instructor_ids)
         else:
-            success, message = update_student(student_id, name, deviation, main_instructor_id, sub_instructor_ids)
+            success, message = update_student(student_id, name, deviation, target_level, grade, previous_school, main_instructor_id, sub_instructor_ids)
 
         if success:
-            return "", False, datetime.datetime.now().timestamp()
+            # ★ タイムスタンプの代わりに一意な値をトリガーに渡す (datetime.datetime は未インポートのため修正)
+            return "", False, datetime.datetime.now().isoformat()
         else:
             return dbc.Alert(message, color="danger"), True, no_update
 

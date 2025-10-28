@@ -99,6 +99,7 @@ def create_student_edit_modal():
     return dbc.Modal(
         id="student-edit-modal",
         is_open=False,
+        size="lg", # ★ サイズを少し大きく
         children=[
             dbc.ModalHeader(dbc.ModalTitle(id="student-edit-modal-title")),
             dbc.ModalBody([
@@ -106,24 +107,66 @@ def create_student_edit_modal():
                 dcc.Store(id='editing-student-id-store'),
                 dbc.Form([
                     dbc.Row([
-                        dbc.Label("校舎", width=3),
-                        dbc.Col(dbc.Input(id="student-school-input", type="text", disabled=True), width=9),
+                        dbc.Col([ # ★ 左列
+                            dbc.Label("校舎", width=3),
+                            dbc.Col(dbc.Input(id="student-school-input", type="text", disabled=True), width=9),
+                        ], md=6),
+                        dbc.Col([ # ★ 右列
+                            dbc.Label("生徒名 *", width=3),
+                            dbc.Col(dbc.Input(id="student-name-input", type="text", required=True), width=9),
+                        ], md=6),
                     ], className="mb-3"),
                     dbc.Row([
-                        dbc.Label("生徒名", width=3),
-                        dbc.Col(dbc.Input(id="student-name-input", type="text", required=True), width=9),
+                        dbc.Col([ # ★ 左列
+                            dbc.Label("学年", width=3),
+                            # ★ 学年ドロップダウンを追加 (選択肢は仮。コールバックで動的に設定も可)
+                            dbc.Col(dcc.Dropdown(
+                                id="student-grade-input",
+                                options=[
+                                    {'label': '中1', 'value': '中1'}, {'label': '中2', 'value': '中2'}, {'label': '中3', 'value': '中3'},
+                                    {'label': '高1', 'value': '高1'}, {'label': '高2', 'value': '高2'}, {'label': '高3', 'value': '高3'},
+                                    {'label': '既卒', 'value': '既卒'}, {'label': 'その他', 'value': 'その他'},
+                                ],
+                                placeholder="学年を選択..."
+                            ), width=9),
+                        ], md=6),
+                        dbc.Col([ # ★ 右列
+                            dbc.Label("偏差値", width=3),
+                            dbc.Col(dbc.Input(id="student-deviation-input", type="number", placeholder="（任意）"), width=9),
+                        ], md=6),
                     ], className="mb-3"),
-                    dbc.Row([
-                        dbc.Label("偏差値", width=3),
-                        dbc.Col(dbc.Input(id="student-deviation-input", type="number"), width=9),
+                     dbc.Row([
+                        dbc.Col([ # ★ 左列
+                            dbc.Label("志望校レベル", width=3),
+                            # ★ 志望校レベルドロップダウンを追加 (選択肢は仮)
+                            dbc.Col(dcc.Dropdown(
+                                id="student-target-level-input",
+                                options=[
+                                    {'label': '基礎徹底', 'value': '基礎徹底'},
+                                    {'label': '日大', 'value': '日大'},
+                                    {'label': 'MARCH', 'value': 'MARCH'},
+                                    {'label': '早慶', 'value': '早慶'},
+                                    {'label': 'その他', 'value': 'その他'},
+                                ],
+                                placeholder="レベルを選択..."
+                            ), width=9),
+                        ], md=6),
+                        dbc.Col([ # ★ 右列
+                            dbc.Label("出身/在籍校", width=3),
+                            # ★ 出身校・在籍校入力欄を追加
+                            dbc.Col(dbc.Input(id="student-previous-school-input", type="text", placeholder="（任意）"), width=9),
+                        ], md=6),
                     ], className="mb-3"),
+                    html.Hr(), # ★ 区切り線を追加
                     dbc.Row([
-                        dbc.Label("メイン講師", width=3),
-                        dbc.Col(dbc.Input(id="student-main-instructor-input", type="text", disabled=True), width=9),
-                    ], className="mb-3"),
-                    dbc.Row([
-                        dbc.Label("サブ講師", width=3),
-                        dbc.Col(dcc.Dropdown(id="student-sub-instructor-input", multi=True), width=9),
+                        dbc.Col([ # ★ 左列
+                            dbc.Label("メイン講師", width=3),
+                            dbc.Col(dbc.Input(id="student-main-instructor-input", type="text", disabled=True), width=9),
+                        ], md=6),
+                        dbc.Col([ # ★ 右列
+                            dbc.Label("サブ講師", width=3),
+                            dbc.Col(dcc.Dropdown(id="student-sub-instructor-input", multi=True, placeholder="（任意）"), width=9),
+                        ], md=6),
                     ]),
                 ])
             ]),
