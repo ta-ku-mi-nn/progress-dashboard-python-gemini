@@ -6,7 +6,7 @@ import os
 import json
 import uuid
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date # date をインポート
 from config.settings import APP_CONFIG
 import psycopg2
 from psycopg2.extras import DictCursor, execute_values
@@ -17,6 +17,8 @@ def get_db_connection():
     """PostgreSQLデータベース接続を取得します。"""
     conn = psycopg2.connect(DATABASE_URL)
     return conn
+
+# --- (既存の関数は省略) ---
 
 def get_all_schools():
     conn = get_db_connection()
@@ -107,22 +109,28 @@ def get_student_progress(school, student_name):
 def get_student_info_by_id(student_id):
     """生徒IDに基づいて生徒情報を取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT * FROM students WHERE id = %s', (student_id,))
-        student = cur.fetchone()
-        if not student:
+    student = None # student を None で初期化
+    instructors = [] # instructors を空リストで初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT * FROM students WHERE id = %s', (student_id,))
+            student = cur.fetchone()
+            if not student:
+                return {} # 生徒が見つからなければ空の辞書を返す
+
+            cur.execute('''
+                SELECT u.username, si.is_main
+                FROM student_instructors si
+                JOIN users u ON si.user_id = u.id
+                WHERE si.student_id = %s
+            ''', (student_id,))
+            instructors = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_student_info_by_id): {e}")
+         return {} # エラー時も空の辞書を返す
+    finally:
+        if conn:
             conn.close()
-            return {}
-
-        cur.execute('''
-            SELECT u.username, si.is_main
-            FROM student_instructors si
-            JOIN users u ON si.user_id = u.id
-            WHERE si.student_id = %s
-        ''', (student_id,))
-        instructors = cur.fetchall()
-
-    conn.close()
 
     student_info = dict(student)
     student_info['main_instructors'] = [i['username'] for i in instructors if i['is_main'] == 1]
@@ -143,23 +151,30 @@ def get_student_progress_by_id(student_id):
     }
 
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        # DBから取得するdurationは元の値 (COALESCEで取得)
-        cur.execute(
-            """
-            SELECT
-                p.subject, p.level, p.book_name,
-                COALESCE(p.duration, m.duration, 0) as base_duration, -- 元のdurationをbase_durationとして取得
-                p.is_planned, p.is_done,
-                COALESCE(p.completed_units, 0) as completed_units,
-                COALESCE(p.total_units, 1) as total_units
-            FROM progress p
-            LEFT JOIN master_textbooks m ON p.book_name = m.book_name AND p.subject = m.subject AND p.level = m.level
-            WHERE p.student_id = %s
-            """, (student_id,)
-        )
-        progress_records = cur.fetchall()
-    conn.close()
+    progress_records = [] # progress_records を空リストで初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # DBから取得するdurationは元の値 (COALESCEで取得)
+            cur.execute(
+                """
+                SELECT
+                    p.subject, p.level, p.book_name,
+                    COALESCE(p.duration, m.duration, 0) as base_duration, -- 元のdurationをbase_durationとして取得
+                    p.is_planned, p.is_done,
+                    COALESCE(p.completed_units, 0) as completed_units,
+                    COALESCE(p.total_units, 1) as total_units
+                FROM progress p
+                LEFT JOIN master_textbooks m ON p.book_name = m.book_name AND p.subject = m.subject AND p.level = m.level
+                WHERE p.student_id = %s
+                """, (student_id,)
+            )
+            progress_records = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_student_progress_by_id): {e}")
+         return {} # エラー時は空の辞書を返す
+    finally:
+        if conn:
+            conn.close()
 
     progress_data = {}
     for row in progress_records:
@@ -191,13 +206,20 @@ def get_student_progress_by_id(student_id):
 
 def get_student_info(school, student_name):
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT id FROM students WHERE name = %s AND school = %s', (student_name, school))
-        student = cur.fetchone()
+    student = None # student を None で初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT id FROM students WHERE name = %s AND school = %s', (student_name, school))
+            student = cur.fetchone()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_student_info): {e}")
+         return {} # エラー時は空の辞書を返す
+    finally:
+        if conn:
+            conn.close()
+
     if not student:
-        conn.close()
         return {}
-    conn.close()
     return get_student_info_by_id(student['id'])
 
 def get_assigned_students_for_user(user_id):
@@ -205,29 +227,44 @@ def get_assigned_students_for_user(user_id):
     if not user_id:
         return []
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('''
-            SELECT s.id, s.name
-            FROM students s
-            JOIN student_instructors si ON s.id = si.student_id
-            WHERE si.user_id = %s
-            ORDER BY s.name
-        ''', (user_id,))
-        students = cur.fetchall()
-    conn.close()
+    students = [] # students を空リストで初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('''
+                SELECT s.id, s.name
+                FROM students s
+                JOIN student_instructors si ON s.id = si.student_id
+                WHERE si.user_id = %s
+                ORDER BY s.name
+            ''', (user_id,))
+            students = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_assigned_students_for_user): {e}")
+         return [] # エラー時は空リストを返す
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in students]
 
 def get_master_textbook_list(subject, search_term=""):
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        query = "SELECT level, book_name FROM master_textbooks WHERE subject = %s"
-        params = [subject]
-        if search_term:
-            query += " AND book_name LIKE %s"
-            params.append(f"%{search_term}%")
-        cur.execute(query, tuple(params))
-        records = cur.fetchall()
-    conn.close()
+    records = [] # records を空リストで初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            query = "SELECT level, book_name FROM master_textbooks WHERE subject = %s"
+            params = [subject]
+            if search_term:
+                query += " AND book_name LIKE %s"
+                params.append(f"%{search_term}%")
+            cur.execute(query, tuple(params))
+            records = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_master_textbook_list): {e}")
+         return {} # エラー時は空辞書を返す
+    finally:
+        if conn:
+            conn.close()
+
     level_order = ['基礎徹底', '日大', 'MARCH', '早慶']
     textbooks_by_level = {}
     for row in records:
@@ -235,7 +272,9 @@ def get_master_textbook_list(subject, search_term=""):
         if level not in textbooks_by_level:
             textbooks_by_level[level] = []
         textbooks_by_level[level].append(book_name)
+    # 存在しないレベルを除外してソート
     sorted_textbooks = {level: textbooks_by_level[level] for level in level_order if level in textbooks_by_level}
+    # 順序リストに含まれないレベルを追加
     for level in textbooks_by_level:
         if level not in sorted_textbooks:
             sorted_textbooks[level] = textbooks_by_level[level]
@@ -263,7 +302,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                 if not update.get('is_planned', True):
                     update['completed_units'] = 0
                     update['total_units'] = 1
-                    is_done = False
+                    is_done = False # 予定外になったら未達成に戻す
 
                 data_to_upsert.append((
                     student_id,
@@ -274,7 +313,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                     bool(update.get('is_planned', True)),
                     is_done,
                     update.get('completed_units', 0),
-                    update.get('total_units', 1)
+                    max(1, update.get('total_units', 1)) # total_unitsが0以下にならないように
                 ))
 
             # INSERT ... ON CONFLICT を使ったUPSERTクエリ
@@ -284,7 +323,7 @@ def add_or_update_student_progress(student_id, progress_updates):
                     is_planned, is_done, completed_units, total_units
                 ) VALUES %s
                 ON CONFLICT (student_id, subject, level, book_name) DO UPDATE SET
-                    duration = COALESCE(EXCLUDED.duration, progress.duration),
+                    duration = COALESCE(EXCLUDED.duration, progress.duration), -- duration が None で渡された場合は既存の値を維持
                     is_planned = EXCLUDED.is_planned,
                     is_done = EXCLUDED.is_done,
                     completed_units = EXCLUDED.completed_units,
@@ -307,10 +346,16 @@ def add_or_update_student_progress(student_id, progress_updates):
 def get_all_subjects():
     """データベースからすべての科目を指定された順序で取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT DISTINCT subject FROM master_textbooks')
-        subjects_raw = cur.fetchall()
-    conn.close()
+    subjects_raw = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT DISTINCT subject FROM master_textbooks')
+            subjects_raw = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_all_subjects): {e}")
+    finally:
+        if conn:
+            conn.close()
 
     all_subjects = [s['subject'] for s in subjects_raw]
 
@@ -318,9 +363,10 @@ def get_all_subjects():
         '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
     ]
 
+    # subject_orderに含まれる科目を先に、それ以外を後にソート
     sorted_subjects = sorted(
         all_subjects,
-        key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
+        key=lambda s: (subject_order.index(s) if s in subject_order else len(subject_order), s)
     )
 
     return sorted_subjects
@@ -328,13 +374,19 @@ def get_all_subjects():
 def get_subjects_for_student(student_id):
     """生徒の学習予定がある科目のみを取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute(
-            'SELECT DISTINCT subject FROM progress WHERE student_id = %s AND is_planned = true',
-            (student_id,)
-        )
-        subjects_raw = cur.fetchall()
-    conn.close()
+    subjects_raw = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                'SELECT DISTINCT subject FROM progress WHERE student_id = %s AND is_planned = true',
+                (student_id,)
+            )
+            subjects_raw = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_subjects_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
 
     student_subjects = [s['subject'] for s in subjects_raw]
 
@@ -342,64 +394,78 @@ def get_subjects_for_student(student_id):
         '英語', '国語', '数学', '日本史', '世界史', '政治経済', '物理', '化学', '生物'
     ]
 
+    # subject_orderに含まれる科目を先に、それ以外を後にソート
     sorted_subjects = sorted(
         student_subjects,
-        key=lambda s: subject_order.index(s) if s in subject_order else len(subject_order)
+        key=lambda s: (subject_order.index(s) if s in subject_order else len(subject_order), s)
     )
     return sorted_subjects
 
 def get_all_homework_for_student(student_id):
     """特定の生徒の宿題をすべて取得する (参考書名も結合)"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute(
-            """
-            SELECT
-                hw.id,
-                hw.master_textbook_id,
-                hw.custom_textbook_name,
-                hw.task,
-                hw.task_date,
-                hw.status,
-                COALESCE(mt.book_name, hw.custom_textbook_name) AS textbook_name,
-                mt.subject
-            FROM homework hw
-            LEFT JOIN master_textbooks mt ON hw.master_textbook_id = mt.id
-            WHERE hw.student_id = %s
-            ORDER BY mt.subject, textbook_name, hw.task_date
-            """,
-            (student_id,)
-        )
-        homework_list = cur.fetchall()
-    conn.close()
+    homework_list = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    hw.id,
+                    hw.master_textbook_id,
+                    hw.custom_textbook_name,
+                    hw.task,
+                    hw.task_date,
+                    hw.status,
+                    COALESCE(mt.book_name, hw.custom_textbook_name) AS textbook_name,
+                    hw.subject, -- hw.subject を COALESCE の外に出す
+                    hw.other_info -- other_info を追加
+                FROM homework hw
+                LEFT JOIN master_textbooks mt ON hw.master_textbook_id = mt.id
+                WHERE hw.student_id = %s
+                ORDER BY hw.subject, textbook_name, hw.task_date -- hw.subject でソート
+                """,
+                (student_id,)
+            )
+            homework_list = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_homework_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in homework_list]
 
 
 def get_homework_for_textbook(student_id, textbook_id, custom_textbook_name=None):
     """特定の生徒・参考書(またはカスタム名)の宿題を取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        query = """
-            SELECT id, task, task_date, status, other_info
-            FROM homework
-            WHERE student_id = %s AND
-        """
-        params = [student_id]
+    homework_list = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            query = """
+                SELECT id, task, task_date, status, other_info
+                FROM homework
+                WHERE student_id = %s AND
+            """
+            params = [student_id]
 
-        if textbook_id:
-            query += "master_textbook_id = %s"
-            params.append(textbook_id)
-        elif custom_textbook_name:
-            query += "custom_textbook_name = %s"
-            params.append(custom_textbook_name)
-        else:
-            return []
+            if textbook_id is not None and textbook_id != -1: # None チェックを追加
+                query += "master_textbook_id = %s"
+                params.append(textbook_id)
+            elif custom_textbook_name:
+                query += "custom_textbook_name = %s"
+                params.append(custom_textbook_name)
+            else:
+                return [] # textbook_id も custom_name もない場合は空リスト
 
-        query += " ORDER BY task_date"
+            query += " ORDER BY task_date"
 
-        cur.execute(query, tuple(params))
-        homework_list = cur.fetchall()
-    conn.close()
+            cur.execute(query, tuple(params))
+            homework_list = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_homework_for_textbook): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in homework_list]
 
 
@@ -408,31 +474,51 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # --- 既存の宿題を削除 ---
             delete_query = "DELETE FROM homework WHERE student_id = %s AND "
             delete_params = [student_id]
-            if textbook_id:
+            # textbook_id が None または -1 の場合 custom_textbook_name を使う
+            if textbook_id is not None and textbook_id != -1:
                 delete_query += "master_textbook_id = %s"
                 delete_params.append(textbook_id)
             elif custom_textbook_name:
-                delete_query += "custom_textbook_name = %s"
-                delete_params.append(custom_textbook_name)
+                # カスタム名が空文字列でないことを確認
+                if custom_textbook_name.strip():
+                     delete_query += "custom_textbook_name = %s"
+                     delete_params.append(custom_textbook_name)
+                else:
+                    # 両方指定がない場合はエラー（または特定の処理）
+                     raise ValueError("参考書IDまたはカスタム参考書名が必要です。")
             else:
-                raise ValueError("参考書IDまたはカスタム参考書名のどちらかが必要です。")
+                 raise ValueError("参考書IDまたはカスタム参考書名が必要です。")
 
             cur.execute(delete_query, tuple(delete_params))
 
+            # --- 新しい宿題を追加 ---
             tasks_to_add = []
+            # task_group_id を生成 (UUIDを使用)
+            task_group_id = str(uuid.uuid4())
             for hw in homework_data:
-                if hw['task']:
+                # task が空文字列やNoneでない場合のみ追加
+                if hw.get('task') and str(hw.get('task')).strip():
                     tasks_to_add.append(
-                        (student_id, textbook_id, custom_textbook_name, subject, hw['task'], hw['date'], other_info)
+                        (student_id,
+                         textbook_id if textbook_id != -1 else None, # -1はNoneとして扱う
+                         custom_textbook_name if custom_textbook_name and custom_textbook_name.strip() else None, # 空文字列はNone
+                         subject,
+                         hw['task'],
+                         hw['date'],
+                         task_group_id, # task_group_id を追加
+                         other_info)
                     )
 
             if tasks_to_add:
-                cur.executemany(
+                # executemany を使って一括挿入
+                execute_values(
+                    cur,
                     """
-                    INSERT INTO homework (student_id, master_textbook_id, custom_textbook_name, subject, task, task_date, other_info)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO homework (student_id, master_textbook_id, custom_textbook_name, subject, task, task_date, task_group_id, other_info)
+                    VALUES %s
                     """,
                     tasks_to_add
                 )
@@ -443,20 +529,28 @@ def add_or_update_homework(student_id, subject, textbook_id, custom_textbook_nam
         conn.rollback()
         return False, f"宿題の保存に失敗しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_bulk_presets():
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("""
-            SELECT
-                p.id, p.subject, p.preset_name, pb.book_name
-            FROM bulk_presets p
-            JOIN bulk_preset_books pb ON p.id = pb.preset_id
-            ORDER BY p.subject, p.preset_name
-        """)
-        presets_raw = cur.fetchall()
-    conn.close()
+    presets_raw = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    p.id, p.subject, p.preset_name, pb.book_name
+                FROM bulk_presets p
+                JOIN bulk_preset_books pb ON p.id = pb.preset_id
+                ORDER BY p.subject, p.preset_name, pb.id -- 書籍の順序も安定させるために pb.id を追加
+            """)
+            presets_raw = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_bulk_presets): {e}")
+    finally:
+        if conn:
+            conn.close()
+
     presets = {}
     for row in presets_raw:
         subject = row['subject']
@@ -473,10 +567,16 @@ def get_bulk_presets():
 
 def get_all_master_textbooks():
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT id, subject, level, book_name, duration FROM master_textbooks ORDER BY subject, level, book_name')
-        textbooks = cur.fetchall()
-    conn.close()
+    textbooks = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT id, subject, level, book_name, duration FROM master_textbooks ORDER BY subject, level, book_name')
+            textbooks = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_master_textbooks): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in textbooks]
 
 def add_master_textbook(subject, level, book_name, duration):
@@ -489,11 +589,16 @@ def add_master_textbook(subject, level, book_name, duration):
             )
         conn.commit()
         return True, "参考書が正常に追加されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "同じ参考書が既に存在します。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (add_master_textbook): {e}")
+        return False, f"追加中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def update_master_textbook(book_id, subject, level, book_name, duration):
     conn = get_db_connection()
@@ -504,45 +609,78 @@ def update_master_textbook(book_id, subject, level, book_name, duration):
                 (subject, level, book_name, duration, book_id)
             )
         conn.commit()
+        # 更新された行数をチェック
+        if cur.rowcount == 0:
+             return False, "指定されたIDの参考書が見つかりません。"
         return True, "参考書が正常に更新されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "更新後の参考書名が他のものと重複しています。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (update_master_textbook): {e}")
+        return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_master_textbook(book_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 関連する homework レコードの master_textbook_id を NULL に設定
+            cur.execute("UPDATE homework SET master_textbook_id = NULL WHERE master_textbook_id = %s", (book_id,))
+            # master_textbooks から削除
             cur.execute("DELETE FROM master_textbooks WHERE id = %s", (book_id,))
         conn.commit()
+        # 削除された行数をチェック
+        if cur.rowcount == 0:
+            return False, "指定されたIDの参考書が見つかりません。"
         return True, "参考書が正常に削除されました。閉じるボタンを押してください。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (delete_master_textbook): {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_all_students_with_details():
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('SELECT * FROM students ORDER BY school, name')
-        students_raw = cur.fetchall()
+    students_raw = [] # 初期化
+    instructors_raw = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('SELECT * FROM students ORDER BY school, name')
+            students_raw = cur.fetchall()
 
-        cur.execute('''
-            SELECT si.student_id, u.username, si.is_main
-            FROM student_instructors si
-            JOIN users u ON si.user_id = u.id
-        ''')
-        instructors_raw = cur.fetchall()
-
-    conn.close()
+            cur.execute('''
+                SELECT si.student_id, u.username, si.is_main
+                FROM student_instructors si
+                JOIN users u ON si.user_id = u.id
+            ''')
+            instructors_raw = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_students_with_details): {e}")
+    finally:
+        if conn:
+            conn.close()
 
     students = [dict(s) for s in students_raw]
+    instructors_by_student = {}
+    for i in instructors_raw:
+        s_id = i['student_id']
+        if s_id not in instructors_by_student:
+             instructors_by_student[s_id] = {'main': [], 'sub': []}
+        if i['is_main'] == 1:
+             instructors_by_student[s_id]['main'].append(i['username'])
+        else:
+             instructors_by_student[s_id]['sub'].append(i['username'])
+
     for student in students:
-        student['main_instructors'] = [i['username'] for i in instructors_raw if i['student_id'] == student['id'] and i['is_main'] == 1]
-        student['sub_instructors'] = [i['username'] for i in instructors_raw if i['student_id'] == student['id'] and i['is_main'] == 0]
+        s_id = student['id']
+        student['main_instructors'] = instructors_by_student.get(s_id, {}).get('main', [])
+        student['sub_instructors'] = instructors_by_student.get(s_id, {}).get('sub', [])
 
     return students
 
@@ -550,99 +688,149 @@ def add_student(name, school, deviation_value, main_instructor_id, sub_instructo
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # deviation_value が None でないことを確認し、NoneならNULLを挿入
+            dev_val = int(deviation_value) if deviation_value is not None else None
             cur.execute(
                 "INSERT INTO students (name, school, deviation_value) VALUES (%s, %s, %s) RETURNING id",
-                (name, school, deviation_value)
+                (name, school, dev_val)
             )
             student_id = cur.fetchone()[0]
 
+            instructors_to_insert = []
             if main_instructor_id:
-                cur.execute(
-                    "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (%s, %s, 1)",
-                    (student_id, main_instructor_id)
-                )
+                 instructors_to_insert.append((student_id, main_instructor_id, 1))
             if sub_instructor_ids:
-                cur.executemany(
-                    "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (%s, %s, 0)",
-                    [(student_id, sub_id) for sub_id in sub_instructor_ids]
-                )
+                 for sub_id in sub_instructor_ids:
+                     instructors_to_insert.append((student_id, sub_id, 0))
+
+            if instructors_to_insert:
+                 execute_values(
+                     cur,
+                     "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES %s",
+                     instructors_to_insert
+                 )
         conn.commit()
         return True, "生徒が正常に追加されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "同じ校舎に同名の生徒が既に存在します。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (add_student): {e}")
+        return False, f"追加中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def update_student(student_id, name, deviation_value, main_instructor_id, sub_instructor_ids):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 生徒情報の更新
+            dev_val = int(deviation_value) if deviation_value is not None else None
             cur.execute(
                 "UPDATE students SET name = %s, deviation_value = %s WHERE id = %s",
-                (name, deviation_value, student_id)
+                (name, dev_val, student_id)
             )
-
+            # 既存の講師関連を削除
             cur.execute("DELETE FROM student_instructors WHERE student_id = %s", (student_id,))
 
+            # 新しい講師関連を追加
+            instructors_to_insert = []
             if main_instructor_id:
-                cur.execute(
-                    "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (%s, %s, 1)",
-                    (student_id, main_instructor_id)
-                )
+                 instructors_to_insert.append((student_id, main_instructor_id, 1))
             if sub_instructor_ids:
-                cur.executemany(
-                    "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES (%s, %s, 0)",
-                    [(student_id, sub_id) for sub_id in sub_instructor_ids]
-                )
+                 for sub_id in sub_instructor_ids:
+                     instructors_to_insert.append((student_id, sub_id, 0))
+
+            if instructors_to_insert:
+                 execute_values(
+                     cur,
+                     "INSERT INTO student_instructors (student_id, user_id, is_main) VALUES %s",
+                     instructors_to_insert
+                 )
+
         conn.commit()
+        # 更新された行数をチェック (students テーブルのみ)
+        if cur.rowcount == 0:
+             return False, "指定されたIDの生徒が見つかりません。"
         return True, "生徒情報が正常に更新されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "更新後の生徒名が、校舎内で他の生徒と重複しています。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (update_student): {e}")
+        return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_student(student_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM homework WHERE student_id = %s", (student_id,))
-            cur.execute("DELETE FROM progress WHERE student_id = %s", (student_id,))
-            cur.execute("DELETE FROM student_instructors WHERE student_id = %s", (student_id,))
+            # 外部キー制約 (ON DELETE CASCADE) により、関連データも自動削除されるはず
+            # 明示的に削除する場合は以下のコメントアウトを外す
+            # cur.execute("DELETE FROM homework WHERE student_id = %s", (student_id,))
+            # cur.execute("DELETE FROM progress WHERE student_id = %s", (student_id,))
+            # cur.execute("DELETE FROM student_instructors WHERE student_id = %s", (student_id,))
+            # cur.execute("DELETE FROM past_exam_results WHERE student_id = %s", (student_id,))
+            # cur.execute("DELETE FROM university_acceptance WHERE student_id = %s", (student_id,))
+            # cur.execute("DELETE FROM mock_exam_results WHERE student_id = %s", (student_id,)) # ★ mock_exam_results も追加
+
+            # students テーブルから削除
             cur.execute("DELETE FROM students WHERE id = %s", (student_id,))
         conn.commit()
+        # 削除された行数をチェック
+        if cur.rowcount == 0:
+            return False, "指定されたIDの生徒が見つかりません。"
         return True, "生徒および関連データが正常に削除されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (delete_student): {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_all_instructors_for_school(school, role=None):
     """指定された校舎の講師（ユーザー）を取得する。roleで絞り込みも可能。"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        query = "SELECT id, username FROM users WHERE school = %s"
-        params = [school]
-        if role:
-            query += " AND role = %s"
-            params.append(role)
-        query += " ORDER BY username"
-        cur.execute(query, tuple(params))
-        instructors = cur.fetchall()
-    conn.close()
+    instructors = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            query = "SELECT id, username FROM users WHERE school = %s"
+            params = [school]
+            if role:
+                query += " AND role = %s"
+                params.append(role)
+            query += " ORDER BY username"
+            cur.execute(query, tuple(params))
+            instructors = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_instructors_for_school): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in instructors]
 
 def get_all_presets_with_books():
     """すべてのプリセットを、関連する参考書リストと共に取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("SELECT id, subject, preset_name FROM bulk_presets ORDER BY subject, preset_name")
-        presets = cur.fetchall()
-        cur.execute("SELECT preset_id, book_name FROM bulk_preset_books")
-        books = cur.fetchall()
-    conn.close()
+    presets = [] # 初期化
+    books = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("SELECT id, subject, preset_name FROM bulk_presets ORDER BY subject, preset_name")
+            presets = cur.fetchall()
+            cur.execute("SELECT preset_id, book_name FROM bulk_preset_books ORDER BY preset_id, id") # 順序安定のため id も追加
+            books = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_presets_with_books): {e}")
+    finally:
+        if conn:
+            conn.close()
 
     presets_dict = {p['id']: dict(p, books=[]) for p in presets}
     for book in books:
@@ -656,28 +844,41 @@ def add_preset(subject, preset_name, book_ids):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
+            # プリセット本体を追加
             cur.execute(
                 "INSERT INTO bulk_presets (subject, preset_name) VALUES (%s, %s) RETURNING id",
                 (subject, preset_name)
             )
             preset_id = cur.fetchone()[0]
+
+            # 関連書籍を追加
             if book_ids:
+                # book_ids から book_names を取得
                 placeholders = ','.join(['%s'] * len(book_ids))
                 cur.execute(f"SELECT book_name FROM master_textbooks WHERE id IN ({placeholders})", book_ids)
                 book_names_rows = cur.fetchall()
                 book_names = [row['book_name'] for row in book_names_rows]
 
-                cur.executemany(
-                    "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES (%s, %s)",
-                    [(preset_id, book) for book in book_names]
-                )
+                # bulk_preset_books に挿入
+                books_to_insert = [(preset_id, book) for book in book_names]
+                if books_to_insert:
+                     execute_values(
+                         cur,
+                         "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES %s",
+                         books_to_insert
+                     )
         conn.commit()
         return True, "プリセットが追加されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "同じ科目・プリセット名の組み合わせが既に存在します。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (add_preset): {e}")
+        return False, f"追加中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 def update_preset(preset_id, subject, preset_name, book_ids):
@@ -685,43 +886,65 @@ def update_preset(preset_id, subject, preset_name, book_ids):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
+            # プリセット本体を更新
             cur.execute(
                 "UPDATE bulk_presets SET subject = %s, preset_name = %s WHERE id = %s",
                 (subject, preset_name, preset_id)
             )
+            # 既存の関連書籍を削除
             cur.execute("DELETE FROM bulk_preset_books WHERE preset_id = %s", (preset_id,))
+
+            # 新しい関連書籍を追加
             if book_ids:
+                # book_ids から book_names を取得
                 placeholders = ','.join(['%s'] * len(book_ids))
                 cur.execute(f"SELECT book_name FROM master_textbooks WHERE id IN ({placeholders})", book_ids)
                 book_names_rows = cur.fetchall()
                 book_names = [row['book_name'] for row in book_names_rows]
 
-                cur.executemany(
-                    "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES (%s, %s)",
-                    [(preset_id, book) for book in book_names]
-                )
+                # bulk_preset_books に挿入
+                books_to_insert = [(preset_id, book) for book in book_names]
+                if books_to_insert:
+                    execute_values(
+                        cur,
+                        "INSERT INTO bulk_preset_books (preset_id, book_name) VALUES %s",
+                        books_to_insert
+                    )
         conn.commit()
+        # 更新された行数をチェック (bulk_presets テーブルのみ)
+        if cur.rowcount == 0:
+             return False, "指定されたIDのプリセットが見つかりません。"
         return True, "プリセットが更新されました。"
-    except psycopg2.IntegrityError:
+    except psycopg2.IntegrityError: # UNIQUE制約違反
         conn.rollback()
         return False, "更新後のプリセット名が、同じ科目内で重複しています。"
+    except psycopg2.Error as e: # その他のDBエラー
+        conn.rollback()
+        print(f"データベースエラー (update_preset): {e}")
+        return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_preset(preset_id):
-    """プリセットを削除する"""
+    """プリセットを削除する (ON DELETE CASCADEにより関連書籍も削除される)"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM bulk_preset_books WHERE preset_id = %s", (preset_id,))
+            # bulk_presets から削除
             cur.execute("DELETE FROM bulk_presets WHERE id = %s", (preset_id,))
         conn.commit()
+        # 削除された行数をチェック
+        if cur.rowcount == 0:
+            return False, "指定されたIDのプリセットが見つかりません。"
         return True, "プリセットが削除されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (delete_preset): {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_homework_group(student_id, textbook_id, custom_textbook_name):
     """特定の参考書グループに紐づく宿題をすべて削除する"""
@@ -734,7 +957,7 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
             if textbook_id is not None and textbook_id != -1:
                 query += "master_textbook_id = %s"
                 params.append(textbook_id)
-            elif custom_textbook_name:
+            elif custom_textbook_name and custom_textbook_name.strip(): # 空白でないことを確認
                 query += "custom_textbook_name = %s"
                 params.append(custom_textbook_name)
             else:
@@ -754,45 +977,71 @@ def delete_homework_group(student_id, textbook_id, custom_textbook_name):
         conn.rollback()
         return False, f"宿題の削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_total_past_exam_time(student_id):
-    """特定の生徒の過去問の合計実施時間を取得する"""
+    """特定の生徒の過去問の合計実施時間(分)を取得する"""
     conn = get_db_connection()
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT SUM(time_required) FROM past_exam_results WHERE student_id = %s AND time_required IS NOT NULL",
-            (student_id,)
-        )
-        total_time_row = cur.fetchone()
-    conn.close()
+    total_time_minutes = 0 # 初期化
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT SUM(time_required) FROM past_exam_results WHERE student_id = %s AND time_required IS NOT NULL",
+                (student_id,)
+            )
+            total_time_row = cur.fetchone()
+            if total_time_row and total_time_row[0] is not None:
+                total_time_minutes = total_time_row[0]
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_total_past_exam_time): {e}")
+    finally:
+        if conn:
+            conn.close()
 
-    return (total_time_row[0] / 60) if total_time_row and total_time_row[0] is not None else 0
+    return total_time_minutes / 60.0 # 時間単位で返す
 
 def get_past_exam_results_for_student(student_id):
     """特定の生徒の過去問結果をすべて取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute(
-            """
-            SELECT
-                id, date, university_name, faculty_name, exam_system,
-                year, subject, time_required, total_time_allowed,
-                correct_answers, total_questions
-            FROM past_exam_results
-            WHERE student_id = %s
-            ORDER BY date DESC, university_name, subject
-            """,
-            (student_id,)
-        )
-        results = cur.fetchall()
-    conn.close()
-    return [dict(row) for row in results]
+    results = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    id, date, university_name, faculty_name, exam_system,
+                    year, subject, time_required, total_time_allowed,
+                    correct_answers, total_questions
+                FROM past_exam_results
+                WHERE student_id = %s
+                ORDER BY date DESC, university_name, subject
+                """,
+                (student_id,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_past_exam_results_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
+    # 日付文字列をdateオブジェクトに変換（エラー時はNone）
+    processed_results = []
+    for row_dict in [dict(row) for row in results]:
+        try:
+            row_dict['date'] = date.fromisoformat(row_dict['date']) if row_dict.get('date') else None
+        except (ValueError, TypeError):
+            row_dict['date'] = None # 不正な形式の場合はNoneにする
+        processed_results.append(row_dict)
+    return processed_results
 
 def add_past_exam_result(student_id, result_data):
     """新しい過去問結果をデータベースに追加する"""
     conn = get_db_connection()
     try:
+        # 日付を文字列形式に変換
+        date_str = result_data['date'].isoformat() if isinstance(result_data.get('date'), date) else result_data.get('date')
+
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -804,7 +1053,7 @@ def add_past_exam_result(student_id, result_data):
                 """,
                 (
                     student_id,
-                    result_data['date'],
+                    date_str, # 文字列形式の日付
                     result_data['university_name'],
                     result_data.get('faculty_name'),
                     result_data.get('exam_system'),
@@ -820,14 +1069,19 @@ def add_past_exam_result(student_id, result_data):
         return True, "過去問の結果を登録しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (add_past_exam_result): {e}")
         return False, f"登録中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def update_past_exam_result(result_id, result_data):
     """既存の過去問結果を更新する"""
     conn = get_db_connection()
     try:
+        # 日付を文字列形式に変換
+        date_str = result_data['date'].isoformat() if isinstance(result_data.get('date'), date) else result_data.get('date')
+
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -838,7 +1092,7 @@ def update_past_exam_result(result_id, result_data):
                 WHERE id = %s
                 """,
                 (
-                    result_data['date'],
+                    date_str, # 文字列形式の日付
                     result_data['university_name'],
                     result_data.get('faculty_name'),
                     result_data.get('exam_system'),
@@ -852,12 +1106,16 @@ def update_past_exam_result(result_id, result_data):
                 )
             )
         conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの結果が見つかりません。"
         return True, "過去問の結果を更新しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (update_past_exam_result): {e}")
         return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_past_exam_result(result_id):
     """指定されたIDの過去問結果を削除する"""
@@ -866,42 +1124,70 @@ def delete_past_exam_result(result_id):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM past_exam_results WHERE id = %s", (result_id,))
         conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの結果が見つかりません。"
         return True, "過去問の結果を削除しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (delete_past_exam_result): {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_student_count_by_school():
     """校舎ごとの生徒数を取得する"""
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT school, COUNT(id) as count FROM students GROUP BY school", conn)
-    conn.close()
-    return df.to_dict('records')
+    records = [] # 初期化
+    try:
+        # pandasを使わずに直接SQLで集計
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+             cur.execute("SELECT school, COUNT(id) as count FROM students GROUP BY school ORDER BY school")
+             records = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_student_count_by_school): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return [dict(row) for row in records]
 
 def get_textbook_count_by_subject():
     """科目ごとの参考書数を取得する"""
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT subject, COUNT(id) as count FROM master_textbooks GROUP BY subject", conn)
-    conn.close()
-    return df.to_dict('records')
+    records = [] # 初期化
+    try:
+         # pandasを使わずに直接SQLで集計
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+             cur.execute("SELECT subject, COUNT(id) as count FROM master_textbooks GROUP BY subject ORDER BY subject")
+             records = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_textbook_count_by_subject): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return [dict(row) for row in records]
 
 def get_students_for_instructor(user_id):
     """担当講師のIDに紐づく生徒のリストを取得する"""
     if not user_id:
         return []
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute('''
-            SELECT s.name, s.school
-            FROM students s
-            JOIN student_instructors si ON s.id = si.student_id
-            WHERE si.user_id = %s
-            ORDER BY s.school, s.name
-        ''', (user_id,))
-        students = cur.fetchall()
-    conn.close()
+    students = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute('''
+                SELECT s.name, s.school
+                FROM students s
+                JOIN student_instructors si ON s.id = si.student_id
+                WHERE si.user_id = %s
+                ORDER BY s.school, s.name
+            ''', (user_id,))
+            students = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_students_for_instructor): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [f"{dict(s)['school']} - {dict(s)['name']}" for s in students]
 
 def add_bug_report(reporter_username, title, description):
@@ -920,17 +1206,25 @@ def add_bug_report(reporter_username, title, description):
         return True, "不具合報告が送信されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (add_bug_report): {e}")
         return False, f"報告中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_all_bug_reports():
     """すべての不具合報告を取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("SELECT * FROM bug_reports ORDER BY report_date DESC")
-        reports = cur.fetchall()
-    conn.close()
+    reports = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("SELECT * FROM bug_reports ORDER BY report_date DESC")
+            reports = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_bug_reports): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in reports]
 
 def update_bug_status(bug_id, status):
@@ -943,12 +1237,16 @@ def update_bug_status(bug_id, status):
                 (status, bug_id)
             )
         conn.commit()
+        if cur.rowcount == 0:
+             return False, "指定されたIDの報告が見つかりません。"
         return True, "ステータスが更新されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (update_bug_status): {e}")
         return False, f"ステータス更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def resolve_bug(bug_id, resolution_message):
     """不具合報告を対応済みにし、対応メッセージを保存する"""
@@ -960,20 +1258,37 @@ def resolve_bug(bug_id, resolution_message):
                 (resolution_message, bug_id)
             )
         conn.commit()
+        if cur.rowcount == 0:
+             return False, "指定されたIDの報告が見つかりません。"
         return True, "不具合が対応済みに更新されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (resolve_bug): {e}")
         return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_all_changelog_entries():
     """すべての更新履歴を取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("SELECT * FROM changelog ORDER BY release_date DESC")
-        entries = cur.fetchall()
-    conn.close()
+    entries = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # PostgreSQLでは version 文字列を適切にソートするために工夫が必要
+            # 例: バージョン番号を数値配列に変換してソート
+            cur.execute("""
+                SELECT * FROM changelog
+                ORDER BY
+                    string_to_array(substring(version from E'^(\\d+\\.?)+'), '.')::int[] DESC,
+                    release_date DESC
+            """)
+            entries = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_changelog_entries): {e}")
+    finally:
+        if conn:
+            conn.close()
     return [dict(row) for row in entries]
 
 def add_changelog_entry(version, title, description):
@@ -986,15 +1301,17 @@ def add_changelog_entry(version, title, description):
                 INSERT INTO changelog (version, release_date, title, description)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (version, datetime.now().strftime("%Y-%m-%d"), title, description)
+                (version, date.today().isoformat(), title, description) # date.today()を使用
             )
         conn.commit()
         return True, "更新履歴が追加されました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"データベースエラー (add_changelog_entry): {e}")
         return False, f"登録中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def get_student_level_statistics(school):
     """
@@ -1002,20 +1319,27 @@ def get_student_level_statistics(school):
     1冊でも該当レベルの参考書を '達成済' にしていれば、そのレベルに到達しているとみなす。
     """
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        # (クエリ部分は変更なし)
-        query = """
-            SELECT
-                s.id as student_id,
-                p.subject,
-                p.level
-            FROM progress p
-            JOIN students s ON p.student_id = s.id
-            WHERE s.school = %s AND p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶');
-        """
-        cur.execute(query, (school,))
-        progress_data = cur.fetchall()
-    conn.close()
+    progress_data = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # (クエリ部分は変更なし)
+            query = """
+                SELECT
+                    s.id as student_id,
+                    p.subject,
+                    p.level
+                FROM progress p
+                JOIN students s ON p.student_id = s.id
+                WHERE s.school = %s AND p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶');
+            """
+            cur.execute(query, (school,))
+            progress_data = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_student_level_statistics): {e}")
+         return {} # エラー時は空辞書を返す
+    finally:
+        if conn:
+            conn.close()
 
     if not progress_data:
         return {}
@@ -1053,20 +1377,36 @@ def get_student_level_statistics(school):
 def get_acceptance_results_for_student(student_id):
     """特定の生徒の大学合否結果をすべて取得する"""
     conn = get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute(
-            """
-            SELECT id, university_name, faculty_name, department_name, exam_system, result,
-                   exam_date, announcement_date, application_deadline, procedure_deadline
-            FROM university_acceptance
-            WHERE student_id = %s
-            ORDER BY exam_date DESC, university_name, faculty_name -- 受験日で降順ソートに変更
-            """,
-            (student_id,)
-        )
-        results = cur.fetchall()
-    conn.close()
-    return [dict(row) for row in results]
+    results = [] # 初期化
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, university_name, faculty_name, department_name, exam_system, result,
+                       application_deadline, exam_date, announcement_date, procedure_deadline
+                FROM university_acceptance
+                WHERE student_id = %s
+                ORDER BY exam_date DESC NULLS LAST, application_deadline DESC NULLS LAST, university_name, faculty_name
+                """,
+                (student_id,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_acceptance_results_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
+    # 日付文字列をdateオブジェクトに変換（エラー時はNone）
+    processed_results = []
+    date_cols = ['application_deadline', 'exam_date', 'announcement_date', 'procedure_deadline']
+    for row_dict in [dict(row) for row in results]:
+        for col in date_cols:
+             try:
+                 row_dict[col] = date.fromisoformat(row_dict[col]) if row_dict.get(col) else None
+             except (ValueError, TypeError):
+                 row_dict[col] = None # 不正な形式の場合はNoneにする
+        processed_results.append(row_dict)
+    return processed_results
 
 # --- add_acceptance_result ---
 def add_acceptance_result(student_id, data):
@@ -1074,36 +1414,42 @@ def add_acceptance_result(student_id, data):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 日付データを文字列に変換 (Noneもそのまま渡す)
+            app_deadline_str = data.get('application_deadline').isoformat() if isinstance(data.get('application_deadline'), date) else data.get('application_deadline')
+            exam_date_str = data.get('exam_date').isoformat() if isinstance(data.get('exam_date'), date) else data.get('exam_date')
+            announcement_date_str = data.get('announcement_date').isoformat() if isinstance(data.get('announcement_date'), date) else data.get('announcement_date')
+            proc_deadline_str = data.get('procedure_deadline').isoformat() if isinstance(data.get('procedure_deadline'), date) else data.get('procedure_deadline')
+
             cur.execute(
                 """
                 INSERT INTO university_acceptance (
                     student_id, university_name, faculty_name, department_name, exam_system, result,
-                    exam_date, announcement_date, application_deadline, procedure_deadline
+                    application_deadline, exam_date, announcement_date, procedure_deadline
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     student_id,
-                    data.get('university_name'), # data['...'] から変更
-                    data.get('faculty_name'),    # data['...'] から変更
+                    data.get('university_name'),
+                    data.get('faculty_name'),
                     data.get('department_name'),
                     data.get('exam_system'),
                     data.get('result'),
-                    data.get('exam_date'),
-                    data.get('announcement_date'),
-                    data.get('application_deadline'),
-                    data.get('procedure_deadline')
-                ) # ↑↑↑ 修正ここまで ↑↑↑
+                    app_deadline_str,
+                    exam_date_str,
+                    announcement_date_str,
+                    proc_deadline_str
+                )
             )
         conn.commit()
         return True, "大学合否結果を追加しました。"
     except psycopg2.Error as e:
         conn.rollback()
-        # ★エラーメッセージに詳細を追加（デバッグ用）
         print(f"DB Error in add_acceptance_result: {e}")
         print(f"Data passed: student_id={student_id}, data={data}")
         return False, f"追加中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def update_acceptance_result(result_id, data):
     """既存の大学合否結果を更新する"""
@@ -1112,35 +1458,23 @@ def update_acceptance_result(result_id, data):
         with conn.cursor() as cur:
             set_clauses = []
             params = []
-            # ... (既存のフィールドの処理は変更なし) ...
-            if 'university_name' in data:
-                set_clauses.append("university_name = %s")
-                params.append(data['university_name'])
-            if 'faculty_name' in data:
-                set_clauses.append("faculty_name = %s")
-                params.append(data['faculty_name'])
-            if 'department_name' in data:
-                set_clauses.append("department_name = %s")
-                params.append(data.get('department_name')) # Noneを許容
-            if 'exam_system' in data:
-                set_clauses.append("exam_system = %s")
-                params.append(data.get('exam_system')) # Noneを許容
-            if 'result' in data:
-                 result_value = data['result'] if data['result'] else None
-                 set_clauses.append("result = %s")
-                 params.append(result_value)
-            if 'exam_date' in data:
-                set_clauses.append("exam_date = %s")
-                params.append(data.get('exam_date')) # Noneを許容
-            if 'announcement_date' in data:
-                set_clauses.append("announcement_date = %s")
-                params.append(data.get('announcement_date')) # Noneを許容
-            if 'application_deadline' in data:
-                set_clauses.append("application_deadline = %s")
-                params.append(data.get('application_deadline')) # Noneを許容
-            if 'procedure_deadline' in data:
-                set_clauses.append("procedure_deadline = %s")
-                params.append(data.get('procedure_deadline')) # Noneを許容
+
+            # 更新対象のフィールドを動的に構築
+            fields_to_update = [
+                'university_name', 'faculty_name', 'department_name', 'exam_system', 'result',
+                'application_deadline', 'exam_date', 'announcement_date', 'procedure_deadline'
+            ]
+            for field in fields_to_update:
+                if field in data:
+                    value = data[field]
+                    # 日付オブジェクトは文字列に変換
+                    if isinstance(value, date):
+                         value = value.isoformat()
+                    # resultが空文字列の場合はNoneに変換
+                    elif field == 'result' and value == '':
+                         value = None
+                    set_clauses.append(f"{field} = %s")
+                    params.append(value)
 
             if not set_clauses:
                 return False, "更新するデータがありません。"
@@ -1150,12 +1484,16 @@ def update_acceptance_result(result_id, data):
 
             cur.execute(query, tuple(params))
         conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの結果が見つかりません。"
         return True, "大学合否結果を更新しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"DB Error in update_acceptance_result: {e}")
         return False, f"更新中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def delete_acceptance_result(result_id):
     """指定されたIDの大学合否結果を削除する"""
@@ -1164,12 +1502,16 @@ def delete_acceptance_result(result_id):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM university_acceptance WHERE id = %s", (result_id,))
         conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの結果が見つかりません。"
         return True, "大学合否結果を削除しました。"
     except psycopg2.Error as e:
         conn.rollback()
+        print(f"DB Error in delete_acceptance_result: {e}")
         return False, f"削除中にエラーが発生しました: {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def add_feature_request(reporter_username, title, description):
     """新しい機能要望をデータベースに追加する"""
@@ -1258,3 +1600,175 @@ def resolve_request(request_id, resolution_message, status='対応済'): # statu
     finally:
         if conn:
             conn.close()
+
+# ★★★ ここから模試結果関連の関数を追加 ★★★
+
+def add_mock_exam_result(student_id, data):
+    """新しい模試結果をデータベースに追加する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 数値に変換すべきカラムのリスト
+            int_columns = [
+                'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc',
+                'subject_rika1_desc', 'subject_rika2_desc', 'subject_shakai1_desc', 'subject_shakai2_desc',
+                'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+                'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
+                'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
+                'subject_rika_kiso2_mark', 'subject_info_mark'
+            ]
+            # data辞書内の数値を整数に変換、変換できない場合はNone
+            for col in int_columns:
+                if col in data and data[col] is not None:
+                    try:
+                        data[col] = int(data[col])
+                    except (ValueError, TypeError):
+                        data[col] = None # 数値変換失敗時はNULL
+
+            # exam_date の処理 (YYYY-MM-DD形式を想定)
+            exam_date_val = None
+            if data.get('exam_date'):
+                try:
+                    exam_date_val = datetime.strptime(str(data['exam_date']), '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    exam_date_val = None # 不正な形式ならNone
+
+            # SQLクエリの構築
+            columns = [
+                'student_id', 'result_type', 'mock_exam_name', 'mock_exam_format',
+                'grade', 'round', 'exam_date'
+            ] + int_columns
+            values_placeholder = ', '.join(['%s'] * len(columns))
+            sql = f"INSERT INTO mock_exam_results ({', '.join(columns)}) VALUES ({values_placeholder})"
+
+            # パラメータリストの作成
+            params = [
+                student_id,
+                data.get('result_type'),
+                data.get('mock_exam_name'),
+                data.get('mock_exam_format'),
+                data.get('grade'),
+                data.get('round'),
+                exam_date_val
+            ] + [data.get(col) for col in int_columns] # .get()で安全にアクセス
+
+            cur.execute(sql, tuple(params))
+
+        conn.commit()
+        return True, "模試結果を登録しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (add_mock_exam_result): {e}")
+        print(f"Data received: {data}") # 受け取ったデータをログ出力
+        return False, f"模試結果の登録中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_mock_exam_results_for_student(student_id):
+    """特定の生徒の模試結果をすべて取得する"""
+    conn = get_db_connection()
+    results = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM mock_exam_results
+                WHERE student_id = %s
+                ORDER BY exam_date DESC NULLS LAST, id DESC -- 受験日の降順、なければ登録順の降順
+                """,
+                (student_id,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_mock_exam_results_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return [dict(row) for row in results]
+
+
+def update_mock_exam_result(result_id, data):
+    """既存の模試結果を更新する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            set_clauses = []
+            params = []
+
+            # 更新可能なフィールドリスト
+            updatable_fields = [
+                'result_type', 'mock_exam_name', 'mock_exam_format', 'grade', 'round', 'exam_date',
+                'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc', 'subject_rika1_desc',
+                'subject_rika2_desc', 'subject_shakai1_desc', 'subject_shakai2_desc',
+                'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+                'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
+                'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
+                'subject_rika_kiso2_mark', 'subject_info_mark'
+            ]
+            int_columns = updatable_fields[6:] # 点数カラム
+
+            for field in updatable_fields:
+                if field in data:
+                    value = data[field]
+                    # 日付処理
+                    if field == 'exam_date':
+                         try:
+                             value = datetime.strptime(str(value), '%Y-%m-%d').date() if value else None
+                         except (ValueError, TypeError):
+                             value = None
+                    # 数値処理
+                    elif field in int_columns:
+                         try:
+                             value = int(value) if value is not None and value != '' else None
+                         except (ValueError, TypeError):
+                             value = None
+                    # 空文字列はNoneとして扱う (必須項目以外)
+                    elif field not in ['result_type', 'mock_exam_name', 'mock_exam_format', 'grade', 'round'] and value == '':
+                         value = None
+
+                    set_clauses.append(f"{field} = %s")
+                    params.append(value)
+
+            if not set_clauses:
+                return False, "更新するデータがありません。"
+
+            query = f"UPDATE mock_exam_results SET {', '.join(set_clauses)} WHERE id = %s"
+            params.append(result_id)
+
+            cur.execute(query, tuple(params))
+
+        conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの模試結果が見つかりません。"
+        return True, "模試結果を更新しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (update_mock_exam_result): {e}")
+        return False, f"模試結果の更新中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+
+def delete_mock_exam_result(result_id):
+    """指定されたIDの模試結果を削除する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM mock_exam_results WHERE id = %s", (result_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            return False, "指定されたIDの模試結果が見つかりません。"
+        return True, "模試結果を削除しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (delete_mock_exam_result): {e}")
+        return False, f"模試結果の削除中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+# ★★★ ここまで模試結果関連の関数を追加 ★★★
