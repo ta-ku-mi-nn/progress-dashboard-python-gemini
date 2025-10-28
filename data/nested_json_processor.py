@@ -1371,12 +1371,13 @@ def add_changelog_entry(version, title, description):
 def get_student_level_statistics(target_school=None, target_grade=None):
     """
     指定された校舎・学年の生徒について、各科目のレベル達成人数を集計する。
+    target_school が None の場合は全校舎を集計する。
     """
     conn = get_db_connection()
     progress_data = []
     try:
         with conn.cursor(cursor_factory=DictCursor) as cur:
-            # ★ WHERE句に school と grade の条件を追加
+            # ★ ベースとなるクエリ
             query = """
                 SELECT
                     s.id as student_id,
@@ -1387,6 +1388,7 @@ def get_student_level_statistics(target_school=None, target_grade=None):
                 WHERE p.is_done = true AND p.level IN ('日大', 'MARCH', '早慶')
             """
             params = []
+            # ★ target_school が指定されている場合のみ WHERE句に追加
             if target_school:
                 query += " AND s.school = %s"
                 params.append(target_school)
@@ -1394,7 +1396,7 @@ def get_student_level_statistics(target_school=None, target_grade=None):
                 query += " AND s.grade = %s"
                 params.append(target_grade)
 
-            cur.execute(query, tuple(params))
+            cur.execute(query, tuple(params)) # params が空でも tuple() はOK
             progress_data = cur.fetchall()
     except psycopg2.Error as e:
          print(f"データベースエラー (get_student_level_statistics): {e}")
@@ -1413,8 +1415,10 @@ def get_student_level_statistics(target_school=None, target_grade=None):
     if not all(col in df.columns for col in required_columns):
         return {}
 
+    # ★ 生徒ごと、科目ごと、レベルごとの達成記録にユニーク化
     df_unique_students = df.drop_duplicates(subset=required_columns)
 
+    # 科目とレベルでグループ化し、生徒数をカウント
     level_counts = df_unique_students.groupby(['subject', 'level']).size().reset_index(name='student_count')
 
     stats = {}

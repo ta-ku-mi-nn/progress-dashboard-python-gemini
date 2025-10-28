@@ -4,7 +4,6 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 import datetime # この行を追加
 
-# (前半の関数は変更なし)
 def create_master_textbook_modal():
     """参考書マスター管理用のメインモーダルを生成する"""
     return dbc.Modal(
@@ -119,13 +118,14 @@ def create_student_edit_modal():
                     dbc.Row([
                         dbc.Col([ # ★ 左列
                             dbc.Label("学年", width=3),
-                            # ★ 学年ドロップダウンを追加 (選択肢は仮。コールバックで動的に設定も可)
+                            # ★ 学年ドロップダウンの選択肢から「その他」を削除
                             dbc.Col(dcc.Dropdown(
                                 id="student-grade-input",
                                 options=[
                                     {'label': '中1', 'value': '中1'}, {'label': '中2', 'value': '中2'}, {'label': '中3', 'value': '中3'},
                                     {'label': '高1', 'value': '高1'}, {'label': '高2', 'value': '高2'}, {'label': '高3', 'value': '高3'},
-                                    {'label': '既卒', 'value': '既卒'}, {'label': 'その他', 'value': 'その他'},
+                                    {'label': '既卒', 'value': '既卒'},
+                                    # {'label': 'その他', 'value': 'その他'}, # <-- この行を削除
                                 ],
                                 placeholder="学年を選択..."
                             ), width=9),
@@ -138,7 +138,7 @@ def create_student_edit_modal():
                      dbc.Row([
                         dbc.Col([ # ★ 左列
                             dbc.Label("志望校レベル", width=3),
-                            # ★ 志望校レベルドロップダウンを追加 (選択肢は仮)
+                            # ★ 志望校レベルドロップダウンの選択肢から「その他」を削除
                             dbc.Col(dcc.Dropdown(
                                 id="student-target-level-input",
                                 options=[
@@ -146,7 +146,7 @@ def create_student_edit_modal():
                                     {'label': '日大', 'value': '日大'},
                                     {'label': 'MARCH', 'value': 'MARCH'},
                                     {'label': '早慶', 'value': '早慶'},
-                                    {'label': 'その他', 'value': 'その他'},
+                                    # {'label': 'その他', 'value': 'その他'}, # <-- この行を削除
                                 ],
                                 placeholder="レベルを選択..."
                             ), width=9),
