@@ -18,7 +18,8 @@ from data.nested_json_processor import (
     get_all_students_with_details, add_student, update_student, delete_student,
     get_all_instructors_for_school,
     get_all_presets_with_books, add_preset, update_preset, delete_preset,
-    add_changelog_entry
+    add_changelog_entry,
+    get_all_mock_exam_details_for_school, get_mock_exam_filter_options
 )
 # configからDATABASE_URLを読み込むように変更
 from config.settings import APP_CONFIG
@@ -832,3 +833,119 @@ def register_admin_callbacks(app):
             return "", False, toast_data
         else:
             return dbc.Alert(message, color="danger"), True, no_update
+    
+    @app.callback(
+        Output('mock-exam-list-modal', 'is_open'),
+        [Input('open-mock-exam-list-modal-btn', 'n_clicks'),
+         Input('close-mock-exam-list-modal', 'n_clicks')],
+        State('mock-exam-list-modal', 'is_open'),
+        prevent_initial_call=True
+    )
+    def toggle_mock_exam_list_modal(open_clicks, close_clicks, is_open):
+        """模試結果一覧モーダルの表示/非表示を切り替える"""
+        if open_clicks or close_clicks:
+            return not is_open
+        return no_update
+
+    @app.callback(
+        [Output('mock-exam-list-filter-name', 'options'),
+         Output('mock-exam-list-filter-grade', 'options')],
+        Input('mock-exam-list-modal', 'is_open'),
+        State('auth-store', 'data'),
+        prevent_initial_call=True
+    )
+    def update_mock_exam_list_filters(is_open, user_info):
+        """モーダルが開かれたときにフィルターオプションを読み込む"""
+        if not is_open or not user_info:
+            return no_update, no_update
+
+        school_name = user_info.get('school')
+        if not school_name:
+            return [], []
+
+        options = get_mock_exam_filter_options(school_name)
+        return options.get('names', []), options.get('grades', [])
+
+    @app.callback(
+        Output('mock-exam-list-table-container', 'children'),
+        [Input('mock-exam-list-modal', 'is_open'), # ★ モーダルが開いた時もトリガー
+         Input('mock-exam-list-filter-type', 'value'),
+         Input('mock-exam-list-filter-name', 'value'),
+         Input('mock-exam-list-filter-format', 'value'),
+         Input('mock-exam-list-filter-grade', 'value')],
+        State('auth-store', 'data'),
+        prevent_initial_call=True
+    )
+    def update_mock_exam_list_table(
+        is_open, filter_type, filter_name, filter_format, filter_grade,
+        user_info):
+        """フィルターの値に基づいて模試結果一覧テーブルを更新する"""
+        ctx = callback_context
+        triggered_id = ctx.triggered_id
+
+        # モーダルが閉じている場合は更新しない
+        if triggered_id != 'mock-exam-list-modal' and not is_open:
+            raise PreventUpdate
+
+        # モーダルが開いた瞬間 (triggered_id == 'mock-exam-list-modal') は、
+        # フィルターがまだNoneの可能性があるので、全件表示を試みる
+        
+        if not user_info:
+            return dbc.Alert("ユーザー情報が見つかりません。", color="danger")
+
+        school_name = user_info.get('school')
+        if not school_name:
+            return dbc.Alert("所属校舎が設定されていません。", color="danger")
+
+        # データを取得
+        results = get_all_mock_exam_details_for_school(school_name)
+        if not results:
+            return dbc.Alert("この校舎には登録されている模試結果がありません。", color="info")
+
+        df = pd.DataFrame(results)
+
+        # フィルタリング
+        if filter_type:
+            df = df[df['result_type'] == filter_type]
+        if filter_name:
+            df = df[df['mock_exam_name'] == filter_name]
+        if filter_format:
+            df = df[df['mock_exam_format'] == filter_format]
+        if filter_grade:
+            df = df[df['grade'] == filter_grade]
+
+        if df.empty:
+            # モーダルを開いた直後(フィルター未選択)で空の場合は、全件データがないと判断
+            if triggered_id == 'mock-exam-list-modal':
+                 return dbc.Alert("この校舎には登録されている模試結果がありません。", color="info")
+            # フィルターをかけた結果、空になった場合
+            return dbc.Alert("フィルター条件に一致する結果はありません。", color="warning")
+
+        # 表示するカラムを選択 (点数カラムは除外)
+        display_cols = [
+            'student_name', 'result_type', 'mock_exam_name', 'mock_exam_format',
+            'grade', 'round', 'exam_date'
+        ]
+        # 存在しないカラムがあれば追加 (念のため)
+        for col in display_cols:
+            if col not in df.columns:
+                df[col] = None
+
+        df_display = df[display_cols].copy()
+        
+        # 日付のフォーマット (pd.to_datetime と .dt.strftime を使う)
+        df_display['exam_date'] = pd.to_datetime(df_display['exam_date'], errors='coerce').dt.strftime('%Y-%m-%d').fillna('-')
+
+        # カラム名を日本語に変更
+        df_display.columns = [
+            '生徒名', '種類', '模試名', '形式', '学年', '回数', '受験日'
+        ]
+        
+        return dbc.Table.from_dataframe(
+            df_display,
+            striped=True,
+            bordered=True,
+            hover=True,
+            responsive=True,
+            size="sm"
+        )
