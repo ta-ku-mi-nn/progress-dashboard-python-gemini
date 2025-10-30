@@ -21,23 +21,31 @@ def _create_mock_exam_modal():
             ], className="mb-3"),
             dbc.Row([
                 dbc.Col(dbc.Label("模試名 *"), width=4),
-                # 実際の選択肢はコールバックで設定することを想定
-                dbc.Col(dcc.Dropdown(id='mock-exam-name', placeholder="模試の種類を選択..."), width=8)
+                # ★ 自由記述に変更
+                dbc.Col(dbc.Input(id='mock-exam-name', type='text', placeholder="例: 共通テスト模試"), width=8)
             ], className="mb-3"),
             dbc.Row([
                 dbc.Col(dbc.Label("形式 *"), width=4),
-                # 実際の選択肢はコールバックで設定することを想定
-                dbc.Col(dcc.Dropdown(id='mock-exam-format', placeholder="模試の形式を選択..."), width=8)
+                # ★ 選択肢を固定
+                dbc.Col(dcc.Dropdown(id='mock-exam-format', options=[
+                    {'label': 'マーク', 'value': 'マーク'},
+                    {'label': '記述', 'value': '記述'}
+                ], placeholder="マークか記述を選択..."), width=8)
             ], className="mb-3"),
              dbc.Row([
                 dbc.Col(dbc.Label("学年 *"), width=4),
-                # 実際の選択肢はコールバックで設定することを想定
-                dbc.Col(dcc.Dropdown(id='mock-exam-grade', placeholder="学年を選択..."), width=8)
+                # ★ 選択肢を変更・固定
+                dbc.Col(dcc.Dropdown(id='mock-exam-grade', options=[
+                    {'label': '中学生', 'value': '中学生'},
+                    {'label': '高1', 'value': '高1'},
+                    {'label': '高2', 'value': '高2'},
+                    {'label': '高3', 'value': '高3'}
+                ], placeholder="学年を選択..."), width=8)
             ], className="mb-3"),
              dbc.Row([
                 dbc.Col(dbc.Label("回数 *"), width=4),
-                # 実際の選択肢はコールバックで設定することを想定
-                dbc.Col(dcc.Dropdown(id='mock-exam-round', placeholder="模試の回数を選択..."), width=8)
+                # ★ 自由記述に変更
+                dbc.Col(dbc.Input(id='mock-exam-round', type='text', placeholder="例: 第1回"), width=8)
             ], className="mb-3"),
             # --- 任意項目 ---
             dbc.Row([
@@ -143,7 +151,7 @@ def _create_past_exam_tab():
             dbc.Col([
                 html.H4("過去問演習記録"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("過去問結果入力フォームはこちら", href="https://forms.gle/4mUgfDJ7BHScRPo76", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("過去問結果入力フォームはこちら", href="https.forms.gle/4mUgfDJ7BHScRPo76", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success", className="me-2"),
