@@ -10,6 +10,7 @@ import pandas as pd
 from dash import Input, Output, State, html, dcc, no_update, callback_context, ALL, MATCH
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
+from datetime import date # ★ date をインポート
 
 from auth.user_manager import load_users, add_user, update_user, delete_user
 from data.nested_json_processor import (
@@ -19,7 +20,7 @@ from data.nested_json_processor import (
     get_all_instructors_for_school,
     get_all_presets_with_books, add_preset, update_preset, delete_preset,
     add_changelog_entry,
-    get_all_mock_exam_details_for_school, get_mock_exam_filter_options
+    get_all_mock_exam_details_for_school, get_mock_exam_filter_options # ★ 追加
 )
 # configからDATABASE_URLを読み込むように変更
 from config.settings import APP_CONFIG
@@ -27,6 +28,86 @@ from config.settings import APP_CONFIG
 DATABASE_URL = APP_CONFIG['data']['database_url']
 
 # BASE_DIR, RENDER_DATA_DIR, DATABASE_FILE の定義は不要なので削除
+
+
+# ★★★ 新しいヘルパー関数: 管理者モーダル用の模試結果テーブル生成 ★★★
+def _create_admin_mock_exam_table(df, table_type):
+    """管理者モーダル用の模試結果テーブル(マークまたは記述)を生成する"""
+    if df.empty:
+        type_jp = "マーク" if table_type == "mark" else "記述"
+        return dbc.Alert(f"フィルター条件に一致する{type_jp}模試の結果はありません。", color="warning", className="mt-3")
+
+    # 表示するカラムを選択
+    base_cols = ['student_name', 'result_type', 'mock_exam_name', 'grade', 'round', 'exam_date']
+    base_headers_jp = ["生徒名", "種類", "模試名", "学年", "回", "受験日"]
+    # ★ 点数カラムのスタイル (固定幅)
+    score_col_style = {'width': '60px', 'minWidth': '60px', 'textAlign': 'center', 'fontSize': '0.85rem'}
+    # ★ 基本情報カラムのスタイル (最小幅)
+    base_col_style = {'minWidth': '100px', 'verticalAlign': 'middle'}
+    base_col_style_narrow = {'minWidth': '80px', 'verticalAlign': 'middle'} # 種類、学年、回など
+
+    if table_type == "mark":
+        score_cols = [
+            'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+            'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
+            'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
+            'subject_rika_kiso2_mark', 'subject_info_mark'
+        ]
+        col_headers_jp = ["国", "数IA", "数IIBC", "英R", "英L", "理①", "理②", "社①", "社②", "理基①", "理基②", "情報"]
+    else: # descriptive
+        score_cols = [
+            'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc',
+            'subject_rika1_desc', 'subject_rika2_desc', 'subject_shakai1_desc', 'subject_shakai2_desc'
+        ]
+        col_headers_jp = ["国", "数", "英", "理①", "理②", "社①", "社②"]
+
+    # DataFrameに必要なカラムが存在するか確認し、なければNaNで埋める
+    # (get_all_mock_exam_details_for_school で全カラム取得する前提なら不要だが念のため)
+    for col in base_cols + score_cols:
+        if col not in df.columns:
+            df[col] = pd.NA
+
+    df_display = df[base_cols + score_cols].copy()
+
+    # ヘッダー生成 (スタイルを適用)
+    header_cells = [
+        html.Th("生徒名", style={'minWidth': '120px', 'verticalAlign': 'middle'}),
+        html.Th("種類", style=base_col_style_narrow),
+        html.Th("模試名", style={'minWidth': '150px', 'verticalAlign': 'middle'}),
+        html.Th("学年", style=base_col_style_narrow),
+        html.Th("回", style=base_col_style_narrow),
+        html.Th("受験日", style=base_col_style_narrow)
+    ] + [html.Th(jp, style=score_col_style) for jp in col_headers_jp]
+    table_header = [html.Thead(html.Tr(header_cells))]
+
+    # ボディ生成
+    table_body_rows = []
+    for _, row in df_display.iterrows():
+        cells = []
+        # 基本情報セル
+        for col in base_cols:
+            value = row[col]
+            if col == 'exam_date':
+                # exam_date は callback 側でフォーマット済みの想定だが、ここでも処理
+                display_val = value if pd.notna(value) else '-'
+                if isinstance(value, date): # dateオブジェクトの場合
+                    display_val = value.strftime('%Y-%m-%d')
+            else:
+                display_val = '-' if pd.isna(value) else value
+            cells.append(html.Td(display_val))
+
+        # 点数セル
+        for col in score_cols:
+            score = row[col]
+            display_score = '-' if pd.isna(score) else int(score)
+            cells.append(html.Td(display_score, style=score_col_style))
+
+        table_body_rows.append(html.Tr(cells))
+
+    table_body = [html.Tbody(table_body_rows)]
+    return dbc.Table(table_header + table_body, striped=True, bordered=True, hover=True, responsive=True, size="sm")
+# ★★★ ヘルパー関数ここまで ★★★
+
 
 def register_admin_callbacks(app):
     # --- ユーザー管理関連コールバック ---
@@ -631,7 +712,7 @@ def register_admin_callbacks(app):
     )
     def handle_user_edit_modal(edit_clicks, cancel_clicks):
         ctx = callback_context
-        if not ctx.triggered or (isinstance(ctx.triggered_id, dict) and not ctx.triggered[0]['value']):
+        if not ctx.triggered or (isinstance(trigger_id, dict) and not ctx.triggered[0]['value']):
             raise PreventUpdate
 
         trigger_id = ctx.triggered_id
@@ -833,7 +914,10 @@ def register_admin_callbacks(app):
             return "", False, toast_data
         else:
             return dbc.Alert(message, color="danger"), True, no_update
-    
+
+
+    # --- 校舎別 模試結果一覧モーダル ---
+
     @app.callback(
         Output('mock-exam-list-modal', 'is_open'),
         [Input('open-mock-exam-list-modal-btn', 'n_clicks'),
@@ -866,9 +950,11 @@ def register_admin_callbacks(app):
         options = get_mock_exam_filter_options(school_name)
         return options.get('names', []), options.get('grades', [])
 
+    # ★★★ 模試結果一覧テーブルコールバックを修正 ★★★
     @app.callback(
-        Output('mock-exam-list-table-container', 'children'),
-        [Input('mock-exam-list-modal', 'is_open'), # ★ モーダルが開いた時もトリガー
+        [Output('mock-exam-list-table-container-mark', 'children'),
+         Output('mock-exam-list-table-container-descriptive', 'children')],
+        [Input('mock-exam-list-modal', 'is_open'), # モーダルが開いた時もトリガー
          Input('mock-exam-list-filter-type', 'value'),
          Input('mock-exam-list-filter-name', 'value'),
          Input('mock-exam-list-filter-format', 'value'),
@@ -880,72 +966,63 @@ def register_admin_callbacks(app):
         is_open, filter_type, filter_name, filter_format, filter_grade,
         user_info):
         """フィルターの値に基づいて模試結果一覧テーブルを更新する"""
+        
         ctx = callback_context
         triggered_id = ctx.triggered_id
 
         # モーダルが閉じている場合は更新しない
-        if triggered_id != 'mock-exam-list-modal' and not is_open:
-            raise PreventUpdate
+        if not is_open:
+            return no_update, no_update
 
-        # モーダルが開いた瞬間 (triggered_id == 'mock-exam-list-modal') は、
-        # フィルターがまだNoneの可能性があるので、全件表示を試みる
-        
         if not user_info:
-            return dbc.Alert("ユーザー情報が見つかりません。", color="danger")
+            alert = dbc.Alert("ユーザー情報が見つかりません。", color="danger")
+            return alert, alert
 
         school_name = user_info.get('school')
         if not school_name:
-            return dbc.Alert("所属校舎が設定されていません。", color="danger")
+            alert = dbc.Alert("所属校舎が設定されていません。", color="danger")
+            return alert, alert
 
         # データを取得
         results = get_all_mock_exam_details_for_school(school_name)
         if not results:
-            return dbc.Alert("この校舎には登録されている模試結果がありません。", color="info")
+            no_data_alert = dbc.Alert("この校舎には登録されている模試結果がありません。", color="info")
+            return no_data_alert, no_data_alert
 
         df = pd.DataFrame(results)
 
-        # フィルタリング
+        # 日付のフォーマット (pd.to_datetime と .dt.strftime を使う)
+        df['exam_date'] = pd.to_datetime(df['exam_date'], errors='coerce').dt.strftime('%Y-%m-%d').fillna('-')
+
+
+        # フィルタリング (形式フィルターを除く)
         if filter_type:
             df = df[df['result_type'] == filter_type]
         if filter_name:
             df = df[df['mock_exam_name'] == filter_name]
-        if filter_format:
-            df = df[df['mock_exam_format'] == filter_format]
         if filter_grade:
             df = df[df['grade'] == filter_grade]
 
         if df.empty:
-            # モーダルを開いた直後(フィルター未選択)で空の場合は、全件データがないと判断
-            if triggered_id == 'mock-exam-list-modal':
-                 return dbc.Alert("この校舎には登録されている模試結果がありません。", color="info")
-            # フィルターをかけた結果、空になった場合
-            return dbc.Alert("フィルター条件に一致する結果はありません。", color="warning")
-
-        # 表示するカラムを選択 (点数カラムは除外)
-        display_cols = [
-            'student_name', 'result_type', 'mock_exam_name', 'mock_exam_format',
-            'grade', 'round', 'exam_date'
-        ]
-        # 存在しないカラムがあれば追加 (念のため)
-        for col in display_cols:
-            if col not in df.columns:
-                df[col] = None
-
-        df_display = df[display_cols].copy()
+            no_match_alert = dbc.Alert("フィルター条件に一致する結果はありません。", color="warning")
+            return no_match_alert, no_match_alert
         
-        # 日付のフォーマット (pd.to_datetime と .dt.strftime を使う)
-        df_display['exam_date'] = pd.to_datetime(df_display['exam_date'], errors='coerce').dt.strftime('%Y-%m-%d').fillna('-')
+        # フィルター後のデータでマークと記述に分割
+        df_mark = df[df['mock_exam_format'] == 'マーク'].copy()
+        df_desc = df[df['mock_exam_format'] == '記述'].copy()
 
-        # カラム名を日本語に変更
-        df_display.columns = [
-            '生徒名', '種類', '模試名', '形式', '学年', '回数', '受験日'
-        ]
-        
-        return dbc.Table.from_dataframe(
-            df_display,
-            striped=True,
-            bordered=True,
-            hover=True,
-            responsive=True,
-            size="sm"
-        )
+        # ヘルパー関数を使ってテーブルを生成
+        mark_table = _create_admin_mock_exam_table(df_mark, "mark")
+        desc_table = _create_admin_mock_exam_table(df_desc, "descriptive")
+
+        # 形式フィルターが適用されている場合、片方のタブを空にする
+        if filter_format == 'マーク':
+            desc_table = None # 記述タブは非表示 (空にする)
+            if df_mark.empty: # 絞り込んだ結果マークが無い場合
+                 mark_table = dbc.Alert("フィルター条件に一致するマーク模試の結果はありません。", color="warning", className="mt-3")
+        elif filter_format == '記述':
+            mark_table = None # マークタブは非表示 (空にする)
+            if df_desc.empty: # 絞り込んだ結果記述が無い場合
+                 desc_table = dbc.Alert("フィルター条件に一致する記述模試の結果はありません。", color="warning", className="mt-3")
+
+        return mark_table, desc_table
