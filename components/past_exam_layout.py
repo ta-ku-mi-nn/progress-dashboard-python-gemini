@@ -306,7 +306,7 @@ def _create_mock_exam_tab():
             dbc.Col([
                 html.H4("模試結果記録"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("模試結果入力フォームはこちら", href="YOUR_MOCK_EXAM_FORM_LINK", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("模試結果入力フォームはこちら", href="https://forms.gle/N5iB2Q4BU8f61RJSA", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("模試結果を入力する", id="open-mock-exam-modal-btn", color="success", className="me-2"),
