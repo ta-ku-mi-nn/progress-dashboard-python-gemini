@@ -850,7 +850,8 @@ def register_past_exam_callbacks(app):
                         #printable-calendar-area .exam-date-cell { background-color: #ff7f7f !important; }
                         #printable-calendar-area .announcement-date-cell { background-color: #7fff7f !important; }
                         #printable-calendar-area .proc-deadline-cell { background-color: #bf7fff !important; }
-                        #printable-calendar-area .app-deadline-cell, #printable-calendar-area .exam-date-cell, #printable-calendar-area .announcement-date-cell, #printable-calendar-area .proc-deadline-cell, #printable-calendar-area .saturday, #printable-calendar-area .sunday { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                        #printable-calendar-area .app-deadline-cell, #printable-calendar-area .exam-date-cell, #printable-calendar-area .announcement-date-cell, #printable-calendar-area .proc-deadline-cell, #printable-calendar-area .saturday, #printable-calendar-area .sunday { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !impor
+tant; }
                         @page { size: A4 portrait; margin: 10mm; }
                     }
                 `;
@@ -914,7 +915,7 @@ def register_past_exam_callbacks(app):
             None, # grade
             None, # round
             None, # date
-        ] + [None] * 20 # Scores
+        ] + [None] * 19 # Scores (7 記述 + 12 マーク) ★★★ 修正 (20 -> 19) ★★★
 
         # キャンセルボタン
         if trigger_id == 'cancel-mock-exam-modal-btn':
@@ -923,7 +924,8 @@ def register_past_exam_callbacks(app):
         # 新規追加ボタン
         if trigger_id == 'open-mock-exam-modal-btn':
             today_iso = date.today().isoformat() # 今日の日付を文字列で
-            return [True, "模試結果の入力", None] + [None]*5 + [today_iso] + [None]*20 + [False] # 日付だけ今日に
+            # ★★★ 修正 (20 -> 19) ★★★
+            return [True, "模試結果の入力", None] + [None]*5 + [today_iso] + [None]*19 + [False] # 日付だけ今日に
 
 
         # 編集ボタン (パターンマッチング)
