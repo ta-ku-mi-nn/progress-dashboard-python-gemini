@@ -70,7 +70,7 @@ from callbacks.statistics_callbacks import register_statistics_callbacks
 
 
 # ★★★ APIキーを設定 (実際の運用では環境変数などを使用) ★★★
-API_KEY = os.getenv("FORM_API_KEY", "YOUR_SECRET_API_KEY_CHANGE_THIS") # 環境変数から取得、なければデフォルト値
+API_KEY = os.getenv("FORM_API_KEY", "YOUR_SECRET_API_KEY") # 環境変数から取得、なければデフォルト値
 
 # --- アプリケーションの初期化 ---
 app = dash.Dash(
