@@ -1838,4 +1838,70 @@ def delete_mock_exam_result(result_id):
         if conn:
             conn.close()
 
-# ★★★ ここまで模試結果関連の関数を追加 ★★★
+def get_all_mock_exam_details_for_school(school_name):
+    """
+    指定された校舎の全生徒の模試結果を、生徒名と共に取得する。
+    """
+    conn = get_db_connection()
+    results = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    s.name AS student_name,
+                    mer.*
+                FROM mock_exam_results mer
+                JOIN students s ON mer.student_id = s.id
+                WHERE s.school = %s
+                ORDER BY s.name, mer.exam_date DESC, mer.id DESC
+                """,
+                (school_name,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_all_mock_exam_details_for_school): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return [dict(row) for row in results]
+
+def get_mock_exam_filter_options(school_name):
+    """
+    指定された校舎の模試結果から、フィルター用のユニークな値を取得する。
+    """
+    conn = get_db_connection()
+    results = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    DISTINCT mer.mock_exam_name, mer.grade
+                FROM mock_exam_results mer
+                JOIN students s ON mer.student_id = s.id
+                WHERE s.school = %s
+                """,
+                (school_name,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+         print(f"データベースエラー (get_mock_exam_filter_options): {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    names = sorted(list(set([r['mock_exam_name'] for r in results if r['mock_exam_name']])))
+    grades = sorted(list(set([r['grade'] for r in results if r['grade']])))
+
+    # grade_order に基づいて学年をソート
+    grade_order = ['中学生', '高1', '高2', '高3', '既卒']
+    sorted_grades = sorted(
+        grades,
+        key=lambda x: grade_order.index(x) if x in grade_order else len(grade_order)
+    )
+
+    return {
+        'names': [{'label': n, 'value': n} for n in names],
+        'grades': [{'label': g, 'value': g} for g in sorted_grades]
+    }

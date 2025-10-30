@@ -42,7 +42,8 @@ from components.admin_components import (
     create_student_edit_modal, create_student_management_modal,
     create_bulk_preset_management_modal, create_bulk_preset_edit_modal,
     create_user_edit_modal,
-    create_add_changelog_modal
+    create_add_changelog_modal,
+    create_mock_exam_list_modal
 )
 from components.modals import create_user_list_modal, create_new_user_modal
 from components.login_components import (
@@ -222,9 +223,9 @@ def display_page(pathname, auth_store_data):
                         ])], className="mb-3"),
 
                         dbc.Card([dbc.CardBody([
-                            html.H5("💾 データバックアップ（非推奨）", className="card-title"),
-                            html.P("データベースのバックアップはRenderの管理画面から行うことを推奨します。", className="card-text small text-muted"),
-                            dbc.Button("バックアップを実行", id="backup-btn", color="primary", disabled=True) # 非推奨のため無効化
+                            html.H5("📊 模試結果一覧", className="card-title"),
+                            html.P("校舎全体の模試結果を一覧表示・検索します。", className="card-text small text-muted"),
+                            dbc.Button("模試結果一覧を表示", id="open-mock-exam-list-modal-btn", color="primary")
                         ])], className="mb-3"),
                     ], md=6),
                 ]),
@@ -237,7 +238,8 @@ def display_page(pathname, auth_store_data):
                 create_user_list_modal(),
                 create_new_user_modal(),
                 create_user_edit_modal(),
-                create_add_changelog_modal()
+                create_add_changelog_modal(),
+                create_mock_exam_list_modal()
             ], fluid=True) # Container fluid=True に変更
     else: # デフォルトはダッシュボードページ
         page_content = html.Div([

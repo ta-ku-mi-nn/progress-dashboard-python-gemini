@@ -319,3 +319,53 @@ def create_add_changelog_modal():
             ]),
         ],
     )
+
+def create_mock_exam_list_modal():
+    """校舎全体の模試結果一覧を表示・検索するためのモーダル"""
+    return dbc.Modal(
+        id="mock-exam-list-modal",
+        is_open=False,
+        size="xl", # 大きなモーダル
+        scrollable=True,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("校舎 模試結果一覧")),
+            dbc.ModalBody([
+                dbc.Row([
+                    # フィルター群
+                    dbc.Col(dcc.Dropdown(
+                        id='mock-exam-list-filter-type',
+                        options=[
+                            {'label': '自己採点', 'value': '自己採点'},
+                            {'label': '結果', 'value': '結果'}
+                        ],
+                        placeholder="種類 (自己採点/結果)...",
+                        clearable=True
+                    ), width=12, md=3),
+                    dbc.Col(dcc.Dropdown(
+                        id='mock-exam-list-filter-name',
+                        placeholder="模試名...",
+                        clearable=True
+                    ), width=12, md=3),
+                    dbc.Col(dcc.Dropdown(
+                        id='mock-exam-list-filter-format',
+                        options=[
+                            {'label': 'マーク', 'value': 'マーク'},
+                            {'label': '記述', 'value': '記述'}
+                        ],
+                        placeholder="形式 (マーク/記述)...",
+                        clearable=True
+                    ), width=12, md=3),
+                    dbc.Col(dcc.Dropdown(
+                        id='mock-exam-list-filter-grade',
+                        placeholder="学年...",
+                        clearable=True
+                    ), width=12, md=3),
+                ], className="mb-3"),
+                # テーブル表示エリア
+                dcc.Loading(
+                    html.Div(id="mock-exam-list-table-container", style={"minHeight": "200px"})
+                )
+            ]),
+            dbc.ModalFooter(dbc.Button("閉じる", id="close-mock-exam-list-modal", className="ms-auto")),
+        ],
+    )
