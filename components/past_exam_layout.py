@@ -143,7 +143,7 @@ def _create_past_exam_tab():
             dbc.Col([
                 html.H4("過去問演習記録"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("過去問結果入力フォームはこちら", href="YOUR_PAST_EXAM_FORM_LINK", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("過去問結果入力フォームはこちら", href="https://forms.gle/4mUgfDJ7BHScRPo76", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("過去問結果を入力する", id="open-past-exam-modal-btn", color="success", className="me-2"),
@@ -213,7 +213,7 @@ def _create_acceptance_tab():
             dbc.Col([
                 html.H4("入試管理"),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("入試日程入力フォームはこちら", href="YOUR_ACCEPTANCE_FORM_LINK", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("入試日程入力フォームはこちら", href="https://forms.gle/WshPiwRiMZYAZE6N7", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
