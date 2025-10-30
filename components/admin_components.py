@@ -320,6 +320,8 @@ def create_add_changelog_modal():
         ],
     )
 
+
+# ★★★ 模試結果一覧モーダルを新設 ★★★
 def create_mock_exam_list_modal():
     """校舎全体の模試結果一覧を表示・検索するためのモーダル"""
     return dbc.Modal(
@@ -340,12 +342,12 @@ def create_mock_exam_list_modal():
                         ],
                         placeholder="種類 (自己採点/結果)...",
                         clearable=True
-                    ), width=12, md=3),
+                    ), width=12, md=3, className="mb-2"),
                     dbc.Col(dcc.Dropdown(
                         id='mock-exam-list-filter-name',
                         placeholder="模試名...",
                         clearable=True
-                    ), width=12, md=3),
+                    ), width=12, md=3, className="mb-2"),
                     dbc.Col(dcc.Dropdown(
                         id='mock-exam-list-filter-format',
                         options=[
@@ -354,16 +356,34 @@ def create_mock_exam_list_modal():
                         ],
                         placeholder="形式 (マーク/記述)...",
                         clearable=True
-                    ), width=12, md=3),
+                    ), width=12, md=3, className="mb-2"),
                     dbc.Col(dcc.Dropdown(
                         id='mock-exam-list-filter-grade',
                         placeholder="学年...",
                         clearable=True
-                    ), width=12, md=3),
+                    ), width=12, md=3, className="mb-2"),
                 ], className="mb-3"),
-                # テーブル表示エリア
-                dcc.Loading(
-                    html.Div(id="mock-exam-list-table-container", style={"minHeight": "200px"})
+
+                # ★★★ テーブル表示エリアをタブに変更 ★★★
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            dcc.Loading(
+                                html.Div(id="mock-exam-list-table-container-mark", style={"minHeight": "200px"}),
+                            ),
+                            label="マーク模試",
+                            tab_id="tab-mock-list-mark",
+                        ),
+                        dbc.Tab(
+                            dcc.Loading(
+                                html.Div(id="mock-exam-list-table-container-descriptive", style={"minHeight": "200px"}),
+                            ),
+                            label="記述模試",
+                            tab_id="tab-mock-list-descriptive",
+                        ),
+                    ],
+                    id="mock-exam-list-tabs",
+                    active_tab="tab-mock-list-mark", # デフォルトでマークタブをアクティブに
                 )
             ]),
             dbc.ModalFooter(dbc.Button("閉じる", id="close-mock-exam-list-modal", className="ms-auto")),
