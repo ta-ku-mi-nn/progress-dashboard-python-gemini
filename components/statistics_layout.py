@@ -20,7 +20,7 @@ def create_statistics_layout(user_info):
     grade_filter_options = [] # コールバックで設定
 
     return dbc.Container([
-        html.H3("学習レベル統計", className="my-4"),
+        html.H3("学習レベル統計", className="my-4", style={"border-left": "solid 5px #7db4e6"}),
         dbc.Row([
             # ★ 校舎フィルターを追加
             dbc.Col(
