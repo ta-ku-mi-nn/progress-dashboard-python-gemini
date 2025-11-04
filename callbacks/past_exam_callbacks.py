@@ -1054,8 +1054,9 @@ tant; }
         if isinstance(triggered_id, dict) and triggered_id.get('type') == 'delete-mock-exam-trigger-btn':
             # テーブルのボタンが押された場合
             # any() を使ってクリックされたか確認
-            if not any(nc is not None and nc > 0 for nc in ctx.inputs_list[0]): raise PreventUpdate # inputs_list[0] が table_clicks に対応
-            result_id_to_delete = triggered_id['index']
+            # inputs_list[0] (cell_clickedなど) が [None] でない（＝クリックされた）かチェック
+            if not any(ctx.inputs_list[0]):
+                raise PreventUpdate
         elif triggered_id == 'delete-mock-exam-btn':
             # モーダルの削除ボタンが押された場合
             if not modal_click or result_id_from_modal is None: raise PreventUpdate
