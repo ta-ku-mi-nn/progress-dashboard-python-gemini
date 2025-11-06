@@ -10,6 +10,7 @@ import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, no_update # ★ no_update をインポート
+import plotly.io as pio
 from flask import request, jsonify # Flaskのrequestとjsonifyを追加
 import json # jsonを追加
 from data.nested_json_processor import get_db_connection
