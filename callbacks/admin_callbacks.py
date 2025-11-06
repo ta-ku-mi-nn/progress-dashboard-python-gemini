@@ -966,7 +966,7 @@ def register_admin_callbacks(app):
         is_open, filter_type, filter_name, filter_format, filter_grade,
         user_info):
         """フィルターの値に基づいて模試結果一覧テーブルを更新する"""
-        
+
         ctx = callback_context
         triggered_id = ctx.triggered_id
 
@@ -1006,7 +1006,7 @@ def register_admin_callbacks(app):
         if df.empty:
             no_match_alert = dbc.Alert("フィルター条件に一致する結果はありません。", color="warning")
             return no_match_alert, no_match_alert
-        
+
         # フィルター後のデータでマークと記述に分割
         df_mark = df[df['mock_exam_format'] == 'マーク'].copy()
         df_desc = df[df['mock_exam_format'] == '記述'].copy()
