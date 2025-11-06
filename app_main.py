@@ -9,8 +9,7 @@ import os
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, Input, Output
-import plotly.io as pio
+from dash import dcc, html, Input, Output, no_update # ★ no_update をインポート
 from flask import request, jsonify # Flaskのrequestとjsonifyを追加
 import json # jsonを追加
 from data.nested_json_processor import get_db_connection
@@ -87,7 +86,7 @@ server = app.server # Flaskサーバーインスタンスを取得
 
 # --- メインレイアウト ---
 app.layout = html.Div([
-    dcc.Location(id='url', refresh=True),
+    dcc.Location(id='url', refresh=True), # ★ refresh=True はそのまま
     dcc.Store(id='auth-store', storage_type='session'),
     dcc.Store(id='school-selection-store', storage_type='session'),
     dcc.Store(id='student-selection-store', storage_type='session'),
@@ -123,12 +122,14 @@ def get_current_user_from_store(auth_store_data):
     """dcc.Storeのデータから現在のユーザー情報を取得"""
     return auth_store_data if auth_store_data and isinstance(auth_store_data, dict) else None
 
-# --- ページ表示コールバック（ルーティング） ---
+# --- ページ表示コールバック（ルーティング） (★修正箇所) ---
 @app.callback(
     [Output('page-content', 'children'),
-     Output('navbar-container', 'children')],
+     Output('navbar-container', 'children'),
+     Output('url', 'pathname', allow_duplicate=True)], # ★ Output に 'url.pathname' を追加
     [Input('url', 'pathname'),
-     Input('auth-store', 'data')]
+     Input('auth-store', 'data')],
+    prevent_initial_call=True # ★ allow_duplicate=True と prevent_initial_call=True を設定
 )
 def display_page(pathname, auth_store_data):
     """URLのパスに応じてページコンテンツとナビゲーションバーを切り替え"""
@@ -136,8 +137,9 @@ def display_page(pathname, auth_store_data):
 
     # ログインしていない場合
     if not user_info:
-        # ログインページを表示し、ナビゲーションバーは非表示
-        return create_login_layout(), None
+        # ログインページを表示し、ナビゲーションバーは非表示、URLを/loginに
+        # return create_login_layout(), None # <-- ★ 変更
+        return create_login_layout(), None, '/login' # ★ URLも返す
 
     # レポート印刷ページの場合
     if pathname and pathname.startswith('/report/'):
@@ -145,13 +147,16 @@ def display_page(pathname, auth_store_data):
             student_id = int(pathname.split('/')[-1])
             student_info = get_student_info_by_id(student_id)
             if not student_info: # 生徒情報が見つからない場合
-                 return dbc.Alert("指定された生徒が見つかりません。", color="danger"), create_navbar(user_info)
+                 # return dbc.Alert("指定された生徒が見つかりません。", color="danger"), create_navbar(user_info) # <-- ★ 変更
+                 return dbc.Alert("指定された生徒が見つかりません。", color="danger"), create_navbar(user_info), no_update # ★ URLは更新しない
             student_name = student_info.get('name', '不明な生徒')
             # レポートページではナビゲーションバーを非表示
-            return create_report_layout(student_name), None
+            # return create_report_layout(student_name), None # <-- ★ 変更
+            return create_report_layout(student_name), None, no_update # ★ URLは更新しない
         except (ValueError, IndexError):
             # 不正なURLの場合
-            return dbc.Alert("無効なURLです。", color="danger"), create_navbar(user_info)
+            # return dbc.Alert("無効なURLです。", color="danger"), create_navbar(user_info) # <-- ★ 変更
+            return dbc.Alert("無効なURLです。", color="danger"), create_navbar(user_info), no_update # ★ URLは更新しない
 
     # 通常ページのナビゲーションバー生成
     navbar = create_navbar(user_info)
@@ -248,7 +253,9 @@ def display_page(pathname, auth_store_data):
         ])
 
     # 生成したページコンテンツとナビゲーションバーを返す
-    return page_content, navbar
+    # return page_content, navbar # <-- ★ 変更
+    return page_content, navbar, no_update # ★ URLは更新しない
+
 
 # --- 管理者統計コールバック ---
 @app.callback(

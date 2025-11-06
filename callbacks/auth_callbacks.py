@@ -37,17 +37,19 @@ def register_auth_callbacks(app):
             alert_msg = dbc.Alert("ユーザー名またはパスワードが正しくありません。", color="danger")
             return no_update, no_update, alert_msg, True
 
-    # --- ログアウト処理 ---
+    # --- ログアウト処理 (★修正箇所) ---
     @app.callback(
-        Output('url', 'pathname', allow_duplicate=True),
+        # Output('url', 'pathname', allow_duplicate=True), # <-- ★ 削除
         Output('auth-store', 'clear_data'),
         Input('logout-button', 'n_clicks'),
         prevent_initial_call=True
     )
     def handle_logout(n_clicks):
         if n_clicks:
-            return '/login', True
-        return no_update, no_update
+            # return '/login', True # <-- ★ 変更
+            return True # ★ セッションストレージをクリアするだけ
+        # return no_update, no_update # <-- ★ 変更
+        return no_update
 
 
     # --- プロフィール関連のコールバック ---
