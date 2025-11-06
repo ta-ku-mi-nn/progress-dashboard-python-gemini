@@ -45,7 +45,7 @@ def create_changelog_layout():
 
     # レイアウトを返す
     return html.Div([
-        html.H3("更新履歴", className="my-4", style={"border-left": "solid 5px #7db4e6"}),
+        html.H3("更新履歴", className="my-4", style={"border-left": "solid 5px #7db4e6"}, padding="10px"),
         dbc.Table(
             table_header + table_body,
             bordered=True,
