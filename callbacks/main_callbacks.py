@@ -1,7 +1,7 @@
 # callbacks/main_callbacks.py
 
 import pandas as pd
-from dash import Input, Output, State, dcc, html, no_update
+from dash import Input, Output, State, dcc, html, no_update # ★ dcc をインポート
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from data.nested_json_processor import get_subjects_for_student, get_student_info_by_id, get_students_for_user
@@ -38,6 +38,7 @@ def register_main_callbacks(app):
             value=selected_student_id
         )
 
+    # ★★★ 修正箇所 ★★★
     @app.callback(
         [Output('subject-tabs-container', 'children'),
          Output('dashboard-actions-container', 'children'),
@@ -71,10 +72,15 @@ def register_main_callbacks(app):
 
         actions = dbc.ButtonGroup(action_buttons)
 
-        # 最初の表示として「総合」タブの内容を生成
-        initial_content = generate_dashboard_content(student_id, '総合')
+        # ★ 修正 ★
+        # 最初の表示として「総合」タブの内容を生成する代わりに、ローディングスピナーを返す
+        # initial_content = generate_dashboard_content(student_id, '総合') # <-- ★ 削除
+        
+        # ★ dcc.Loading を返すように変更
+        initial_content = dcc.Loading(id="loading-initial-content", children=None, type="default")
 
         return tabs, actions, initial_content
+    # ★★★ 修正ここまで ★★★
 
     @app.callback(
         Output('student-selection-store', 'data'),
