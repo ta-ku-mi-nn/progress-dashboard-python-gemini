@@ -24,10 +24,10 @@ def create_changelog_layout():
     # テーブルのヘッダーを作成
     table_header = [
         html.Thead(html.Tr([
-            html.Th("バージョン"),
-            html.Th("リリース日"),
-            html.Th("タイトル"),
-            html.Th("詳細")
+            html.Th("バージョン", style={"width": "10% "}),
+            html.Th("リリース日", style={"width": "10%"}),
+            html.Th("タイトル", style={"width": "20%"}),
+            html.Th("詳細", style={"width": "60%"})
         ]))
     ]
 
