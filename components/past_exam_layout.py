@@ -230,7 +230,7 @@ def _create_acceptance_tab():
             dbc.Col([
                 html.H4("入試管理", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}), # 左線を追加
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("入試日程入力フォームはこちら", href="https.forms.gle/WshPiwRiMZYAZE6N7", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("入試日程入力フォームはこちら", href="https://forms.gle/32AzVyUF1pRuDQRy9", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
@@ -323,7 +323,7 @@ def _create_mock_exam_tab():
             dbc.Col([
                 html.H4("模試結果記録", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("模試結果入力フォームはこちら", href="https.forms.gle/N5iB2Q4BU8f61RJSA", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("模試結果入力フォームはこちら", href="https://docs.google.com/forms/d/e/1FAIpQLSdh-ODgOadM3JeHHnuVpnymclRJQ6ejRLWoWcEQoHZTOiiLoA/viewform?usp=header", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("模試結果を入力する", id="open-mock-exam-modal-btn", color="success", className="me-2"),
