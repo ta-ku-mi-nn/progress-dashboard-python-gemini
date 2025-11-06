@@ -158,7 +158,7 @@ def _create_past_exam_tab():
         dcc.Store(id='editing-past-exam-id-store'),
         dbc.Row([
             dbc.Col([
-                html.H4("過去問演習記録", style={"border-left": "solid 5px #7db4e6"}, padding="10px"),
+                html.H4("過去問演習記録", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
                 html.A("過去問結果入力フォームはこちら", href="https.forms.gle/4mUgfDJ7BHScRPo76", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
@@ -228,7 +228,7 @@ def _create_acceptance_tab():
         dcc.Store(id='editing-acceptance-id-store'),
         dbc.Row([
             dbc.Col([
-                html.H4("入試管理", style={"border-left": "solid 5px #7db4e6"}, padding="10px"), # 左線を追加
+                html.H4("入試管理", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}), # 左線を追加
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
                 html.A("入試日程入力フォームはこちら", href="https.forms.gle/WshPiwRiMZYAZE6N7", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
@@ -297,7 +297,7 @@ def _create_calendar_tab():
         dcc.Store(id='current-calendar-month-store'),
         dbc.Row([
             dbc.Col([
-                html.H4("受験カレンダー", style={"border-left": "solid 5px #7db4e6"}, padding="10px"),
+                html.H4("受験カレンダー", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted", id="calendar-print-hide-text")
             ]),
             dbc.Col([
@@ -321,7 +321,7 @@ def _create_mock_exam_tab():
         dcc.Store(id='editing-mock-exam-id-store'), # 編集/削除用IDストア
         dbc.Row([
             dbc.Col([
-                html.H4("模試結果記録", style={"border-left": "solid 5px #7db4e6"}, padding="10px"),
+                html.H4("模試結果記録", style={"border-left": "solid 5px #7db4e6", "padding": "10px"}),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
                 html.A("模試結果入力フォームはこちら", href="https.forms.gle/N5iB2Q4BU8f61RJSA", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
