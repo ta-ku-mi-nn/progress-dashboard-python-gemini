@@ -53,87 +53,96 @@ def _create_mock_exam_modal():
                 dbc.Col(dcc.DatePickerSingle(id='mock-exam-date', date=None, display_format='YYYY-MM-DD'), width=8)
             ], className="mb-3"),
             html.Hr(),
-            # --- 点数入力 (記述) ---
-            html.H5("記述科目 点数", className="mt-4"),
+
+            # ★★★ 修正箇所: 点数入力を2カラムレイアウトに変更 ★★★
             dbc.Row([
-                dbc.Col(dbc.Label("国語"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-kokugo-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("数学"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-math-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("英語"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-english-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("理科①"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika1-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("理科②"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika2-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("社会①"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-shakai1-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("社会②"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-shakai2-desc', type='number', min=0), width=8)
-            ], className="mb-2"),
-            html.Hr(),
-            # --- 点数入力 (マーク) ---
-            html.H5("マーク科目 点数", className="mt-4"),
-             dbc.Row([
-                dbc.Col(dbc.Label("国語"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-kokugo-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("数学ⅠA"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-math1a-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("数学ⅡBC"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-math2bc-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("英語R"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-english-r-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("英語L"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-english-l-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("理科①"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika1-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Label("理科②"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika2-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("社会①"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-shakai1-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("社会②"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-shakai2-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("理科基礎①"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika-kiso1-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("理科基礎②"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-rika-kiso2-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
-             dbc.Row([
-                dbc.Col(dbc.Label("情報"), width=4),
-                dbc.Col(dbc.Input(id='mock-exam-info-mark', type='number', min=0), width=8)
-            ], className="mb-2"),
+                # --- 左列: マーク科目 ---
+                dbc.Col([
+                    html.H5("マーク科目 点数", className="mt-4"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("国語"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-kokugo-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("数学ⅠA"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-math1a-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("数学ⅡBC"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-math2bc-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("英語R"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-english-r-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("英語L"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-english-l-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("理科①"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika1-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("理科②"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika2-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("社会①"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-shakai1-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("社会②"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-shakai2-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("理科基礎①"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika-kiso1-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("理科基礎②"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika-kiso2-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("情報"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-info-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                ], md=6),
+                
+                # --- 右列: 記述科目 ---
+                dbc.Col([
+                    html.H5("記述科目 点数", className="mt-4"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("国語"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-kokugo-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("数学"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-math-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("英語"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-english-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("理科①"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika1-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("理科②"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-rika2-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                     dbc.Row([
+                        dbc.Col(dbc.Label("社会①"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-shakai1-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("社会②"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-shakai2-desc', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                ], md=6),
+            ]),
+            # ★★★ 修正ここまで ★★★
         ]),
         dbc.ModalFooter([
             dbc.Button("削除", id="delete-mock-exam-btn", color="danger", className="me-auto", outline=True), # 削除ボタン追加
@@ -221,7 +230,7 @@ def _create_acceptance_tab():
             dbc.Col([
                 html.H4("入試管理", style={"border-left": "solid 5px #7db4e6"}), # 左線を追加
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("入試日程入力フォームはこちら", href="https://forms.gle/WshPiwRiMZYAZE6N7", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("入試日程入力フォームはこちら", href="https.forms.gle/WshPiwRiMZYAZE6N7", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("入試予定を入力する", id="open-acceptance-modal-btn", color="success", className="me-2"),
@@ -314,7 +323,7 @@ def _create_mock_exam_tab():
             dbc.Col([
                 html.H4("模試結果記録", style={"border-left": "solid 5px #7db4e6"}),
                 html.P("フォームの結果を反映するためには入力ボタン横の更新ボタンを押してください", className="text-muted"),
-                html.A("模試結果入力フォームはこちら", href="https://forms.gle/N5iB2Q4BU8f61RJSA", target="_blank", rel="noopener noreferrer") # 要変更
+                html.A("模試結果入力フォームはこちら", href="https.forms.gle/N5iB2Q4BU8f61RJSA", target="_blank", rel="noopener noreferrer") # 要変更
             ]),
             dbc.Col([
                 dbc.Button("模試結果を入力する", id="open-mock-exam-modal-btn", color="success", className="me-2"),
