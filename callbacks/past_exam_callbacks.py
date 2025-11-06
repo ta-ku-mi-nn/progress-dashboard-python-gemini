@@ -88,7 +88,7 @@ def find_nearest_future_month(acceptance_data):
     # --- Default to current month ---
     return today.strftime('%Y-%m')
 
-# ★★★ ヘルパー関数: 模試結果テーブル生成 ★★★
+# ★★★ ヘルパー関数: 模試結果テーブル生成 (変更なし) ★★★
 def _create_mock_exam_table(df, table_type, student_id):
     """マークまたは記述の模試結果DataFrameからdbc.Tableを生成する"""
     if df.empty:
@@ -159,6 +159,7 @@ def register_past_exam_callbacks(app):
     """過去問管理、入試管理、模試結果ページのコールバックを登録する"""
 
     # --- 過去問管理タブ関連のコールバック ---
+    # (handle_past_exam_modal_opening - 変更なし)
     @app.callback(
         [Output('past-exam-modal', 'is_open'),
          Output('past-exam-modal-title', 'children'),
@@ -225,6 +226,7 @@ def register_past_exam_callbacks(app):
         # 上記以外の場合はモーダルを閉じるか、状態を維持
         return False, no_update, None, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, False
 
+    # (save_past_exam_result - 変更なし)
     @app.callback(
         [Output('past-exam-modal-alert', 'children'),
          Output('past-exam-modal-alert', 'is_open', allow_duplicate=True),
@@ -279,6 +281,7 @@ def register_past_exam_callbacks(app):
             return "", False, toast_data, False
         else: return dbc.Alert(message, color="danger"), True, no_update, no_update
 
+    # (display_delete_past_exam_confirmation - 変更なし)
     @app.callback(
         Output('delete-past-exam-confirm', 'displayed'),
         Input({'type': 'delete-past-exam-btn', 'index': ALL}, 'n_clicks'), # モーダル内の削除ボタン
@@ -291,6 +294,7 @@ def register_past_exam_callbacks(app):
             raise PreventUpdate
         return True
 
+    # (execute_past_exam_delete - 変更なし)
     @app.callback(
         [Output('toast-trigger', 'data', allow_duplicate=True),
          Output('past-exam-modal', 'is_open', allow_duplicate=True), # 削除後にモーダルを閉じる
@@ -307,6 +311,7 @@ def register_past_exam_callbacks(app):
         # 成功したらモーダルを閉じ、IDストアをクリア
         return toast_data, not success, None if success else no_update
 
+    # ★★★ 修正箇所 (update_past_exam_table) ★★★
     @app.callback(
         [Output('past-exam-table-container', 'children'),
          Output('past-exam-university-filter', 'options'),
@@ -315,25 +320,25 @@ def register_past_exam_callbacks(app):
          Input('toast-trigger', 'data'),
          Input('past-exam-university-filter', 'value'),
          Input('past-exam-subject-filter', 'value'),
-         Input('refresh-past-exam-table-btn', 'n_clicks')],
-        State('past-exam-tabs', 'active_tab') # ★ タブの状態を追加
+         Input('refresh-past-exam-table-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab')], # ★ Input として active_tab を追加
+        # State('past-exam-tabs', 'active_tab') # ★ State から削除
     )
-    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks, active_tab): # ★ active_tab を追加
+    def update_past_exam_table(student_id, toast_data, selected_university, selected_subject, refresh_clicks, active_tab): # ★ active_tab を引数に追加
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # ★ 過去問タブが表示されていない場合は更新しない
+        # ★ 過去問タブが表示されていない場合は更新しない (コールバック冒頭に移動)
         if active_tab != 'tab-past-exam':
             raise PreventUpdate
 
         # PreventUpdate の条件チェック
         if triggered_id == 'toast-trigger':
-            # ★ source をチェック
             if not toast_data or toast_data.get('source') != 'past_exam':
                 raise PreventUpdate
         elif triggered_id == 'refresh-past-exam-table-btn' and refresh_clicks is None:
              raise PreventUpdate
-        # ★ 生徒選択時 (student-selection-store) は必ず実行
+        # ★ 生徒選択時 (student-selection-store) またはタブ切り替え時 (past-exam-tabs) は必ず実行
 
         # --- ここから戻り値を確実に返すための構造 ---
         table_content = None
@@ -402,8 +407,9 @@ def register_past_exam_callbacks(app):
             table_content = dbc.Alert(f"テーブル表示中にエラーが発生しました: {e}", color="danger")
 
         return table_content, university_options, subject_options
+    # ★★★ 修正ここまで ★★★
 
-    # テーブル内の削除ボタンが押されたら確認ダイアログを表示するコールバック (過去問用)
+    # (display_delete_past_exam_confirm_from_table - 変更なし)
     @app.callback(
         Output('delete-past-exam-confirm', 'displayed', allow_duplicate=True),
         Output('editing-past-exam-id-store', 'data', allow_duplicate=True), # 削除対象IDをセット
@@ -597,30 +603,30 @@ def register_past_exam_callbacks(app):
         # 成功したらIDストアをクリア
         return toast_data, None if success else no_update
 
-    # (update_acceptance_table - 変更なし)
+    # ★★★ 修正箇所 (update_acceptance_table) ★★★
     @app.callback(
         Output('acceptance-table-container', 'children'),
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
-         Input('refresh-acceptance-table-btn', 'n_clicks')],
-        State('past-exam-tabs', 'active_tab')
+         Input('refresh-acceptance-table-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab')], # ★ Input として active_tab を追加
+        # State('past-exam-tabs', 'active_tab') # ★ State から削除
     )
-    def update_acceptance_table(student_id, toast_data, refresh_clicks, active_tab):
+    def update_acceptance_table(student_id, toast_data, refresh_clicks, active_tab): # ★ active_tab を引数に追加
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # ★ 入試管理タブが表示されていない場合は更新しない
+        # ★ 入試管理タブが表示されていない場合は更新しない (コールバック冒頭に移動)
         if active_tab != 'tab-acceptance':
             raise PreventUpdate
 
         # PreventUpdate 条件
         if triggered_id == 'toast-trigger':
-            # ★ source をチェック
             if not toast_data or toast_data.get('source') != 'acceptance':
                 raise PreventUpdate
         elif triggered_id == 'refresh-acceptance-table-btn' and refresh_clicks is None:
              raise PreventUpdate
-        # ★ 生徒選択時 (student-selection-store) は必ず実行
+        # ★ 生徒選択時 (student-selection-store) またはタブ切り替え時 (past-exam-tabs) は必ず実行
 
         if not student_id:
             return dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
@@ -670,25 +676,25 @@ def register_past_exam_callbacks(app):
 
 
     # --- カレンダータブ関連のコールバック ---
-    # (update_acceptance_calendar - 変更なし)
+    # ★★★ 修正箇所 (update_acceptance_calendar) ★★★
     @app.callback(
         Output('web-calendar-container', 'children'),
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
          Input('current-calendar-month-store', 'data'),
-         Input('refresh-calendar-btn', 'n_clicks')],
-        State('past-exam-tabs', 'active_tab')
+         Input('refresh-calendar-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab')], # ★ Input として active_tab を追加
+        # State('past-exam-tabs', 'active_tab') # ★ State から削除
     )
-    def update_acceptance_calendar(student_id, toast_data, target_month, refresh_clicks, active_tab):
+    def update_acceptance_calendar(student_id, toast_data, target_month, refresh_clicks, active_tab): # ★ active_tab を引数に追加
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # ★ カレンダータブが表示されていない場合は更新しない
+        # ★ カレンダータブが表示されていない場合は更新しない (コールバック冒頭に移動)
         if active_tab != 'tab-gantt':
             raise PreventUpdate
 
         if triggered_id == 'toast-trigger':
-            # ★ source をチェック
             if not toast_data or toast_data.get('source') != 'acceptance':
                 raise PreventUpdate
         elif triggered_id == 'refresh-calendar-btn' and refresh_clicks is None:
@@ -712,6 +718,7 @@ def register_past_exam_callbacks(app):
         except Exception as e:
             print(f"Error in update_acceptance_calendar: {e}")
             return dbc.Alert(f"カレンダー表示中にエラーが発生しました: {e}", color="danger")
+    # ★★★ 修正ここまで ★★★
 
     # (update_calendar_month - 変更なし)
     @app.callback(
@@ -727,11 +734,11 @@ def register_past_exam_callbacks(app):
         ctx = callback_context
         trigger_id = ctx.triggered_id
 
-        # カレンダータブ以外 or 生徒未選択なら更新しない
+        # カレンダータブ以外なら更新しない
         if active_tab != 'tab-gantt':
              raise PreventUpdate
-
-        # タブ切り替え時 or 生徒変更時
+        
+        # ★ タブ切り替え時 or 生徒変更時 (active_tab != 'tab-gantt' のチェックより後に移動)
         if trigger_id in ['past-exam-tabs', 'student-selection-store']:
             if not student_id: return date.today().strftime('%Y-%m') # 生徒未選択なら当月
             # ★ 生徒の合否データを取得して最も近い未来の月 or 当月を計算 ★
@@ -843,15 +850,14 @@ def register_past_exam_callbacks(app):
                         #printable-calendar-area .calendar-info-header-cell { vertical-align: middle !important; font-weight: bold; background-color: #e9ecef !important;}
                         #printable-calendar-area .calendar-header-cell, #printable-calendar-area .calendar-date-cell { width: auto !important; min-width: 0 !important; font-size: 7pt !important; }
                         #printable-calendar-area .calendar-header-cell { font-size: 6pt !important; }
-                        #printable-calendar-area .calendar-table th br { display: block !important; }
+                         #printable-calendar-area .calendar-table th br { display: block !important; }
                         #printable-calendar-area .saturday { background-color: #f0f8ff !important; }
                         #printable-calendar-area .sunday { background-color: #fff7f0 !important; }
                         #printable-calendar-area .app-deadline-cell { background-color: #ffff7f !important; }
                         #printable-calendar-area .exam-date-cell { background-color: #ff7f7f !important; }
                         #printable-calendar-area .announcement-date-cell { background-color: #7fff7f !important; }
                         #printable-calendar-area .proc-deadline-cell { background-color: #bf7fff !important; }
-                        #printable-calendar-area .app-deadline-cell, #printable-calendar-area .exam-date-cell, #printable-calendar-area .announcement-date-cell, #printable-calendar-area .proc-deadline-cell, #printable-calendar-area .saturday, #printable-calendar-area .sunday { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !impor
-tant; }
+                        #printable-calendar-area .app-deadline-cell, #printable-calendar-area .exam-date-cell, #printable-calendar-area .announcement-date-cell, #printable-calendar-area .proc-deadline-cell, #printable-calendar-area .saturday, #printable-calendar-area .sunday { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                         @page { size: A4 portrait; margin: 10mm; }
                     }
                 `;
@@ -872,7 +878,7 @@ tant; }
 
     # ★★★ ここから模試結果関連のコールバック ★★★
 
-# --- 模試結果モーダル表示/非表示 ---
+    # (handle_mock_exam_modal_opening - 変更なし)
     @app.callback(
         [Output('mock-exam-modal', 'is_open'),
          Output('mock-exam-modal-title', 'children'),
@@ -915,7 +921,7 @@ tant; }
             None, # grade
             None, # round
             None, # date
-        ] + [None] * 19 # Scores (7 記述 + 12 マーク) ★★★ 修正 (20 -> 19) ★★★
+        ] + [None] * 19 # Scores (7 記述 + 12 マーク)
 
         # キャンセルボタン
         if trigger_id == 'cancel-mock-exam-modal-btn':
@@ -924,7 +930,6 @@ tant; }
         # 新規追加ボタン
         if trigger_id == 'open-mock-exam-modal-btn':
             today_iso = date.today().isoformat() # 今日の日付を文字列で
-            # ★★★ 修正 (20 -> 19) ★★★
             return [True, "模試結果の入力", None] + [None]*5 + [today_iso] + [None]*19 + [False] # 日付だけ今日に
 
 
@@ -959,7 +964,7 @@ tant; }
         # 上記以外の場合はモーダルを閉じる
         return [False, no_update, None] + initial_values + [False]
 
-    # --- 模試結果の保存 ---
+    # (save_mock_exam_result - 変更なし)
     @app.callback(
         [Output('mock-exam-modal-alert', 'children'),
          Output('mock-exam-modal-alert', 'is_open', allow_duplicate=True),
@@ -1034,8 +1039,7 @@ tant; }
             return "", False, toast_data, False
         else: return dbc.Alert(message, color="danger"), True, no_update, no_update
 
-    # --- 模試結果削除確認表示 ---
-    # ★★★ 修正: editing-mock-exam-id-store への出力を追加 ★★★
+    # (display_delete_mock_exam_confirmation - 変更なし)
     @app.callback(
         [Output('delete-mock-exam-confirm', 'displayed'),
          Output('editing-mock-exam-id-store', 'data', allow_duplicate=True)], # IDをストアに出力
@@ -1053,10 +1057,9 @@ tant; }
 
         if isinstance(triggered_id, dict) and triggered_id.get('type') == 'delete-mock-exam-trigger-btn':
             # テーブルのボタンが押された場合
-            # any() を使ってクリックされたか確認
-            # inputs_list[0] (cell_clickedなど) が [None] でない（＝クリックされた）かチェック
             if not any(ctx.inputs_list[0]):
                 raise PreventUpdate
+            result_id_to_delete = triggered_id['index'] # ★ テーブルボタンからIDを取得
         elif triggered_id == 'delete-mock-exam-btn':
             # モーダルの削除ボタンが押された場合
             if not modal_click or result_id_from_modal is None: raise PreventUpdate
@@ -1070,7 +1073,7 @@ tant; }
         return False, no_update # ダイアログ非表示、ストアは更新しない
 
 
-    # --- 模試結果削除実行 ---
+    # (execute_mock_exam_delete - 変更なし)
     @app.callback(
         [Output('toast-trigger', 'data', allow_duplicate=True),
          Output('mock-exam-modal', 'is_open', allow_duplicate=True), # モーダルも閉じる
@@ -1087,31 +1090,31 @@ tant; }
         # 成功したらモーダルを閉じ、IDストアをクリア
         return toast_data, not success, None if success else no_update
 
-    # --- 模試結果テーブル更新 ---
+    # ★★★ 修正箇所 (update_mock_exam_tables) ★★★
     @app.callback(
         [Output('mock-exam-mark-table-container', 'children'),
          Output('mock-exam-descriptive-table-container', 'children')],
         [Input('student-selection-store', 'data'),
          Input('toast-trigger', 'data'),
-         Input('refresh-mock-exam-table-btn', 'n_clicks')],
-        State('past-exam-tabs', 'active_tab')
+         Input('refresh-mock-exam-table-btn', 'n_clicks'),
+         Input('past-exam-tabs', 'active_tab')], # ★ Input として active_tab を追加
+        # State('past-exam-tabs', 'active_tab') # ★ State から削除
     )
-    def update_mock_exam_tables(student_id, toast_data, refresh_clicks, active_tab):
+    def update_mock_exam_tables(student_id, toast_data, refresh_clicks, active_tab): # ★ active_tab を引数に追加
         ctx = callback_context
         triggered_id = ctx.triggered_id if ctx.triggered_id else 'initial load'
 
-        # ★ 模試結果タブが表示されていない場合は更新しない
+        # ★ 模試結果タブが表示されていない場合は更新しない (コールバック冒頭に移動)
         if active_tab != 'tab-mock-exam':
             raise PreventUpdate
 
         # PreventUpdate 条件
         if triggered_id == 'toast-trigger':
-            # ★ source をチェック
             if not toast_data or toast_data.get('source') != 'mock_exam':
                 raise PreventUpdate
         elif triggered_id == 'refresh-mock-exam-table-btn' and refresh_clicks is None:
              raise PreventUpdate
-        # ★ 生徒選択時 (student-selection-store) は必ず実行
+        # ★ 生徒選択時 (student-selection-store) またはタブ切り替え時 (past-exam-tabs) は必ず実行
 
         if not student_id:
             no_student_alert = dbc.Alert("まず生徒を選択してください。", color="info", className="mt-4")
