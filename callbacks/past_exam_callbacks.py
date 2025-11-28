@@ -881,8 +881,6 @@ def register_past_exam_callbacks(app):
     )
 
 
-    # ★★★ ここから模試結果関連のコールバック ★★★
-
     # (handle_mock_exam_modal_opening - 変更なし)
     @app.callback(
         [Output('mock-exam-modal', 'is_open'),
