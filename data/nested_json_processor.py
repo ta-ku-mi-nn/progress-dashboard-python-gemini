@@ -1905,3 +1905,46 @@ def get_mock_exam_filter_options(school_name):
         'names': [{'label': n, 'value': n} for n in names],
         'grades': [{'label': g, 'value': g} for g in sorted_grades]
     }
+
+def get_eiken_results_for_student(student_id):
+    """生徒の英検結果を取得する"""
+    conn = get_db_connection()
+    results = []
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM eiken_results WHERE student_id = %s ORDER BY grade",
+                (student_id,)
+            )
+            results = cur.fetchall()
+    except psycopg2.Error as e:
+        print(f"データベースエラー (get_eiken_results_for_student): {e}")
+    finally:
+        if conn:
+            conn.close()
+    return [dict(row) for row in results]
+
+def add_or_update_eiken_result(student_id, grade, cse_score):
+    """英検結果を登録または更新する (UPSERT)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # cse_score のバリデーション
+            score_val = int(cse_score) if cse_score is not None and str(cse_score).strip() != '' else None
+            
+            query = """
+                INSERT INTO eiken_results (student_id, grade, cse_score)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (student_id, grade) 
+                DO UPDATE SET cse_score = EXCLUDED.cse_score
+            """
+            cur.execute(query, (student_id, grade, score_val))
+        conn.commit()
+        return True, "英検結果を保存しました。"
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"データベースエラー (add_or_update_eiken_result): {e}")
+        return False, f"保存中にエラーが発生しました: {e}"
+    finally:
+        if conn:
+            conn.close()
