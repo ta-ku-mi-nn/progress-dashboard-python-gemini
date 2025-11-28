@@ -97,7 +97,7 @@ def _create_mock_exam_table(df, table_type, student_id):
 
     # 表示するカラムを選択
     base_cols = ['id', 'result_type', 'mock_exam_name', 'mock_exam_format', 'grade', 'round', 'exam_date']
-    score_col_style = {'width': '60px', 'textAlign': 'center'} # ★ 幅と中央揃えのスタイル定義
+    score_col_style = {'width': '60px', 'textAlign': 'center'} 
 
     if table_type == "mark":
         score_cols = [
@@ -114,18 +114,17 @@ def _create_mock_exam_table(df, table_type, student_id):
         ]
         col_headers_jp = ["国", "数", "英", "理①", "理②", "社①", "社②"]
 
-    display_cols = base_cols[:6] + ['exam_date'] + score_cols # exam_dateの位置を調整
-    # Ensure all display_cols exist, adding missing ones with None
+    display_cols = base_cols[:6] + ['exam_date'] + score_cols
     for col in display_cols:
         if col not in df.columns:
-            df[col] = None # Add missing columns
+            df[col] = None 
 
     df_display = df[display_cols].copy()
 
     # ヘッダー生成
     header_cells = [
         html.Th("種類"), html.Th("模試名"), html.Th("形式"), html.Th("学年"), html.Th("回"), html.Th("受験日")
-    ] + [html.Th(jp, style=score_col_style) for jp in col_headers_jp] + [html.Th("操作", style={'width': '100px'})] # ★ スタイル適用
+    ] + [html.Th(jp, style=score_col_style) for jp in col_headers_jp] + [html.Th("操作", style={'width': '100px'})]
     table_header = [html.Thead(html.Tr(header_cells))]
 
     # ボディ生成
@@ -139,11 +138,19 @@ def _create_mock_exam_table(df, table_type, student_id):
             html.Td(row['round']),
             html.Td(row['exam_date'].strftime('%Y-%m-%d') if pd.notna(row['exam_date']) and isinstance(row['exam_date'], date) else '-'),
         ]
-        # 点数列を追加 (NaNやNoneは'-'にする)
+        # ★★★ 修正点: 点数を文字列として処理し、None/NaNはハイフンにする ★★★
         for col in score_cols:
             score = row[col]
-            display_score = '-' if pd.isna(score) else int(score)
-            cells.append(html.Td(display_score, style=score_col_style)) # ★ スタイル適用
+            if pd.isna(score):
+                display_score = '-'
+            else:
+                # 整数に変換してから文字列化、もしくはそのまま文字列化
+                try:
+                    display_score = str(int(score))
+                except:
+                    display_score = str(score)
+            
+            cells.append(html.Td(display_score, style=score_col_style))
 
         # 操作ボタンを追加
         cells.append(html.Td([

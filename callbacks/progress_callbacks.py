@@ -6,7 +6,7 @@ import pandas as pd
 from dash.exceptions import PreventUpdate
 from datetime import datetime
 
-from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time, add_or_update_student_progress
+from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time, add_or_update_student_progress, get_eiken_results_for_student, add_or_update_eiken_result
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
 # ( ... create_welcome_layout と create_initial_progress_layout は変更ありません ... )
@@ -107,6 +107,41 @@ def create_initial_progress_layout(student_id):
         className="mt-5"
     )
 
+def create_eiken_input_card(student_id):
+    eiken_results = get_eiken_results_for_student(student_id)
+    # 最新のデータを表示用に整形（必要に応じて）
+    
+    return dbc.Card(
+        dbc.CardBody([
+            html.H5("英検スコア記録", className="card-title"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("級", size="sm"),
+                    dcc.Dropdown(
+                        id="eiken-grade-input",
+                        options=[
+                            {'label': '5級', 'value': '5級'}, {'label': '4級', 'value': '4級'},
+                            {'label': '3級', 'value': '3級'}, {'label': '準2級', 'value': '準2級'},
+                            {'label': '2級', 'value': '2級'}, {'label': '準1級', 'value': '準1級'},
+                            {'label': '1級', 'value': '1級'}
+                        ],
+                        placeholder="選択",
+                    )
+                ], width=4),
+                dbc.Col([
+                    dbc.Label("CSEスコア", size="sm"),
+                    dbc.Input(id="eiken-score-input", type="number", placeholder="スコア")
+                ], width=4),
+                dbc.Col([
+                    dbc.Label(" ", size="sm"), # スペース調整
+                    dbc.Button("保存", id="save-eiken-btn", color="primary", size="sm", className="w-100 mt-4")
+                ], width=4),
+            ]),
+            html.Div(id="eiken-result-message", className="mt-2 small text-muted")
+        ]),
+        className="mb-3 mt-3"
+    )
+
 def generate_dashboard_content(student_id, active_tab, for_print=False):
     """指定された生徒とタブに基づいてダッシュボードのコンテンツを生成する"""
     if not student_id or not active_tab:
@@ -153,10 +188,12 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
 
 
         stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間', for_print=for_print)
+        eiken_card = create_eiken_input_card(student_id)
 
         left_col = html.Div([
             dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
-            summary_cards
+            summary_cards,
+            eiken_card
         ])
 
         bar_charts = []
