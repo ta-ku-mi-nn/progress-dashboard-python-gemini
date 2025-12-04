@@ -280,10 +280,9 @@ def register_progress_callbacks(app):
         if not active_tab: return no_update
         return generate_dashboard_content(student_id, active_tab)
 
-    # ★★★ 進捗の一括保存コールバック (科目ごと) ★★★
+    # ★★★ 進捗の一括保存コールバック (修正版: MATCH -> ALL) ★★★
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
-        # MATCH ではなく ALL を使用します
         Input({'type': 'save-subject-progress-btn', 'subject': ALL}, 'n_clicks'),
         [State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'value'),
          State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'id'),
@@ -309,7 +308,7 @@ def register_progress_callbacks(app):
         if not any(n_clicks_list):
             raise PreventUpdate
 
-        # 対象の科目を特定
+        # 対象の科目を特定 (triggered_id_dictにはボタンのIDが入っている)
         target_subject = triggered_id_dict['subject']
 
         updates = []
@@ -317,7 +316,7 @@ def register_progress_callbacks(app):
 
         # 全入力データの中から、対象科目のデータだけを抽出して処理
         for val, id_dict in zip(all_values, all_ids):
-            # id_dict: {'type': 'progress-input', 'subject': '...', ...}
+            # id_dict: {'type': 'progress-input', 'subject': '...', 'level': '...', 'book': '...'}
             
             # 科目が一致しないデータは無視
             if id_dict.get('subject') != target_subject:
@@ -328,7 +327,7 @@ def register_progress_callbacks(app):
             subject = id_dict['subject']
 
             if not val:
-                continue # 空欄はスキップ
+                continue # 空欄はスキップ (または0にするならここで処理)
 
             try:
                 if '/' in str(val):
@@ -337,7 +336,7 @@ def register_progress_callbacks(app):
                     total = int(total_str)
                 else:
                     completed = int(val)
-                    total = 1 
+                    total = 1 # 分母省略時は1とみなす
 
                 updates.append({
                     'subject': subject,
@@ -367,6 +366,7 @@ def register_progress_callbacks(app):
             return {'timestamp': datetime.now().isoformat(), 'message': f"「{target_subject}」の進捗を一括保存しました。", 'source': 'progress_update'}
         else:
             return {'timestamp': datetime.now().isoformat(), 'message': f"保存エラー: {db_message}"}
+
 
     # ★★★ 英検保存コールバック (変更なし) ★★★
     @app.callback(
@@ -426,9 +426,11 @@ def create_progress_table(progress_data, student_info, active_tab):
     subject_data = progress_data.get(active_tab, {})
     if not subject_data: return None
 
-    # ★ 操作列を削除
+    # ★ ステータス列を追加
     table_header = [html.Thead(html.Tr([
-        html.Th("レベル"), html.Th("参考書名"), html.Th("進捗 (完了/全)", style={'width': '200px'})
+        html.Th("レベル"), html.Th("参考書名"), 
+        html.Th("進捗 (完了/全)", style={'width': '200px'}),
+        html.Th("ステータス", style={'width': '100px', 'textAlign': 'center'}) # 追加
     ]))]
 
     table_rows = []
@@ -444,6 +446,18 @@ def create_progress_table(progress_data, student_info, active_tab):
             total = details.get('total_units', 1)
             progress_value = f"{completed}/{total}"
             
+            # ★ ステータス判定ロジック
+            ratio = 0
+            if total > 0:
+                ratio = completed / total
+            
+            if completed == 0:
+                status_badge = dbc.Badge("未達成", color="secondary", className="w-100")
+            elif ratio >= 1:
+                status_badge = dbc.Badge("達成済", color="success", className="w-100")
+            else: # 0より大きく1未満
+                status_badge = dbc.Badge("着手中", color="warning", text_color="dark", className="w-100")
+
             # ★ 個別保存ボタンを削除し、入力のみにする
             input_comp = dbc.Input(
                 id={'type': 'progress-input', 'subject': active_tab, 'level': level, 'book': book_name},
@@ -457,6 +471,7 @@ def create_progress_table(progress_data, student_info, active_tab):
                 html.Td(level),
                 html.Td(book_name),
                 html.Td(input_comp),
+                html.Td(status_badge, className="align-middle"), # ステータスを追加
             ]))
 
     if not table_rows: return dbc.Alert("予定されている学習はありません。", color="info", className="mt-4")
