@@ -422,7 +422,7 @@ def create_progress_table(progress_data, student_info, active_tab):
     # ★ ステータス列を追加
     table_header = [html.Thead(html.Tr([
         html.Th("レベル"), html.Th("参考書名"), 
-        html.Th("進捗 (完了/全)", style={'width': '200px'}),
+        html.Th("進捗 (完了/全)", style={'width': '100px'}),
         html.Th("ステータス", style={'width': '100px', 'textAlign': 'center'}) # 追加
     ]))]
 
