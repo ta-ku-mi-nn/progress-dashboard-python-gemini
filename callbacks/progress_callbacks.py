@@ -16,10 +16,6 @@ from data.nested_json_processor import (
 )
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
-# ( ... create_welcome_layout と create_initial_progress_layout は変更ありません ... )
-# ※ create_welcome_layout, create_initial_progress_layout, create_eiken_input_card は元のコードを維持してください。
-# ここでは省略し、generate_dashboard_content以降を表示します。
-
 def create_welcome_layout():
     """初期画面に表示する「How to use」レイアウトを生成します。"""
     return dbc.Row(
@@ -161,7 +157,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         return create_initial_progress_layout(student_id)
 
     if active_tab == '総合':
-        # (総合タブのロジックは変更なし)
         all_records = []
         for subject, levels in progress_data.items():
             for level, books in levels.items():
@@ -223,7 +218,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
             dbc.Col(right_col, md=4),
         ])
     else:
-        # 科目別タブ
         if active_tab not in progress_data:
             return dbc.Alert(f"「{active_tab}」の進捗データがありません。", color="info")
 
@@ -248,7 +242,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
             summary_cards
         ])
 
-        # create_progress_table を呼び出し（テーブル生成）
         student_info = get_student_info_by_id(student_id)
         right_col = create_progress_table(progress_data, student_info, active_tab)
 
@@ -459,12 +452,13 @@ def create_progress_table(progress_data, student_info, active_tab):
                 status_badge = dbc.Badge("着手中", color="warning", text_color="dark", className="w-100")
 
             # ★ 個別保存ボタンを削除し、入力のみにする
+            # ★ サイズ変更: width: 50%, margin: 0 auto を追加
             input_comp = dbc.Input(
                 id={'type': 'progress-input', 'subject': active_tab, 'level': level, 'book': book_name},
                 value=progress_value,
                 type="text",
                 size="sm",
-                style={'textAlign': 'center'}
+                style={'textAlign': 'center', 'width': '50%', 'display': 'block', 'margin': '0 auto'} # 変更点
             )
 
             table_rows.append(html.Tr([
