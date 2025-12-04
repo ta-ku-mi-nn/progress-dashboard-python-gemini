@@ -458,7 +458,7 @@ def create_progress_table(progress_data, student_info, active_tab):
                 value=progress_value,
                 type="text",
                 size="sm",
-                style={'textAlign': 'center', 'width': '50%', 'display': 'block', 'margin': '0 auto'} # 変更点
+                style={'textAlign': 'center', 'width': '75%', 'display': 'block', 'margin': '0 auto'} # 変更点
             )
 
             table_rows.append(html.Tr([
