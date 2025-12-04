@@ -283,35 +283,52 @@ def register_progress_callbacks(app):
     # ★★★ 進捗の一括保存コールバック (科目ごと) ★★★
     @app.callback(
         Output('toast-trigger', 'data', allow_duplicate=True),
-        Input({'type': 'save-subject-progress-btn', 'subject': MATCH}, 'n_clicks'),
-        [State({'type': 'progress-input', 'subject': MATCH, 'level': ALL, 'book': ALL}, 'value'),
-         State({'type': 'progress-input', 'subject': MATCH, 'level': ALL, 'book': ALL}, 'id'),
+        # MATCH ではなく ALL を使用します
+        Input({'type': 'save-subject-progress-btn', 'subject': ALL}, 'n_clicks'),
+        [State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'value'),
+         State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'id'),
          State('student-selection-store', 'data')],
         prevent_initial_call=True
     )
-    def save_all_subject_progress(n_clicks, values, ids, student_id):
+    def save_all_subject_progress(n_clicks_list, all_values, all_ids, student_id):
         """
         特定の科目のすべての参考書の進捗を一括保存する。
+        MATCHが使えないため、ALLで全データを取得し、トリガーされた科目でフィルタリングする。
         """
-        if not n_clicks or not student_id:
+        ctx = callback_context
+        if not ctx.triggered or not student_id:
             raise PreventUpdate
 
-        # Triggered IDから科目名を取得 (MATCHを使っているので、トリガーされた科目のデータのみが渡される)
-        # ctx = callback_context
-        # subject = ctx.triggered_id['subject'] 
-        # MATCHを使っているため ids と values にはその科目のデータしか含まれないはず
+        # どのボタンが押されたか特定する
+        triggered_id_dict = ctx.triggered_id
+        if not triggered_id_dict or triggered_id_dict.get('type') != 'save-subject-progress-btn':
+            raise PreventUpdate
+        
+        # トリガーされたボタンのインデックスを確認し、n_clicksが有効かチェック
+        # (ALLを使うとn_clicksはリストで渡されるため、どれか1つでも押されていればOK)
+        if not any(n_clicks_list):
+            raise PreventUpdate
+
+        # 対象の科目を特定
+        target_subject = triggered_id_dict['subject']
 
         updates = []
         error_books = []
 
-        for val, id_dict in zip(values, ids):
-            # id_dict: {'type': 'progress-input', 'subject': '...', 'level': '...', 'book': '...'}
+        # 全入力データの中から、対象科目のデータだけを抽出して処理
+        for val, id_dict in zip(all_values, all_ids):
+            # id_dict: {'type': 'progress-input', 'subject': '...', ...}
+            
+            # 科目が一致しないデータは無視
+            if id_dict.get('subject') != target_subject:
+                continue
+
             book_name = id_dict['book']
             level = id_dict['level']
             subject = id_dict['subject']
 
             if not val:
-                continue # 空欄はスキップ (または0にするならここで処理)
+                continue # 空欄はスキップ
 
             try:
                 if '/' in str(val):
@@ -320,7 +337,7 @@ def register_progress_callbacks(app):
                     total = int(total_str)
                 else:
                     completed = int(val)
-                    total = 1 # 分母省略時は1とみなす（または既存維持だが、一括保存では明確さが重要）
+                    total = 1 
 
                 updates.append({
                     'subject': subject,
@@ -347,10 +364,9 @@ def register_progress_callbacks(app):
         success, db_message = add_or_update_student_progress(student_id, updates)
 
         if success:
-            return {'timestamp': datetime.now().isoformat(), 'message': f"「{subject}」の進捗を一括保存しました。", 'source': 'progress_update'}
+            return {'timestamp': datetime.now().isoformat(), 'message': f"「{target_subject}」の進捗を一括保存しました。", 'source': 'progress_update'}
         else:
             return {'timestamp': datetime.now().isoformat(), 'message': f"保存エラー: {db_message}"}
-
 
     # ★★★ 英検保存コールバック (変更なし) ★★★
     @app.callback(
