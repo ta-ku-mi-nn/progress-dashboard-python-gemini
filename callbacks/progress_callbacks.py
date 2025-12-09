@@ -6,10 +6,16 @@ import pandas as pd
 from dash.exceptions import PreventUpdate
 from datetime import datetime
 
-from data.nested_json_processor import get_student_progress_by_id, get_student_info_by_id, get_total_past_exam_time, add_or_update_student_progress, get_eiken_results_for_student, add_or_update_eiken_result
+from data.nested_json_processor import (
+    get_student_progress_by_id, 
+    get_student_info_by_id, 
+    get_total_past_exam_time, 
+    add_or_update_student_progress, 
+    get_eiken_results_for_student, 
+    add_or_update_eiken_result
+)
 from charts.chart_generator import create_progress_stacked_bar_chart, create_subject_achievement_bar
 
-# ( ... create_welcome_layout と create_initial_progress_layout は変更ありません ... )
 def create_welcome_layout():
     """初期画面に表示する「How to use」レイアウトを生成します。"""
     return dbc.Row(
@@ -109,7 +115,6 @@ def create_initial_progress_layout(student_id):
 
 def create_eiken_input_card(student_id):
     eiken_results = get_eiken_results_for_student(student_id)
-    # 最新のデータを表示用に整形（必要に応じて）
     
     return dbc.Card(
         dbc.CardBody([
@@ -256,81 +261,127 @@ def register_progress_callbacks(app):
         prevent_initial_call=True
     )
     def update_dashboard_content(active_tab, toast_data, student_id):
-        """タブ切替やデータ更新に応じて、ダッシュボードのコンテンツエリアのみを更新する"""
+        ctx = callback_context
+        if not ctx.triggered or not student_id: raise PreventUpdate
+        triggered_id = ctx.triggered_id
+        
+        # 保存完了時に再描画する
+        if triggered_id == 'toast-trigger':
+            if not toast_data or toast_data.get('source') not in ['plan', 'eiken', 'progress_update']:
+                raise PreventUpdate
+        
+        if not active_tab: return no_update
+        return generate_dashboard_content(student_id, active_tab)
+
+    # ★★★ 進捗の一括保存コールバック (修正版: MATCH -> ALL) ★★★
+    @app.callback(
+        Output('toast-trigger', 'data', allow_duplicate=True),
+        Input({'type': 'save-subject-progress-btn', 'subject': ALL}, 'n_clicks'),
+        [State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'value'),
+         State({'type': 'progress-input', 'subject': ALL, 'level': ALL, 'book': ALL}, 'id'),
+         State('student-selection-store', 'data')],
+        prevent_initial_call=True
+    )
+    def save_all_subject_progress(n_clicks_list, all_values, all_ids, student_id):
+        """
+        特定の科目のすべての参考書の進捗を一括保存する。
+        MATCHが使えないため、ALLで全データを取得し、トリガーされた科目でフィルタリングする。
+        """
         ctx = callback_context
         if not ctx.triggered or not student_id:
             raise PreventUpdate
 
-        triggered_id = ctx.triggered_id
-
-        # データ更新(plan)がトリガーの場合のみトーストのsourceをチェック
-        if triggered_id == 'toast-trigger':
-            if not toast_data or toast_data.get('source') != 'plan':
-                raise PreventUpdate
-
-        # 生徒が選択されていない場合や、アクティブなタブがない場合は何もしない
-        if not active_tab:
-            return no_update
-
-        return generate_dashboard_content(student_id, active_tab)
-
-    @app.callback(
-        Output('toast-trigger', 'data', allow_duplicate=True),
-        Input({'type': 'mark-done-btn', 'subject': ALL, 'level': ALL, 'book': ALL}, 'n_clicks'),
-        State('student-selection-store', 'data'),
-        prevent_initial_call=True
-    )
-    def toggle_book_done_status(n_clicks, student_id):
-        ctx = callback_context
-        if not any(n_clicks) or not student_id:
+        # どのボタンが押されたか特定する
+        triggered_id_dict = ctx.triggered_id
+        if not triggered_id_dict or triggered_id_dict.get('type') != 'save-subject-progress-btn':
+            raise PreventUpdate
+        
+        # トリガーされたボタンのインデックスを確認し、n_clicksが有効かチェック
+        # (ALLを使うとn_clicksはリストで渡されるため、どれか1つでも押されていればOK)
+        if not any(n_clicks_list):
             raise PreventUpdate
 
-        triggered_id = ctx.triggered_id
-        subject = triggered_id.get('subject')
-        level = triggered_id.get('level')
-        book_name = triggered_id.get('book')
+        # 対象の科目を特定 (triggered_id_dictにはボタンのIDが入っている)
+        target_subject = triggered_id_dict['subject']
 
-        # 現在の進捗データを取得
-        progress_data = get_student_progress_by_id(student_id)
-        current_book_details = progress_data.get(subject, {}).get(level, {}).get(book_name, {})
-        is_currently_done = current_book_details.get('達成済', False)
+        updates = []
+        error_books = []
 
-        # 達成状態をトグル
-        if is_currently_done:
-            # 達成済みなら未達成に戻す
-            update_data = [{
-                'subject': subject,
-                'level': level,
-                'book_name': book_name,
-                'is_planned': True,
-                'completed_units': 0, # 未達成に戻すので進捗をリセット
-                'total_units': 1,
-                'is_done': False, # is_doneをFalseに
-                'duration': None
-            }]
-            message = f"「{book_name}」の達成を解除しました。"
-        else:
-            # 未達成なら達成済にする
-            update_data = [{
-                'subject': subject,
-                'level': level,
-                'book_name': book_name,
-                'is_planned': True,
-                'completed_units': 1,
-                'total_units': 1,
-                'is_done': True, # is_doneをTrueに
-                'duration': None
-            }]
-            message = f"「{book_name}」を達成済にしました。"
+        # 全入力データの中から、対象科目のデータだけを抽出して処理
+        for val, id_dict in zip(all_values, all_ids):
+            # id_dict: {'type': 'progress-input', 'subject': '...', 'level': '...', 'book': '...'}
+            
+            # 科目が一致しないデータは無視
+            if id_dict.get('subject') != target_subject:
+                continue
 
-        success, db_message = add_or_update_student_progress(student_id, update_data)
+            book_name = id_dict['book']
+            level = id_dict['level']
+            subject = id_dict['subject']
+
+            if not val:
+                continue # 空欄はスキップ (または0にするならここで処理)
+
+            try:
+                if '/' in str(val):
+                    completed_str, total_str = str(val).split('/')
+                    completed = int(completed_str)
+                    total = int(total_str)
+                else:
+                    completed = int(val)
+                    total = 1 # 分母省略時は1とみなす
+
+                updates.append({
+                    'subject': subject,
+                    'level': level,
+                    'book_name': book_name,
+                    'is_planned': True,
+                    'completed_units': completed,
+                    'total_units': total,
+                    'is_done': completed >= total,
+                    'duration': None # 既存維持
+                })
+            except ValueError:
+                error_books.append(book_name)
+
+        if not updates and not error_books:
+             return {'timestamp': datetime.now().isoformat(), 'message': "保存するデータがありません。"}
+
+        # エラーがあった場合
+        if error_books:
+             msg = f"以下の参考書の入力形式が不正なため保存できませんでした: {', '.join(error_books)}"
+             return {'timestamp': datetime.now().isoformat(), 'message': msg}
+
+        # 正常なデータのみ保存
+        success, db_message = add_or_update_student_progress(student_id, updates)
 
         if success:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'plan'}
-            return toast_data
+            return {'timestamp': datetime.now().isoformat(), 'message': f"「{target_subject}」の進捗を一括保存しました。", 'source': 'progress_update'}
         else:
-            toast_data = {'timestamp': datetime.now().isoformat(), 'message': f"エラー: {db_message}"}
-            return toast_data
+            return {'timestamp': datetime.now().isoformat(), 'message': f"保存エラー: {db_message}"}
+
+
+    # ★★★ 英検保存コールバック (変更なし) ★★★
+    @app.callback(
+        [Output('eiken-result-message', 'children'),
+         Output('toast-trigger', 'data', allow_duplicate=True)],
+        Input('save-eiken-btn', 'n_clicks'),
+        [State('eiken-grade-input', 'value'),
+         State('eiken-score-input', 'value'),
+         State('student-selection-store', 'data')],
+        prevent_initial_call=True
+    )
+    def save_eiken_result(n_clicks, grade, score, student_id):
+        if not n_clicks or not student_id: raise PreventUpdate
+        if not grade:
+            return "級を選択してください", no_update
+        
+        success, message = add_or_update_eiken_result(student_id, grade, score)
+        if success:
+            toast = {'timestamp': datetime.now().isoformat(), 'message': message, 'source': 'eiken'}
+            return message, toast
+        else:
+            return f"エラー: {message}", no_update
 
 def create_summary_cards(df, past_exam_hours=0):
     """進捗データのDataFrameからサマリーカードを生成するヘルパー関数"""
@@ -364,66 +415,70 @@ def create_summary_cards(df, past_exam_hours=0):
     return cards
 
 def create_progress_table(progress_data, student_info, active_tab):
-    """進捗詳細テーブルのコンポーネントを生成するヘルパー関数"""
+    """進捗詳細テーブルのコンポーネントを生成 (一括保存に変更)"""
     subject_data = progress_data.get(active_tab, {})
-    if not subject_data:
-        return None
+    if not subject_data: return None
 
+    # ★ ステータス列を追加
     table_header = [html.Thead(html.Tr([
-        html.Th("レベル"), html.Th("参考書名"), html.Th("ステータス", style={'width': '120px'}), html.Th("操作", style={'width': '80px'})
+        html.Th("レベル"), html.Th("参考書名"), 
+        html.Th("進捗 (完了/全)", style={'width': '150px'}),
+        html.Th("ステータス", style={'width': '100px', 'textAlign': 'center'}) # 追加
     ]))]
 
     table_rows = []
-
-    # 並び順を定義
     level_order = ['基礎徹底', '日大', 'MARCH', '早慶']
+    sorted_levels = sorted(subject_data.keys(), key=lambda x: level_order.index(x) if x in level_order else len(level_order))
 
-    # 存在するレベルを定義した順序でソート
-    sorted_levels = sorted(
-        subject_data.keys(),
-        key=lambda x: level_order.index(x) if x in level_order else len(level_order)
-    )
-
-    # ソートされた順序でループ処理
     for level in sorted_levels:
         books = subject_data[level]
         for book_name, details in books.items():
-            if not details.get('予定'):
-                continue
+            if not details.get('予定'): continue
 
             completed = details.get('completed_units', 0)
             total = details.get('total_units', 1)
-            is_done = details.get('達成済', False)
+            progress_value = f"{completed}/{total}"
+            
+            # ★ ステータス判定ロジック
+            ratio = 0
+            if total > 0:
+                ratio = completed / total
+            
+            if completed == 0:
+                status_badge = dbc.Badge("未達成", color="secondary", className="w-100")
+            elif ratio >= 1:
+                status_badge = dbc.Badge("達成済", color="success", className="w-100")
+            else: # 0より大きく1未満
+                status_badge = dbc.Badge("着手中", color="warning", text_color="dark", className="w-100")
 
-            # 達成率を計算
-            achievement_rate = (completed / total) if total > 0 else 0
-
-            # ステータスバッジとアクションボタンの決定
-            if achievement_rate >= 1 or is_done:
-                status_badge = dbc.Badge("達成済", color="success")
-                action_button = dbc.Button("未達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="danger", outline=True)
-            elif achievement_rate > 0:
-                status_badge = dbc.Badge("取組中", color="primary")
-                action_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
-            else:
-                status_badge = dbc.Badge("未達成", color="secondary")
-                action_button = dbc.Button("達成", id={'type': 'mark-done-btn', 'subject': active_tab, 'level': level, 'book': book_name}, size="sm", color="success", outline=True)
+            # ★ 個別保存ボタンを削除し、入力のみにする
+            # ★ サイズ変更: width: 50%, margin: 0 auto を追加
+            input_comp = dbc.Input(
+                id={'type': 'progress-input', 'subject': active_tab, 'level': level, 'book': book_name},
+                value=progress_value,
+                type="text",
+                size="sm",
+                style={'textAlign': 'center', 'width': '75%', 'display': 'block', 'margin': '0 auto'} # 変更点
+            )
 
             table_rows.append(html.Tr([
                 html.Td(level),
                 html.Td(book_name),
-                html.Td(status_badge),
-                html.Td(action_button)
+                html.Td(input_comp),
+                html.Td(status_badge, className="align-middle"), # ステータスを追加
             ]))
 
-    if not table_rows:
-        return dbc.Alert("予定されている学習はありません。", color="info", className="mt-4")
+    if not table_rows: return dbc.Alert("予定されている学習はありません。", color="info", className="mt-4")
 
-    table_body = [html.Tbody(table_rows)]
-
-    student_name = student_info.get('name', 'N/A')
-    main_instructors = ", ".join(student_info.get('main_instructors', []))
+    # ★ テーブルの上部に一括保存ボタンを配置
+    save_button = dbc.Button(
+        [html.I(className="fas fa-save me-2"), "この科目の進捗を一括保存"],
+        id={'type': 'save-subject-progress-btn', 'subject': active_tab},
+        color="primary",
+        className="mb-2 float-end"
+    )
 
     return html.Div([
-        dbc.Table(table_header + table_body, bordered=False, striped=True, hover=True, responsive=True, className="mt-3")
+        html.Div(save_button, className="clearfix"),
+        dbc.Table(table_header + [html.Tbody(table_rows)], bordered=False, striped=True, hover=True, responsive=True, className="mt-1")
     ])
