@@ -43,7 +43,7 @@ def main():
         # カラム名の正規化（空白除去など）
         df.columns = [c.strip() for c in df.columns]
         
-        required_columns = {'level', 'subject', 'book_name', 'duration'}
+        required_columns = {'ルートレベル', '科目', '参考書名', '所要時間'}
         if not required_columns.issubset(df.columns):
             print(f"\n❌ エラー: CSVファイルに必要なカラムが含まれていません。")
             print(f"必要なカラム: {required_columns}")
@@ -57,10 +57,10 @@ def main():
         error_count = 0
 
         for index, row in df.iterrows():
-            subject = row['subject']
-            level = row['level']
-            book_name = row['book_name']
-            duration = row['duration']
+            subject = row['科目']
+            level = row['ルートレベル']
+            book_name = row['参考書名']
+            duration = row['所要時間']
 
             # データのバリデーション
             if pd.isna(subject) or pd.isna(level) or pd.isna(book_name):
