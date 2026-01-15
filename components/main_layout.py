@@ -53,6 +53,7 @@ def create_navbar(user_info):
             dbc.NavItem(dbc.NavLink("ダッシュボード", href="/", active="exact")),
             dbc.NavItem(dbc.NavLink("過去問・入試管理", href="/past-exam", active="exact")),
             # dbc.NavItem(dbc.NavLink("宿題管理", href="/homework")),
+            dbc.NavItem(dbc.NavLink("ルート表", href="/root-table", active="exact")),
             dbc.NavItem(dbc.NavLink("統計", href="/statistics", active="exact")),
             dbc.NavItem(dbc.NavLink("不具合報告・要望", href="/bug-report", active="exact")),
             dbc.NavItem(dbc.NavLink("更新履歴", href="/changelog", active="exact")),
