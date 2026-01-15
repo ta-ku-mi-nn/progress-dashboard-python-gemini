@@ -67,8 +67,8 @@ from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from components.statistics_layout import create_statistics_layout
 from callbacks.statistics_callbacks import register_statistics_callbacks
+from components.root_table_layout import create_root_table_layout
 from callbacks.root_table_callbacks import register_root_table_callbacks
-from components.root_table_components import create_root_table_layout
 
 
 # ★★★ APIキーを設定 (実際の運用では環境変数などを使用) ★★★
@@ -170,6 +170,8 @@ def display_page(pathname, auth_store_data):
         page_content = create_homework_layout(user_info)
     elif pathname == '/past-exam':
         page_content = create_past_exam_layout() # 引数不要に変更
+    elif pathname == '/root-table':
+        page_content = create_root_table_layout(user_info)
     elif pathname == '/statistics':
         page_content = create_statistics_layout(user_info)
     elif pathname == '/howto':
