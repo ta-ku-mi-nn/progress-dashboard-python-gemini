@@ -394,3 +394,72 @@ def create_mock_exam_list_modal():
             dbc.ModalFooter(dbc.Button("閉じる", id="close-mock-exam-list-modal", className="ms-auto")),
         ],
     )
+
+def create_property_card():
+    """統計情報を確認するためのプロパティカードを生成する"""
+    return dbc.Card([
+        dbc.CardBody([
+            html.H5("📈 プロパティ", className="card-title"),
+            html.P("校舎統計やマスターデータの状況を確認します。", className="card-text small text-muted"),
+            dbc.ButtonGroup([
+                dbc.Button("校舎別生徒数", id="view-school-stats-btn", color="outline-primary", size="sm"),
+                dbc.Button("科目別参考書数", id="view-subject-stats-btn", color="outline-primary", size="sm"),
+            ], className="w-100")
+        ])
+    ], className="mb-3")
+
+def create_root_table_management_modal():
+    """ルート表管理用のモーダル"""
+    return dbc.Modal(
+        id="root-table-management-modal",
+        is_open=False, size="xl", scrollable=True,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("ルート表（指導要領）管理")),
+            dbc.ModalBody([
+                dbc.Row([
+                    dbc.Col(dbc.Button("新規ルート表を追加", id="add-new-rt-btn", color="success"), width="auto"),
+                ], className="mb-3"),
+                dcc.Loading(html.Div(id="root-table-admin-list"))
+            ]),
+            dbc.ModalFooter(dbc.Button("閉じる", id="close-rt-management-modal")),
+        ]
+    )
+
+def create_root_table_edit_modal():
+    """ルート表の追加・編集フォームモーダル"""
+    return dbc.Modal(
+        id="root-table-edit-modal", is_open=False,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle(id="rt-edit-modal-title")),
+            dbc.ModalBody([
+                dcc.Store(id='editing-rt-id-store'),
+                dbc.Form([
+                    dbc.Row([
+                        dbc.Label("科目", width=3),
+                        dbc.Col(dcc.Dropdown(id="rt-edit-subject", placeholder="科目を選択"), width=9),
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Label("レベル", width=3),
+                        dbc.Col(dcc.Dropdown(id="rt-edit-level", options=[{'label': l, 'value': l} for l in ['基礎徹底', '日大', 'MARCH', '早慶']], placeholder="レベルを選択"), width=9),
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Label("年度", width=3),
+                        dbc.Col(dbc.Input(id="rt-edit-year", type="number", placeholder="2025"), width=9),
+                    ], className="mb-3"),
+                    html.Div([
+                        dbc.Label("ファイル (PDF)"),
+                        dcc.Upload(
+                            id='rt-edit-upload',
+                            children=html.Div(['ファイルをドラッグ＆ドロップ または ', html.A('選択')]),
+                            style={'width': '100%', 'height': '60px', 'lineHeight': '60px', 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px', 'textAlign': 'center'}
+                        ),
+                        html.Div(id='rt-edit-filename-display', className="small text-primary mt-1")
+                    ])
+                ])
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("保存", id="save-rt-btn", color="primary"),
+                dbc.Button("キャンセル", id="cancel-rt-edit-btn", className="ms-auto")
+            ])
+        ]
+    )

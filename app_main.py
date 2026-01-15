@@ -216,6 +216,12 @@ def display_page(pathname, auth_store_data):
                             dbc.Button("マスターを編集", id="open-master-textbook-modal-btn", color="dark")
                         ])], className="mb-3"),
 
+                        dbc.Card([dbc.CardBody([
+                            html.H5("📄 ルート表管理", className="card-title"),
+                            html.P("指導要領PDFのアップロード・編集・削除を行います。", className="card-text small text-muted"),
+                            dbc.Button("ルート表を管理", id="open-rt-management-btn", color="primary"),
+                        ])], className="mb-3"),
+
                     ], md=6),
 
                     # --- 右列 ---
@@ -240,7 +246,7 @@ def display_page(pathname, auth_store_data):
                     ], md=6),
                 ]),
 
-                html.Div(id="admin-statistics", className="mt-4"), # 統計表示エリア
+                # html.Div(id="admin-statistics", className="mt-4"), # 統計表示エリア
                 # 管理者用モーダルコンポーネント
                 create_master_textbook_modal(), create_textbook_edit_modal(),
                 create_student_management_modal(), create_student_edit_modal(),
