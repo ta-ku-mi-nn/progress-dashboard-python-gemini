@@ -67,6 +67,8 @@ from callbacks.bug_report_callbacks import register_bug_report_callbacks
 from callbacks.past_exam_callbacks import register_past_exam_callbacks
 from components.statistics_layout import create_statistics_layout
 from callbacks.statistics_callbacks import register_statistics_callbacks
+from callbacks.root_table_callbacks import register_root_table_callbacks
+from components.root_table_components import create_root_table_layout
 
 
 # ★★★ APIキーを設定 (実際の運用では環境変数などを使用) ★★★
@@ -250,6 +252,7 @@ def display_page(pathname, auth_store_data):
     else: # デフォルトはダッシュボードページ
         page_content = html.Div([
             create_main_layout(user_info),
+            create_root_table_layout(user_info),
             *create_all_modals(subjects) # 学習計画モーダルなどを生成
         ])
 
@@ -321,6 +324,7 @@ register_plan_callbacks(app)
 register_past_exam_callbacks(app) # 過去問・入試・模試コールバック
 register_bug_report_callbacks(app)
 register_statistics_callbacks(app)
+register_root_table_callbacks(app)
 
 # === APIエンドポイント ===
 
