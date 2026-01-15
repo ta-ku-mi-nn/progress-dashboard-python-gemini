@@ -60,8 +60,16 @@ def _create_mock_exam_modal():
                 dbc.Col([
                     html.H5("マーク科目 点数", className="mt-4"),
                     dbc.Row([
-                        dbc.Col(dbc.Label("国語"), width=4),
-                        dbc.Col(dbc.Input(id='mock-exam-kokugo-mark', type='number', min=0), width=8)
+                        dbc.Col(dbc.Label("現代文"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-gendaibun-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("古文"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-kobun-mark', type='number', min=0), width=8)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(dbc.Label("漢文"), width=4),
+                        dbc.Col(dbc.Input(id='mock-exam-kanbun-mark', type='number', min=0), width=8)
                     ], className="mb-2"),
                     dbc.Row([
                         dbc.Col(dbc.Label("数学ⅠA"), width=4),
