@@ -110,6 +110,134 @@ def _create_admin_mock_exam_table(df, table_type):
 
 
 def register_admin_callbacks(app):
+
+    # --- プロパティ（統計）表示コールバック ---
+    @app.callback(
+        Output('admin-statistics', 'children'),
+        [Input('view-school-stats-btn', 'n_clicks'),
+         Input('view-subject-stats-btn', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def toggle_admin_stats(n1, n2):
+        triggered_id = ctx.triggered_id
+        if triggered_id == 'view-school-stats-btn':
+            counts = get_student_count_by_school()
+            df = pd.DataFrame(counts)
+            if df.empty: return dbc.Alert("データがありません。", color="info")
+            df.columns = ["校舎", "生徒数"]
+            return dbc.Card([dbc.CardHeader("🏫 校舎ごとの生徒数"), dbc.CardBody(dbc.Table.from_dataframe(df, striped=True, bordered=True, size="sm"))], className="fade-in mt-3")
+        elif triggered_id == 'view-subject-stats-btn':
+            counts = get_textbook_count_by_subject()
+            df = pd.DataFrame(counts)
+            if df.empty: return dbc.Alert("データがありません。", color="info")
+            df.columns = ["科目", "参考書数"]
+            return dbc.Card([dbc.CardHeader("📚 科目ごとの参考書数"), dbc.CardBody(dbc.Table.from_dataframe(df, striped=True, bordered=True, size="sm"))], className="fade-in mt-3")
+        return ""
+
+    # --- ルート表（指導要領）管理コールバック ---
+    @app.callback(
+        [Output('root-table-management-modal', 'is_open'),
+         Output('root-table-admin-list', 'children')],
+        [Input('open-rt-management-btn', 'n_clicks'),
+         Input('close-rt-management-modal', 'n_clicks'),
+         Input('admin-update-trigger', 'data')],
+        State('root-table-management-modal', 'is_open')
+    )
+    def handle_rt_management(n_open, n_close, trigger, is_open):
+        if ctx.triggered_id in ['open-rt-management-btn', 'close-rt-management-modal']:
+            is_open = not is_open
+        
+        if not is_open: return False, no_update
+        
+        tables = get_all_root_tables()
+        if not tables: return True, dbc.Alert("ルート表が登録されていません。", color="info")
+        
+        table_rows = [
+            html.Tr([
+                html.Td(t['academic_year']), html.Td(t['subject']), html.Td(t['level']), html.Td(t['filename']),
+                html.Td([
+                    dbc.Button("編集", id={'type': 'edit-rt-btn', 'index': t['id']}, size="sm", color="primary", outline=True, className="me-1"),
+                    dbc.Button("削除", id={'type': 'delete-rt-btn', 'index': t['id']}, size="sm", color="danger", outline=True)
+                ])
+            ]) for t in tables
+        ]
+        list_table = dbc.Table([
+            html.Thead(html.Tr([html.Th("年度"), html.Th("科目"), html.Th("レベル"), html.Th("ファイル名"), html.Th("操作")])),
+            html.Tbody(table_rows)
+        ], hover=True, striped=True, size="sm")
+        return True, list_table
+
+    @app.callback(
+        [Output('root-table-edit-modal', 'is_open'),
+         Output('rt-edit-modal-title', 'children'),
+         Output('editing-rt-id-store', 'data'),
+         Output('rt-edit-subject', 'options'),
+         Output('rt-edit-subject', 'value'),
+         Output('rt-edit-level', 'value'),
+         Output('rt-edit-year', 'value'),
+         Output('rt-edit-filename-display', 'children')],
+        [Input('add-new-rt-btn', 'n_clicks'),
+         Input({'type': 'edit-rt-btn', 'index': ALL}, 'n_clicks'),
+         Input('cancel-rt-edit-btn', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def handle_rt_edit_modal(add_n, edit_n, cancel_n):
+        subjects = get_all_subjects()
+        subject_options = [{'label': s, 'value': s} for s in subjects]
+        
+        if ctx.triggered_id == 'cancel-rt-edit-btn':
+            return False, "", None, subject_options, None, None, None, ""
+        
+        if ctx.triggered_id == 'add-new-rt-btn':
+            return True, "新規ルート表を追加", None, subject_options, None, None, date.today().year, ""
+
+        if isinstance(ctx.triggered_id, dict) and ctx.triggered_id.get('type') == 'edit-rt-btn':
+            rt_id = ctx.triggered_id['index']
+            rt_data = get_root_table_by_id(rt_id) # ファイル名等のメタデータ取得
+            if rt_data:
+                # 注: get_root_table_by_idはファイル本体も取得するため、別途メタデータのみの取得関数があると効率的です
+                return True, "ルート表を編集", rt_id, subject_options, rt_data.get('subject'), rt_data.get('level'), rt_data.get('academic_year'), rt_data.get('filename')
+
+        return [no_update] * 8
+
+    @app.callback(
+        [Output('admin-update-trigger', 'data', allow_duplicate=True),
+         Output('root-table-edit-modal', 'is_open', allow_duplicate=True)],
+        Input('save-rt-btn', 'n_clicks'),
+        [State('editing-rt-id-store', 'data'),
+         State('rt-edit-subject', 'value'),
+         State('rt-edit-level', 'value'),
+         State('rt-edit-year', 'value'),
+         State('rt-edit-upload', 'contents'),
+         State('rt-edit-upload', 'filename')],
+        prevent_initial_call=True
+    )
+    def save_rt_entry(n_clicks, rt_id, subject, level, year, contents, filename):
+        if not n_clicks: raise PreventUpdate
+        
+        decoded_content = None
+        if contents:
+            _, content_string = contents.split(',')
+            decoded_content = base64.b64decode(content_string)
+
+        if rt_id is None:
+            if not all([subject, level, year, decoded_content]): return no_update, True
+            add_root_table(filename, decoded_content, subject, level, year)
+        else:
+            update_root_table(rt_id, subject, level, year, filename, decoded_content)
+        
+        return datetime.datetime.now().isoformat(), False
+
+    @app.callback(
+        Output('admin-update-trigger', 'data', allow_duplicate=True),
+        Input({'type': 'delete-rt-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def delete_rt_entry(n_clicks):
+        if not any(n_clicks): raise PreventUpdate
+        target_id = json.loads(ctx.triggered[0]['prop_id'].split('.')[0])['index']
+        delete_root_table(target_id)
+        return datetime.datetime.now().isoformat()
     # --- ユーザー管理関連コールバック ---
     # (このセクションのコールバックはデータアクセス層の関数を呼び出しているため変更なし)
     @app.callback(
