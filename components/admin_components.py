@@ -17,7 +17,12 @@ def create_master_textbook_modal():
                 dbc.Alert(id="master-textbook-alert", is_open=False),
                 dbc.Row([
                     dbc.Col(dcc.Dropdown(id='master-textbook-subject-filter', placeholder="科目で絞り込み..."), width=12, md=3),
-                    dbc.Col(dcc.Dropdown(id='master-textbook-level-filter', placeholder="レベルで絞り込み..."), width=12, md=3),
+                    dbc.Col(dcc.Dropdown(id='master-textbook-level-filter', placeholder="レベルで絞り込み...", options=[
+                                {'label': '基礎徹底', 'value': '基礎徹底'},
+                                {'label': '日大', 'value': '日大'},
+                                {'label': 'MARCH', 'value': 'MARCH'},
+                                {'label': '早慶', 'value': '早慶'},
+                            ]), width=12, md=3),
                     dbc.Col(dbc.Input(id='master-textbook-name-filter', placeholder="参考書名で検索..."), width=12, md=4),
                     dbc.Col(dbc.Button("新規追加", id="add-textbook-btn", color="success", className="w-100"), width=12, md=2)
                 ], className="mb-3"),
