@@ -101,12 +101,12 @@ def _create_mock_exam_table(df, table_type, student_id):
 
     if table_type == "mark":
         score_cols = [
-            'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+            'subject_gendaibun_mark', 'subject_kobun_mark', 'subject_kanbun_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
             'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
             'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
             'subject_rika_kiso2_mark', 'subject_info_mark'
         ]
-        col_headers_jp = ["国", "数IA", "数IIBC", "英R", "英L", "理①", "理②", "社①", "社②", "理基①", "理基②", "情報"]
+        col_headers_jp = ["現", "古", "漢", "数IA", "数IIBC", "英R", "英L", "理①", "理②", "社①", "社②", "理基①", "理基②", "情報"]
     else: # descriptive
         score_cols = [
             'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc',
@@ -901,7 +901,7 @@ def register_past_exam_callbacks(app):
          Output('mock-exam-kokugo-desc', 'value'), Output('mock-exam-math-desc', 'value'), Output('mock-exam-english-desc', 'value'),
          Output('mock-exam-rika1-desc', 'value'), Output('mock-exam-rika2-desc', 'value'), Output('mock-exam-shakai1-desc', 'value'), Output('mock-exam-shakai2-desc', 'value'),
          # マーク
-         Output('mock-exam-kokugo-mark', 'value'), Output('mock-exam-math1a-mark', 'value'), Output('mock-exam-math2bc-mark', 'value'),
+         Output('mock-exam-gendaibun-mark', 'value'), Output('mock-exam-kobun-mark', 'value'), Output('mock-exam-kanbun-mark', 'value'), Output('mock-exam-math1a-mark', 'value'), Output('mock-exam-math2bc-mark', 'value'),
          Output('mock-exam-english-r-mark', 'value'), Output('mock-exam-english-l-mark', 'value'), Output('mock-exam-rika1-mark', 'value'), Output('mock-exam-rika2-mark', 'value'),
          Output('mock-exam-shakai1-mark', 'value'), Output('mock-exam-shakai2-mark', 'value'), Output('mock-exam-rika-kiso1-mark', 'value'),
          Output('mock-exam-rika-kiso2-mark', 'value'), Output('mock-exam-info-mark', 'value'),
@@ -963,7 +963,7 @@ def register_past_exam_callbacks(app):
                     # 点数 (Noneの可能性あり)
                     result_to_edit.get('subject_kokugo_desc'), result_to_edit.get('subject_math_desc'), result_to_edit.get('subject_english_desc'),
                     result_to_edit.get('subject_rika1_desc'), result_to_edit.get('subject_rika2_desc'), result_to_edit.get('subject_shakai1_desc'), result_to_edit.get('subject_shakai2_desc'),
-                    result_to_edit.get('subject_kokugo_mark'), result_to_edit.get('subject_math1a_mark'), result_to_edit.get('subject_math2bc_mark'),
+                    result_to_edit.get('subject_gendaibun_mark'), result_to_edit.get('subject_kobun_mark'), result_to_edit.get('subject_kanbun_mark'), result_to_edit.get('subject_math1a_mark'), result_to_edit.get('subject_math2bc_mark'),
                     result_to_edit.get('subject_english_r_mark'), result_to_edit.get('subject_english_l_mark'), result_to_edit.get('subject_rika1_mark'), result_to_edit.get('subject_rika2_mark'),
                     result_to_edit.get('subject_shakai1_mark'), result_to_edit.get('subject_shakai2_mark'), result_to_edit.get('subject_rika_kiso1_mark'),
                     result_to_edit.get('subject_rika_kiso2_mark'), result_to_edit.get('subject_info_mark')
@@ -991,7 +991,7 @@ def register_past_exam_callbacks(app):
          State('mock-exam-kokugo-desc', 'value'), State('mock-exam-math-desc', 'value'), State('mock-exam-english-desc', 'value'),
          State('mock-exam-rika1-desc', 'value'), State('mock-exam-rika2-desc', 'value'), State('mock-exam-shakai1-desc', 'value'), State('mock-exam-shakai2-desc', 'value'),
          # マーク
-         State('mock-exam-kokugo-mark', 'value'), State('mock-exam-math1a-mark', 'value'), State('mock-exam-math2bc-mark', 'value'),
+         State('mock-exam-gendaibun-mark', 'value'), State('mock-exam-kobun-mark', 'value'), State('mock-exam-kanbun-mark', 'value'), State('mock-exam-math1a-mark', 'value'), State('mock-exam-math2bc-mark', 'value'),
          State('mock-exam-english-r-mark', 'value'), State('mock-exam-english-l-mark', 'value'), State('mock-exam-rika1-mark', 'value'), State('mock-exam-rika2-mark', 'value'),
          State('mock-exam-shakai1-mark', 'value'), State('mock-exam-shakai2-mark', 'value'), State('mock-exam-rika-kiso1-mark', 'value'),
          State('mock-exam-rika-kiso2-mark', 'value'), State('mock-exam-info-mark', 'value')],
@@ -1000,7 +1000,7 @@ def register_past_exam_callbacks(app):
     def save_mock_exam_result(n_clicks, result_id, student_id,
                               res_type, name, format_val, grade, round_val, date_val, # 基本情報
                               ko_d, ma_d, en_d, r1_d, r2_d, s1_d, s2_d, # 記述
-                              ko_m, m1a_m, m2b_m, enr_m, enl_m, r1_m, r2_m, s1_m, s2_m, rk1_m, rk2_m, inf_m # マーク
+                              ge_m, ko_m, ka_m, m1a_m, m2b_m, enr_m, enl_m, r1_m, r2_m, s1_m, s2_m, rk1_m, rk2_m, inf_m # マーク
                               ):
         if not n_clicks or not student_id: raise PreventUpdate
 
@@ -1021,7 +1021,8 @@ def register_past_exam_callbacks(app):
             'grade': grade, 'round': round_val, 'exam_date': date_val,
             'subject_kokugo_desc': ko_d, 'subject_math_desc': ma_d, 'subject_english_desc': en_d,
             'subject_rika1_desc': r1_d, 'subject_rika2_desc': r2_d, 'subject_shakai1_desc': s1_d, 'subject_shakai2_desc': s2_d,
-            'subject_kokugo_mark': ko_m, 'subject_math1a_mark': m1a_m, 'subject_math2bc_mark': m2b_m,
+            'subject_gendaibun_mark': ge_m, 'subject_kobun_mark': ko_m, 'subject_kanbun_mark': ka_m,
+            'subject_math1a_mark': m1a_m, 'subject_math2bc_mark': m2b_m,
             'subject_english_r_mark': enr_m, 'subject_english_l_mark': enl_m, 'subject_rika1_mark': r1_m, 'subject_rika2_mark': r2_m,
             'subject_shakai1_mark': s1_m, 'subject_shakai2_mark': s2_m, 'subject_rika_kiso1_mark': rk1_m,
             'subject_rika_kiso2_mark': rk2_m, 'subject_info_mark': inf_m
