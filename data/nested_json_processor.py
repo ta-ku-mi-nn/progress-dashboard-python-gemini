@@ -1679,7 +1679,8 @@ def add_mock_exam_result(student_id, data):
             int_columns = [
                 'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc',
                 'subject_rika1_desc', 'subject_rika2_desc', 'subject_shakai1_desc', 'subject_shakai2_desc',
-                'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+                'subject_gendaibun_mark', 'subject_kobun_mark', 'subject_kanbun_mark',
+                'subject_math1a_mark', 'subject_math2bc_mark',
                 'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
                 'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
                 'subject_rika_kiso2_mark', 'subject_info_mark'
@@ -1770,7 +1771,8 @@ def update_mock_exam_result(result_id, data):
                 'result_type', 'mock_exam_name', 'mock_exam_format', 'grade', 'round', 'exam_date',
                 'subject_kokugo_desc', 'subject_math_desc', 'subject_english_desc', 'subject_rika1_desc',
                 'subject_rika2_desc', 'subject_shakai1_desc', 'subject_shakai2_desc',
-                'subject_kokugo_mark', 'subject_math1a_mark', 'subject_math2bc_mark',
+                'subject_gendaibun_mark', 'subject_kobun_mark', 'subject_kanbun_mark',
+                'subject_math1a_mark', 'subject_math2bc_mark',
                 'subject_english_r_mark', 'subject_english_l_mark', 'subject_rika1_mark', 'subject_rika2_mark',
                 'subject_shakai1_mark', 'subject_shakai2_mark', 'subject_rika_kiso1_mark',
                 'subject_rika_kiso2_mark', 'subject_info_mark'
