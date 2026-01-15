@@ -1950,3 +1950,40 @@ def add_or_update_eiken_result(student_id, grade, cse_score):
     finally:
         if conn:
             conn.close()
+
+def save_root_table(filename, content_bytes):
+    """PDFファイルをデータベースに保存する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO root_tables (filename, file_content) VALUES (%s, %s)",
+                (filename, content_bytes)
+            )
+        conn.commit()
+        return True, "アップロードが完了しました。"
+    except Exception as e:
+        conn.rollback()
+        return False, f"保存エラー: {e}"
+    finally:
+        conn.close()
+
+def get_all_root_tables():
+    """登録されているルート表の一覧（IDとファイル名）を取得する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("SELECT id, filename, uploaded_at FROM root_tables ORDER BY uploaded_at DESC")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+def get_root_table_by_id(table_id):
+    """IDを指定してファイル名とバイナリデータを取得する"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("SELECT filename, file_content FROM root_tables WHERE id = %s", (table_id,))
+            return cur.fetchone()
+    finally:
+        conn.close()
