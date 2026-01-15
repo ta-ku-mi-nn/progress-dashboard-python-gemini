@@ -113,38 +113,72 @@ def create_initial_progress_layout(student_id):
         className="mt-5"
     )
 
-def create_eiken_input_card(student_id):
+def create_eiken_display_card(student_id):
+    """英検の現在のスコアを表示し、更新用モーダルを提供するカード"""
     eiken_results = get_eiken_results_for_student(student_id)
     
+    # 最新の記録を取得 (eiken_resultsはリスト形式)
+    latest_result = eiken_results[-1] if eiken_results else None
+    
+    if latest_result:
+        display_text = f"{latest_result.get('grade', '---')} (CSE: {latest_result.get('cse_score', '---')})"
+        color = "success"
+    else:
+        display_text = "未登録"
+        color = "secondary"
+
     return dbc.Card(
         dbc.CardBody([
-            html.H5("英検スコア記録", className="card-title"),
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("級", size="sm"),
-                    dcc.Dropdown(
-                        id="eiken-grade-input",
-                        options=[
-                            {'label': '5級', 'value': '5級'}, {'label': '4級', 'value': '4級'},
-                            {'label': '3級', 'value': '3級'}, {'label': '準2級', 'value': '準2級'},
-                            {'label': '2級', 'value': '2級'}, {'label': '準1級', 'value': '準1級'},
-                            {'label': '1級', 'value': '1級'}
-                        ],
-                        placeholder="選択",
-                    )
-                ], width=4),
-                dbc.Col([
-                    dbc.Label("CSEスコア", size="sm"),
-                    dbc.Input(id="eiken-score-input", type="number", placeholder="スコア")
-                ], width=4),
-                dbc.Col([
-                    dbc.Label(" ", size="sm"), # スペース調整
-                    dbc.Button("保存", id="save-eiken-btn", color="primary", size="sm", className="w-100 mt-4")
-                ], width=4),
-            ]),
-            html.Div(id="eiken-result-message", className="mt-2 small text-muted")
+            html.Div([
+                html.H5([html.I(className="fas fa-certificate me-2"), "英検スコア"], className="card-title mb-0"),
+                dbc.Badge(display_text, color=color, className="ms-2", style={"fontSize": "0.9rem"}),
+            ], className="d-flex align-items-center mb-3"),
+            
+            dbc.Button(
+                [html.I(className="fas fa-edit me-2"), "スコアを更新"],
+                id="open-eiken-modal-btn",
+                color="outline-primary",
+                size="sm",
+                className="w-100"
+            ),
+            
+            # 入力用モーダル
+            dbc.Modal([
+                dbc.ModalHeader(dbc.ModalTitle("英検スコアの更新")),
+                dbc.ModalBody([
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Label("級"),
+                            dcc.Dropdown(
+                                id="eiken-grade-input",
+                                options=[
+                                    {'label': '5級', 'value': '5級'}, {'label': '4級', 'value': '4級'},
+                                    {'label': '3級', 'value': '3級'}, {'label': '準2級', 'value': '準2級'},
+                                    {'label': '2級', 'value': '2級'}, {'label': '準1級', 'value': '準1級'},
+                                    {'label': '1級', 'value': '1級'}
+                                ],
+                                value=latest_result.get('grade') if latest_result else None,
+                                placeholder="選択",
+                            )
+                        ], width=6),
+                        dbc.Col([
+                            dbc.Label("CSEスコア"),
+                            dbc.Input(
+                                id="eiken-score-input", 
+                                type="number", 
+                                value=latest_result.get('cse_score') if latest_result else None,
+                                placeholder="スコア"
+                            )
+                        ], width=6),
+                    ], className="g-3"),
+                    html.Div(id="eiken-result-message", className="mt-3 small text-muted")
+                ]),
+                dbc.ModalFooter(
+                    dbc.Button("保存する", id="save-eiken-btn", color="primary")
+                ),
+            ], id="eiken-update-modal", is_open=False),
         ]),
-        className="mb-3 mt-3"
+        className="mb-3 mt-3 shadow-sm"
     )
 
 def generate_dashboard_content(student_id, active_tab, for_print=False):
@@ -171,7 +205,6 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
                     })
 
         past_exam_hours = get_total_past_exam_time(student_id)
-
         df_all = pd.DataFrame(all_records) if all_records else pd.DataFrame()
 
         if df_all.empty and past_exam_hours == 0:
@@ -191,9 +224,10 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
             else:
                  df_all = past_exam_record
 
-
         stacked_bar_fig = create_progress_stacked_bar_chart(df_all, '全科目の合計学習時間', for_print=for_print)
-        eiken_card = create_eiken_input_card(student_id)
+        
+        # ★★★ 修正箇所2: 呼び出す関数を変更 ★★★
+        eiken_card = create_eiken_display_card(student_id)
 
         left_col = html.Div([
             dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
@@ -218,6 +252,7 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
             dbc.Col(right_col, md=4),
         ])
     else:
+        # (個別科目タブの処理: 変更なし)
         if active_tab not in progress_data:
             return dbc.Alert(f"「{active_tab}」の進捗データがありません。", color="info")
 
@@ -252,6 +287,17 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
 
 def register_progress_callbacks(app):
     """進捗表示に関連するコールバックを登録します。"""
+    @app.callback(
+        Output("eiken-update-modal", "is_open"),
+        [Input("open-eiken-modal-btn", "n_clicks"),
+         Input("save-eiken-btn", "n_clicks")],
+        [State("eiken-update-modal", "is_open")],
+        prevent_initial_call=True
+    )
+    def toggle_eiken_modal(n_open, n_save, is_open):
+        if n_open or n_save:
+            return not is_open
+        return is_open
 
     @app.callback(
         Output('dashboard-content-container', 'children', allow_duplicate=True),
