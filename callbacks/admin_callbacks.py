@@ -220,6 +220,18 @@ def register_admin_callbacks(app):
     def toggle_master_textbook_modal(open_clicks, close_clicks, is_open):
         if open_clicks or close_clicks: return not is_open
         return is_open
+    
+    @app.callback(
+        Output('master-textbook-subject-filter', 'options'),
+        [Input('master-textbook-modal', 'is_open'),
+         Input('admin-update-trigger', 'data')],
+        prevent_initial_call=True
+    )
+    def update_master_textbook_filter_options(is_open, update_signal):
+        if not is_open:
+            raise PreventUpdate
+        subjects = get_all_subjects()
+        return [{'label': s, 'value': s} for s in subjects]
 
     @app.callback(
         [Output('master-textbook-list-container', 'children')],
