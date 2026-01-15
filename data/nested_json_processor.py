@@ -1985,3 +1985,41 @@ def get_root_table_by_id(table_id):
             return cur.fetchone()
     finally:
         conn.close()
+
+def save_root_table_with_tags(filename, content_bytes, subject, level, year):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO root_tables (filename, file_content, subject, level, academic_year) 
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (filename, content_bytes, subject, level, year)
+            )
+        conn.commit()
+        return True, "アップロードに成功しました。"
+    except Exception as e:
+        conn.rollback()
+        return False, f"保存エラー: {e}"
+    finally:
+        conn.close()
+
+def get_filtered_root_tables(subject=None, level=None, year=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            query = "SELECT id, filename, subject, level, academic_year FROM root_tables WHERE 1=1"
+            params = []
+            if subject:
+                query += " AND subject = %s"
+                params.append(subject)
+            if level:
+                query += " AND level = %s"
+                params.append(level)
+            if year:
+                query += " AND academic_year = %s"
+                params.append(year)
+            query += " ORDER BY academic_year DESC, subject ASC"
+            cur.execute(query, tuple(params))
+            return cur.fetchall()
+    finally:
+        conn.close()
