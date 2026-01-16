@@ -43,7 +43,9 @@ from components.admin_components import (
     create_bulk_preset_management_modal, create_bulk_preset_edit_modal,
     create_user_edit_modal,
     create_add_changelog_modal,
-    create_mock_exam_list_modal
+    create_mock_exam_list_modal,
+    create_root_table_management_modal, # ★追加
+    create_root_table_edit_modal        # ★追加
 )
 from components.modals import create_user_list_modal, create_new_user_modal
 from components.login_components import (
@@ -69,6 +71,7 @@ from components.statistics_layout import create_statistics_layout
 from callbacks.statistics_callbacks import register_statistics_callbacks
 from components.root_table_layout import create_root_table_layout
 from callbacks.root_table_callbacks import register_root_table_callbacks
+
 
 
 # ★★★ APIキーを設定 (実際の運用では環境変数などを使用) ★★★
@@ -255,7 +258,9 @@ def display_page(pathname, auth_store_data):
                 create_new_user_modal(),
                 create_user_edit_modal(),
                 create_add_changelog_modal(),
-                create_mock_exam_list_modal()
+                create_mock_exam_list_modal(),
+                create_root_table_management_modal(), # ★追加
+                create_root_table_edit_modal()        # ★追加
             ], fluid=True) # Container fluid=True に変更
     else: # デフォルトはダッシュボードページ
         page_content = html.Div([
