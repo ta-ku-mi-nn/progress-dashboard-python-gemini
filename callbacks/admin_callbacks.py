@@ -209,6 +209,9 @@ def register_admin_callbacks(app):
         prevent_initial_call=True
     )
     def handle_rt_edit_modal(add_n, edit_n, cancel_n):
+        if not ctx.triggered or not ctx.triggered[0]['value']:
+            raise PreventUpdate
+
         subjects = get_all_subjects()
         subject_options = [{'label': s, 'value': s} for s in subjects]
         

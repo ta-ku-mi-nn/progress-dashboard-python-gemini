@@ -64,12 +64,18 @@ def register_root_table_callbacks(app):
         prevent_initial_call=True
     )
     def handle_rt_download(n_clicks):
-        if not ctx.triggered or not any(n_clicks): return dash.no_update
+        if not ctx.triggered or not any(n_clicks): 
+            return dash.no_update
         
-        button_id = json.loads(ctx.triggered[0]['prop_id'].split('.')[0])
-        file_id = button_id['index']
+        # パターンマッチングIDを直接辞書として取得
+        triggered_id = ctx.triggered_id
+        if not isinstance(triggered_id, dict) or triggered_id.get('type') != 'rt-dl-btn':
+            return dash.no_update
+            
+        file_id = triggered_id['index']
         file_data = get_root_table_by_id(file_id)
         
         if file_data:
-            return dcc.send_bytes(file_data['file_content'], file_data['filename'])
+            # ★ 修正: memoryview 対策として bytes() でキャストして送信
+            return dcc.send_bytes(bytes(file_data['file_content']), file_data['filename'])
         return dash.no_update
