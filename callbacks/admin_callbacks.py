@@ -851,11 +851,12 @@ def register_admin_callbacks(app):
         prevent_initial_call=True
     )
     def handle_user_edit_modal(edit_clicks, cancel_clicks):
-        ctx = callback_context
+        # 変数の代入を最初に行う
+        trigger_id = ctx.triggered_id
+
+        # trigger_id が確定した後にチェックを行う
         if not ctx.triggered or (isinstance(trigger_id, dict) and not ctx.triggered[0]['value']):
             raise PreventUpdate
-
-        trigger_id = ctx.triggered_id
 
         if trigger_id == 'cancel-user-edit-btn':
             return False, "", None, "", "", "", False
@@ -867,7 +868,8 @@ def register_admin_callbacks(app):
             if user_to_edit:
                 return (True, f"編集: {user_to_edit['username']}", user_id,
                         user_to_edit['username'], user_to_edit['role'], user_to_edit.get('school', ''), False)
-        return no_update, "", None, "", "", "", False
+        
+        return [no_update] * 7
 
     @app.callback(
         [Output('user-edit-alert', 'children'),
