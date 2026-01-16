@@ -1198,3 +1198,35 @@ def register_admin_callbacks(app):
                  desc_table = dbc.Alert("フィルター条件に一致する記述模試の結果はありません。", color="warning", className="mt-3")
 
         return mark_table, desc_table
+    
+    @app.callback(
+        Output('rt-edit-filename-display', 'children'),
+        Input('rt-edit-upload', 'filename'),
+        prevent_initial_call=True
+    )
+    def display_selected_rt_filename(filename):
+        return f"選択中: {filename}" if filename else ""
+    
+    @app.callback(
+        Output('admin-update-trigger', 'data', allow_duplicate=True),
+        Input('delete-rt-confirm', 'submit_n_clicks'),
+        State('item-to-delete-store', 'data'),
+        prevent_initial_call=True
+    )
+    def execute_delete_rt(submit_n_clicks, item_to_delete):
+        if not submit_n_clicks or not item_to_delete or item_to_delete.get('type') != 'root_table':
+            raise PreventUpdate
+        delete_root_table(item_to_delete.get('id'))
+        return datetime.datetime.now().isoformat()
+    
+    @app.callback(
+        [Output('delete-rt-confirm', 'displayed'),
+         Output('item-to-delete-store', 'data', allow_duplicate=True)],
+        Input({'type': 'delete-rt-btn', 'index': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def request_delete_rt(n_clicks):
+        if not any(n_clicks): raise PreventUpdate
+        # クリックされたボタンのIDを取得
+        target_id = ctx.triggered_id['index']
+        return True, {'type': 'root_table', 'id': target_id}
