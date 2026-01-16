@@ -1200,12 +1200,15 @@ def register_admin_callbacks(app):
         return mark_table, desc_table
     
     @app.callback(
-        Output('rt-edit-filename-display', 'children'),
+        # allow_duplicate=True を追加し、prevent_initial_call=True を設定する
+        Output('rt-edit-filename-display', 'children', allow_duplicate=True), 
         Input('rt-edit-upload', 'filename'),
-        prevent_initial_call=True
+        prevent_initial_call=True # allow_duplicate使用時は必須
     )
     def display_selected_rt_filename(filename):
-        return f"選択中: {filename}" if filename else ""
+        if filename:
+            return f"選択中: {filename}"
+        return ""
     
     @app.callback(
         Output('admin-update-trigger', 'data', allow_duplicate=True),
