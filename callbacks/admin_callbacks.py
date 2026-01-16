@@ -7,7 +7,7 @@ import os
 import base64
 import io
 import pandas as pd
-from dash import Input, Output, State, html, dcc, no_update, callback_context, ALL, MATCH
+from dash import Input, Output, State, html, dcc, no_update, callback_context, ALL, MATCH, ctx
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from datetime import date # ★ date をインポート
