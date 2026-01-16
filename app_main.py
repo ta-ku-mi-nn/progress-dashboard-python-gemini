@@ -246,7 +246,7 @@ def display_page(pathname, auth_store_data):
                     ], md=6),
                 ]),
 
-                # html.Div(id="admin-statistics", className="mt-4"), # 統計表示エリア
+                html.Div(id="admin-statistics", className="mt-4"), # 統計表示エリア
                 # 管理者用モーダルコンポーネント
                 create_master_textbook_modal(), create_textbook_edit_modal(),
                 create_student_management_modal(), create_student_edit_modal(),
@@ -268,43 +268,6 @@ def display_page(pathname, auth_store_data):
     # return page_content, navbar # <-- ★ 変更
     return page_content, navbar, no_update # ★ URLは更新しない
 
-
-# --- 管理者統計コールバック ---
-@app.callback(
-    Output('admin-statistics', 'children'),
-    Input('url', 'pathname') # URL変更時に統計を更新
-)
-def update_admin_statistics(pathname):
-    """管理者ページの統計情報をデータベースから取得して更新"""
-    # 管理者ページ以外では何もしない
-    if pathname != '/admin':
-        return ""
-
-    try:
-        # データアクセス層の関数を呼び出す
-        student_counts = get_student_count_by_school()
-        textbook_counts = get_textbook_count_by_subject()
-
-        # データがあればDataFrameを作成、なければ空のDataFrame
-        df_students = pd.DataFrame(student_counts) if student_counts else pd.DataFrame(columns=['school', 'count'])
-        df_textbooks = pd.DataFrame(textbook_counts) if textbook_counts else pd.DataFrame(columns=['subject', 'count'])
-
-        # カラム名を日本語に変更
-        df_students.columns = ["校舎", "生徒数"]
-        df_textbooks.columns = ["科目", "参考書数"]
-
-        # DataFrameからテーブルを生成
-        student_table = dbc.Table.from_dataframe(df_students, striped=True, bordered=True, hover=True, size="sm")
-        textbook_table = dbc.Table.from_dataframe(df_textbooks, striped=True, bordered=True, hover=True, size="sm")
-
-        # レイアウトを返す
-        return dbc.Row([
-            dbc.Col(dbc.Card([dbc.CardHeader("🏫 校舎ごとの生徒数"), dbc.CardBody(student_table)]), width=6, className="mb-3"),
-            dbc.Col(dbc.Card([dbc.CardHeader("📚 科目ごとの参考書数"), dbc.CardBody(textbook_table)]), width=6, className="mb-3")
-        ])
-    except Exception as e:
-        print(f"管理者統計の取得エラー: {e}") # エラーログ
-        return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
 
 # --- トースト通知コールバック ---
 @app.callback(
