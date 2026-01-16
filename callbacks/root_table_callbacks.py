@@ -3,7 +3,8 @@ from dash import dcc, html, Input, Output, State, ctx, ALL
 import dash_bootstrap_components as dbc
 import base64
 import json
-from data.nested_json_processor import save_root_table_with_tags, get_filtered_root_tables, get_root_table_by_id
+# save_root_table_with_tags を add_root_table に修正
+from data.nested_json_processor import add_root_table, get_filtered_root_tables, get_root_table_by_id
 
 def register_root_table_callbacks(app):
     # 絞り込み & アップロード後のリスト更新
@@ -33,7 +34,8 @@ def register_root_table_callbacks(app):
             else:
                 _, content_string = upload_contents.split(',')
                 decoded = base64.b64decode(content_string)
-                success, msg = save_root_table_with_tags(filename, decoded, u_subj, u_lvl, u_year)
+                # 関数名を add_root_table に修正
+                success, msg = add_root_table(filename, decoded, u_subj, u_lvl, u_year)
                 status_msg = dbc.Alert(msg, color="success" if success else "danger")
 
         # データの取得とテーブル生成
