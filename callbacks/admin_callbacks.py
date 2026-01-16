@@ -20,7 +20,9 @@ from data.nested_json_processor import (
     get_all_instructors_for_school,
     get_all_presets_with_books, add_preset, update_preset, delete_preset,
     add_changelog_entry,
-    get_all_mock_exam_details_for_school, get_mock_exam_filter_options # ★ 追加
+    get_all_mock_exam_details_for_school, get_mock_exam_filter_options,
+    get_student_count_by_school, get_textbook_count_by_subject,
+    get_all_root_tables, add_root_table, update_root_table, delete_root_table, get_root_table_by_id
 )
 # configからDATABASE_URLを読み込むように変更
 from config.settings import APP_CONFIG
