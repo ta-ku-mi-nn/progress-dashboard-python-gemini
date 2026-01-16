@@ -116,24 +116,49 @@ def register_admin_callbacks(app):
     # --- プロパティ（統計）表示コールバック ---
     @app.callback(
         Output('admin-statistics', 'children'),
-        [Input('view-school-stats-btn', 'n_clicks'),
+        [Input('url', 'pathname'), # URL変更を監視対象に追加
+         Input('view-school-stats-btn', 'n_clicks'),
          Input('view-subject-stats-btn', 'n_clicks')],
         prevent_initial_call=True
     )
-    def toggle_admin_stats(n1, n2):
+    def toggle_admin_stats(pathname, n1, n2):
         triggered_id = ctx.triggered_id
+        
+        # A. 管理者ページに入った際の初期表示 (URLトリガー)
+        if triggered_id == 'url' or (pathname == '/admin' and triggered_id is None):
+            if pathname != '/admin':
+                return no_update
+            try:
+                student_counts = get_student_count_by_school()
+                textbook_counts = get_textbook_count_by_subject()
+                df_students = pd.DataFrame(student_counts) if student_counts else pd.DataFrame(columns=['school', 'count'])
+                df_textbooks = pd.DataFrame(textbook_counts) if textbook_counts else pd.DataFrame(columns=['subject', 'count'])
+                df_students.columns = ["校舎", "生徒数"]
+                df_textbooks.columns = ["科目", "参考書数"]
+                student_table = dbc.Table.from_dataframe(df_students, striped=True, bordered=True, hover=True, size="sm")
+                textbook_table = dbc.Table.from_dataframe(df_textbooks, striped=True, bordered=True, hover=True, size="sm")
+                return dbc.Row([
+                    dbc.Col(dbc.Card([dbc.CardHeader("🏫 校舎ごとの生徒数"), dbc.CardBody(student_table)]), width=6, className="mb-3"),
+                    dbc.Col(dbc.Card([dbc.CardHeader("📚 科目ごとの参考書数"), dbc.CardBody(textbook_table)]), width=6, className="mb-3")
+                ])
+            except Exception as e:
+                return dbc.Alert(f"統計情報の取得に失敗しました: {e}", color="danger")
+
+        # B. ボタンクリックによる切り替え
         if triggered_id == 'view-school-stats-btn':
             counts = get_student_count_by_school()
             df = pd.DataFrame(counts)
             if df.empty: return dbc.Alert("データがありません。", color="info")
             df.columns = ["校舎", "生徒数"]
             return dbc.Card([dbc.CardHeader("🏫 校舎ごとの生徒数"), dbc.CardBody(dbc.Table.from_dataframe(df, striped=True, bordered=True, size="sm"))], className="fade-in mt-3")
+        
         elif triggered_id == 'view-subject-stats-btn':
             counts = get_textbook_count_by_subject()
             df = pd.DataFrame(counts)
             if df.empty: return dbc.Alert("データがありません。", color="info")
             df.columns = ["科目", "参考書数"]
             return dbc.Card([dbc.CardHeader("📚 科目ごとの参考書数"), dbc.CardBody(dbc.Table.from_dataframe(df, striped=True, bordered=True, size="sm"))], className="fade-in mt-3")
+        
         return ""
 
     # --- ルート表（指導要領）管理コールバック ---
