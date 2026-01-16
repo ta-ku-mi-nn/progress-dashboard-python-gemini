@@ -1,47 +1,25 @@
+# callbacks/root_table_callbacks.py
 import dash
 from dash import dcc, html, Input, Output, State, ctx, ALL
 import dash_bootstrap_components as dbc
-import base64
-import json
-# save_root_table_with_tags を add_root_table に修正
-from data.nested_json_processor import add_root_table, get_filtered_root_tables, get_root_table_by_id
+from data.nested_json_processor import get_filtered_root_tables, get_root_table_by_id
 
 def register_root_table_callbacks(app):
-    # 絞り込み & アップロード後のリスト更新
+    # 絞り込み & 更新後のリスト表示のみに限定
     @app.callback(
-        [Output('rt-list-container', 'children'),
-         Output('rt-upload-status', 'children')],
+        Output('rt-list-container', 'children'),
         [Input('rt-filter-subject', 'value'),
          Input('rt-filter-level', 'value'),
          Input('rt-filter-year', 'value'),
-         Input('rt-upload-file', 'contents'),
-         Input('admin-update-trigger', 'data')],
-        [State('rt-upload-file', 'filename'),
-         State('rt-upload-subject', 'value'),
-         State('rt-upload-level', 'value'),
-         State('rt-upload-year', 'value'),
-         State('auth-store', 'data')]
+         Input('admin-update-trigger', 'data')]
     )
-    def update_root_table_view(f_subj, f_lvl, f_year, upload_contents, filename, u_subj, u_lvl, u_year, auth_data):
-        trigger = ctx.triggered_id
-        status_msg = ""
-
-        # アップロード処理
-        if trigger == 'rt-upload-file' and upload_contents:
-            if auth_data.get('role') != 'admin':
-                status_msg = dbc.Alert("権限がありません", color="danger")
-            elif not all([u_subj, u_lvl, u_year]):
-                status_msg = dbc.Alert("タグ（科目・レベル・年度）をすべて選択してください", color="warning")
-            else:
-                _, content_string = upload_contents.split(',')
-                decoded = base64.b64decode(content_string)
-                # 関数名を add_root_table に修正
-                success, msg = add_root_table(filename, decoded, u_subj, u_lvl, u_year)
-                status_msg = dbc.Alert(msg, color="success" if success else "danger")
-
-        # データの取得とテーブル生成
+    def update_root_table_view(f_subj, f_lvl, f_year, admin_trigger):
+        # データの取得
         rows = get_filtered_root_tables(f_subj, f_lvl, f_year)
         
+        if not rows:
+            return html.Div("該当するルート表が見つかりません。", className="text-muted p-3")
+
         table_header = [html.Thead(html.Tr([
             html.Th("年度"), html.Th("科目"), html.Th("レベル"), html.Th("ファイル名"), html.Th("操作")
         ]))]
@@ -56,9 +34,9 @@ def register_root_table_callbacks(app):
             ]) for r in rows
         ])]
 
-        return dbc.Table(table_header + table_body, hover=True, striped=True, className="bg-white"), status_msg
+        return dbc.Table(table_header + table_body, hover=True, striped=True, className="bg-white shadow-sm")
 
-    # ダウンロード処理
+    # ダウンロード処理 (変更なし)
     @app.callback(
         Output("rt-download-component", "data"),
         Input({'type': 'rt-dl-btn', 'index': ALL}, 'n_clicks'),
@@ -68,7 +46,6 @@ def register_root_table_callbacks(app):
         if not ctx.triggered or not any(n_clicks): 
             return dash.no_update
         
-        # パターンマッチングIDを直接辞書として取得
         triggered_id = ctx.triggered_id
         if not isinstance(triggered_id, dict) or triggered_id.get('type') != 'rt-dl-btn':
             return dash.no_update
@@ -77,6 +54,5 @@ def register_root_table_callbacks(app):
         file_data = get_root_table_by_id(file_id)
         
         if file_data:
-            # ★ 修正: memoryview 対策として bytes() でキャストして送信
             return dcc.send_bytes(bytes(file_data['file_content']), file_data['filename'])
         return dash.no_update

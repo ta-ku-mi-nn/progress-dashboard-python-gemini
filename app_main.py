@@ -266,7 +266,6 @@ def display_page(pathname, auth_store_data):
     else: # デフォルトはダッシュボードページ
         page_content = html.Div([
             create_main_layout(user_info),
-            create_root_table_layout(user_info),
             *create_all_modals(subjects) # 学習計画モーダルなどを生成
         ])
 
