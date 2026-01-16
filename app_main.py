@@ -196,6 +196,7 @@ def display_page(pathname, auth_store_data):
                 dcc.ConfirmDialog(id='delete-student-confirm', message='本当にこの生徒を削除しますか？関連する進捗・宿題・試験結果も全て削除されます。'),
                 dcc.ConfirmDialog(id='delete-textbook-confirm', message='本当にこの参考書を削除しますか？宿題での関連付けは解除されます。'),
                 dcc.ConfirmDialog(id='delete-preset-confirm', message='本当にこのプリセットを削除しますか？'),
+                dcc.ConfirmDialog(id='delete-rt-confirm', message='本当にこのルート表を削除しますか？'),
 
                 dbc.Row([
                     # --- 左列 ---
