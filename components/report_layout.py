@@ -1,62 +1,98 @@
-# components/report_layout.py
+# components/report_layout.py の改良案
 from dash import dcc, html
 import dash_bootstrap_components as dbc
-from datetime import datetime
 
 def create_report_layout(student_name):
-    """印刷専用ページのレイアウトを生成する"""
+    """印刷専用ページのレイアウトを生成する（改良版）"""
 
-    # 印刷時には非表示になる、操作用のヘッダー
+    # 操作用ヘッダー（印刷時には非表示）
     action_header = html.Div([
-        html.H3(f"{student_name}さん の学習進捗レポート"),
-        html.P("内容を確認し、コメントを入力してから印刷してください。"),
-        dbc.Button(
-            [html.I(className="fas fa-print me-2"), "この内容を印刷"],
-            id="final-print-btn", color="success", size="lg", className="mt-2"
-        ),
-        html.Hr(),
-    ], id="report-header", className="my-4")
+        dbc.Container([
+            dbc.Row([
+                dbc.Col([
+                    html.H3("レポート作成モード", className="text-primary"),
+                    html.P("プレビューを確認し、コメントを入力してから印刷ボタンを押してください。"),
+                ], width=8),
+                dbc.Col([
+                    dbc.Button(
+                        [html.I(className="fas fa-print me-2"), "この内容を印刷する"],
+                        id="final-print-btn", color="primary", size="lg", className="w-100 shadow"
+                    ),
+                ], width=4, className="d-flex align-items-center"),
+            ])
+        ], className="py-3")
+    ], id="report-header", className="bg-light border-bottom mb-4")
 
-    # --- ここからが印刷されるコンテンツ ---
+    # --- 印刷エリア (A4を意識したスタイリング) ---
     printable_area = html.Div([
-
-        # 1ページ目のコンテンツ
+        
+        # 【第1ページ】サマリーとダッシュボード
         html.Div([
-            # 印刷用ヘッダー
-            dbc.Row([
-                dbc.Col(html.H2("学習進捗レポート"), width="auto", className="me-auto align-self-end"),
-                dbc.Col([
-                    html.P(id="report-creation-date", className="mb-0 text-muted"),
-                    html.P(f"生徒名: {student_name}", className="mb-0 text-muted"),
-                ], width="auto", className="text-end"),
-            ], align="center", className="mb-4"),
+            # レポート共通ヘッダー
+            html.Div([
+                dbc.Row([
+                    dbc.Col(html.H1("学習進捗報告書", className="report-title"), width=12),
+                ], className="mb-2"),
+                dbc.Row([
+                    dbc.Col(html.Hr(className="report-hr"), width=12),
+                ]),
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.Span("生徒氏名：", className="label"),
+                            html.Span(f"{student_name} 様", className="value-name"),
+                        ], className="student-info-box"),
+                    ], width=6),
+                    dbc.Col([
+                        html.P(id="report-creation-date", className="text-end mb-0"),
+                        html.P("発行：進捗管理システム (Progress Dashboard)", className="text-end small text-muted"),
+                    ], width=6),
+                ], className="mb-4 align-items-end"),
+            ], className="report-header-section"),
 
-            # ダッシュボード部分（画像で示された部分）
-            dcc.Loading(html.Div(id="report-dashboard-content")),
-        ], className="page-break"), # 1ページ目の終わりに改ページ
+            # メイングラフエリア
+            html.Div([
+                html.H4("■ 学習進捗サマリー", className="section-title"),
+                dcc.Loading(html.Div(id="report-dashboard-content")),
+            ], className="report-section"),
+            
+        ], className="page-break printable-page"), # CSSで1ページに収める制御
 
-        # 2ページ目のコンテンツ
+        # 【第2ページ】過去問詳細と指導コメント
         html.Div([
             dbc.Row([
-                # 左列：過去問情報
+                # 左列：過去問分析
                 dbc.Col([
-                    html.H4("過去問情報"),
-                    dcc.Loading(html.Div(id="report-past-exam-content")),
-                ], md=7),
-                # 右列：コメント欄
+                    html.H4("■ 過去問実施記録", className="section-title"),
+                    dcc.Loading(html.Div(id="report-past-exam-content", className="past-exam-table-container")),
+                ], width=7),
+                
+                # 右列：講師コメント
                 dbc.Col([
-                    html.H4("特記事項・コメント"),
+                    html.H4("■ 指導・特記事項", className="section-title"),
+                    # 入力欄（画面上のみ表示）
                     dbc.Textarea(
                         id="report-comment-input",
-                        placeholder="この欄に入力した内容は、そのままレポートに印刷されます...",
-                        rows=8, # 初期表示の高さを調整
-                        className="mb-4"
+                        placeholder="今月の学習状況やアドバイスを入力してください...",
+                        rows=15,
+                        className="mb-3 no-print"
                     ),
-                    # 印刷専用のコメント表示エリア
-                    html.Div(id="printable-comment-output", style={'display': 'none'})
-                ], md=5),
-            ], className="mt-4"),
-        ]),
-    ])
+                    # 印刷用表示エリア（印刷時のみ表示）
+                    html.Div(id="printable-comment-output", className="comment-print-box")
+                ], width=5),
+            ]),
+            
+            # フッター（ページ下部）
+            html.Div([
+                html.Hr(),
+                html.P("※本レポートはシステムにより自動生成されたデータに基づいています。", className="text-center small text-muted")
+            ], className="report-footer mt-auto")
+            
+        ], className="printable-page"),
+        
+    ], id="report-content-area", className="printable-container")
 
-    return dbc.Container([action_header, printable_area], fluid=True, style={'backgroundColor': 'white'})
+    return html.Div([
+        action_header,
+        dbc.Container(printable_area, fluid=True)
+    ], style={'backgroundColor': '#f4f4f4', 'minHeight': '100vh'})
