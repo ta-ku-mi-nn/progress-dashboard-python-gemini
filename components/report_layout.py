@@ -1,17 +1,17 @@
-# components/report_layout.py の改良案
+# components/report_layout.py
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 def create_report_layout(student_name):
-    """印刷専用ページのレイアウトを生成する（改良版）"""
+    """印刷専用ページのレイアウトを生成する（整理・完全版）"""
 
-    # 操作用ヘッダー（印刷時には非表示）
+    # 1. 操作用ヘッダー（画面上でのみ表示、印刷時はCSSで非表示）
     action_header = html.Div([
         dbc.Container([
             dbc.Row([
                 dbc.Col([
                     html.H3("レポート作成モード", className="text-primary"),
-                    html.P("プレビューを確認し、コメントを入力してから印刷ボタンを押してください。"),
+                    html.P("内容を確認・入力し、最後に「この内容を印刷する」ボタンを押してください。"),
                 ], width=8),
                 dbc.Col([
                     dbc.Button(
@@ -23,19 +23,18 @@ def create_report_layout(student_name):
         ], className="py-3")
     ], id="report-header", className="bg-light border-bottom mb-4")
 
-    # --- 印刷エリア (A4を意識したスタイリング) ---
-    printable_area = html.Div([
+    # 2. 印刷されるコンテンツエリア
+    # printable-container と printable-page クラスを使い、CSSでA4サイズに固定します
+    printable_content = html.Div([
         
         # 【第1ページ】サマリーとダッシュボード
         html.Div([
-            # レポート共通ヘッダー
+            # レポートヘッダー（タイトル・生徒名・日付）
             html.Div([
                 dbc.Row([
                     dbc.Col(html.H1("学習進捗報告書", className="report-title"), width=12),
                 ], className="mb-2"),
-                dbc.Row([
-                    dbc.Col(html.Hr(className="report-hr"), width=12),
-                ]),
+                html.Hr(className="report-hr"),
                 dbc.Row([
                     dbc.Col([
                         html.Div([
@@ -56,18 +55,18 @@ def create_report_layout(student_name):
                 dcc.Loading(html.Div(id="report-dashboard-content")),
             ], className="report-section"),
             
-        ], className="page-break printable-page"), # CSSで1ページに収める制御
+        ], className="printable-page"), # ← これがCSSでA4縦サイズに固定される単位です
 
         # 【第2ページ】過去問詳細と指導コメント
         html.Div([
             dbc.Row([
-                # 左列：過去問分析
+                # 左列：過去問分析 (width=7 で固定)
                 dbc.Col([
                     html.H4("■ 過去問実施記録", className="section-title"),
                     dcc.Loading(html.Div(id="report-past-exam-content", className="past-exam-table-container")),
                 ], width=7),
                 
-                # 右列：講師コメント
+                # 右列：講師コメント (width=5 で固定)
                 dbc.Col([
                     html.H4("■ 指導・特記事項", className="section-title"),
                     # 入力欄（画面上のみ表示）
@@ -92,34 +91,8 @@ def create_report_layout(student_name):
         
     ], id="report-content-area", className="printable-container")
 
+    # 最終的な戻り値（操作用ヘッダー + 印刷エリア）
     return html.Div([
         action_header,
-        html.Div([ # 全体を包むコンテナ
-            # 【1ページ目】
-            html.Div([
-                html.H2("学習進捗報告書", className="text-center mb-4"),
-                dbc.Row([
-                    dbc.Col(html.H4(f"生徒名: {student_name} 様"), width=6),
-                    dbc.Col(html.P(id="report-creation-date", className="text-end"), width=6),
-                ], className="mb-4"),
-                
-                html.Div("■ 総評グラフ", className="section-title"),
-                dcc.Loading(html.Div(id="report-dashboard-content")),
-            ], className="printable-page"), # CSSでA4に固定
-
-            # 【2ページ目】
-            html.Div([
-                dbc.Row([
-                    dbc.Col([
-                        html.Div("■ 過去問実施結果", className="section-title"),
-                        dcc.Loading(html.Div(id="report-past-exam-content")),
-                    ], width=7),
-                    dbc.Col([
-                        html.Div("■ 講師コメント", className="section-title"),
-                        dbc.Textarea(id="report-comment-input", rows=15, className="no-print"),
-                        html.Div(id="printable-comment-output", className="comment-print-box")
-                    ], width=5),
-                ]),
-            ], className="printable-page"),
-        ], className="printable-container")
-    ])
+        printable_content
+    ], style={'backgroundColor': '#f4f4f4', 'minHeight': '100vh'})

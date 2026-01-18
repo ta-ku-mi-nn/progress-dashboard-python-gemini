@@ -1,87 +1,82 @@
-/* assets/assets/printable.css の完全版 */
+/* assets/assets/printable.css の修正版 */
 
-/* --- 1. 共通設定（印刷・画面両方） --- */
-:root {
-    --print-margin: 10mm; /* ここで余白を一括管理 */
-}
-
-/* --- 2. 画面プレビュー用 (WYSIWYG) --- */
-@media screen {
-    body {
-        background-color: #e0e0e0;
-    }
+/* --- 1. 全体設定（背景色などをリセット） --- */
+@media all {
     .printable-container {
+        background-color: #f0f2f5;
+        padding: 30px 0;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 40px 0;
-    }
-    .printable-page {
-        background: white;
-        width: 210mm;           /* A4横幅 */
-        height: 297mm;          /* A4縦幅 */
-        margin-bottom: 20px;
-        padding: var(--print-margin);
-        box-shadow: 0 0 15px rgba(0,0,0,0.2);
-        box-sizing: border-box;
-        overflow: hidden;       /* はみ出し防止 */
-        position: relative;
     }
 }
 
-/* --- 3. 印刷用設定 --- */
+/* --- 2. プレビュー（画面表示）用の設定 --- */
+@media screen {
+    .printable-page {
+        background: white;
+        width: 210mm;          /* A4縦の幅 */
+        min-height: 297mm;     /* A4縦の高さ */
+        padding: 15mm;         /* ページ内の余白 */
+        margin-bottom: 30px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+}
+
+/* --- 3. 印刷時の設定（プレビューに完全に合わせる） --- */
 @media print {
     @page {
-        size: A4 portrait;
-        margin: 0 !important; /* ブラウザの余白をゼロにする */
+        size: A4 portrait;     /* A4縦を強制 */
+        margin: 0 !important;  /* ブラウザの余白を消去 */
     }
 
-    html, body {
-        width: 210mm;
-        height: 297mm;
+    /* 印刷に関係ないWEB要素を消す */
+    #report-header, .no-print, .btn, .dash-loading, #navbar-container {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
+    }
+
+    .printable-container {
+        padding: 0 !important;
+        display: block !important;
     }
 
     .printable-page {
         width: 210mm !important;
         height: 297mm !important;
-        padding: var(--print-margin) !important;
+        padding: 15mm !important; /* プレビューと同じ余白 */
         margin: 0 !important;
-        page-break-after: always;
+        page-break-after: always; /* ページごとに改ページ */
         box-sizing: border-box;
+        border: none !important;
+        box-shadow: none !important;
     }
 
-    /* 印刷に不要な要素 */
-    #report-header, .no-print, .btn, .dash-loading {
-        display: none !important;
-    }
-
-    /* Plotlyグラフのサイズ固定 */
-    .js-plotly-plot {
-        width: 100% !important;
-        height: 300px !important;
-    }
-    
-    /* BootstrapのRow/Colが印刷時に崩れるのを防ぐ */
+    /* BootstrapのRowが印刷時に縦に並ぶのを防ぐ */
     .row {
         display: flex !important;
-        flex-wrap: nowrap !important; /* 折り返しを強制防止 */
+        flex-wrap: nowrap !important;
     }
 }
 
-/* --- 4. 装飾用スタイル --- */
-.section-title {
-    border-left: 5px solid #007bff;
-    padding-left: 10px;
-    background: #f8f9fa;
-    margin: 20px 0 10px;
+/* --- 4. グラフと要素の調整 --- */
+.js-plotly-plot {
+    width: 100% !important;
+    height: auto !important;
 }
+
 .comment-print-box {
     border: 1px solid #dee2e6;
-    padding: 15px;
-    min-height: 400px;
-    font-size: 10.5pt;
-    line-height: 1.8;
+    padding: 10px;
+    min-height: 200px;
+    font-size: 10pt;
+    white-space: pre-wrap;
+    background: #fff;
 }
