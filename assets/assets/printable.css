@@ -64,6 +64,21 @@
         display: flex !important;
         flex-wrap: nowrap !important;
     }
+
+    .js-plotly-plot {
+        width: 100% !important;
+        /* 高さを固定値(250px)から「コンテンツに応じた最小値」に変更 */
+        height: auto !important; 
+        min-height: 350px !important; /* 少し余裕を持たせる */
+        page-break-inside: avoid !important;
+    }
+
+    .js-plotly-plot svg,
+    .js-plotly-plot svg.main-svg {
+        width: 100% !important;
+        /* svg自体の高さも100%にしてコンテナに追従させる */
+        height: 100% !important; 
+    }
 }
 
 /* --- 4. グラフと要素の調整 --- */
