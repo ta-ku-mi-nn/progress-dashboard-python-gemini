@@ -69,15 +69,16 @@ def register_report_callbacks(app):
 
         return dashboard_content, past_exam_table, creation_date
 
-    # 3. 印刷前にグラフの読み込みを待つ    app.clientside_callback(
+    # 3. 印刷ボタンの処理
+    # 500msだとPlotlyの再レンダリングが間に合わない場合があるため、少し余裕を持たせます
     app.clientside_callback(
         """
         function(n_clicks) {
             if (n_clicks > 0) {
-                // グラフの読み込みを待ってから印刷
+                // 印刷前に少し待機して、全グラフが完全に描画されるのを待つ
                 setTimeout(function() {
                     window.print();
-                }, 500);  // 500ms待機
+                }, 1000); 
             }
             return window.dash_clientside.no_update;
         }
