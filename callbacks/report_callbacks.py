@@ -75,13 +75,13 @@ def register_report_callbacks(app):
         """
         function(n_clicks) {
             if (n_clicks > 0) {
-                // 1. グラフに印刷用のサイズを認識させるためリサイズイベントを発火
+                // 全てのグラフにリサイズを強制
                 window.dispatchEvent(new Event('resize'));
                 
-                // 2. 描画が安定するまで少し待ってから印刷ダイアログを開く
+                // 待機時間を1.5秒(1500ms)程度に伸ばして確実に描画させる
                 setTimeout(function() {
                     window.print();
-                }, 1000); 
+                }, 1500); 
             }
             return window.dash_clientside.no_update;
         }
