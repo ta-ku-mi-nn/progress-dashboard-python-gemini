@@ -196,7 +196,12 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         eiken_card = create_eiken_input_card(student_id)
 
         left_col = html.Div([
-            dcc.Graph(figure=stacked_bar_fig, style={'height': '250px'}) if stacked_bar_fig else html.Div(),
+            # 修正：style={'height': '250px'} を削除し、responsiveを有効にする
+            dcc.Graph(
+                figure=stacked_bar_fig, 
+                responsive=True,
+                className="main-progress-graph"
+            ) if stacked_bar_fig else html.Div(),
             summary_cards,
             eiken_card
         ])
@@ -238,7 +243,11 @@ def generate_dashboard_content(student_id, active_tab, for_print=False):
         summary_cards = create_summary_cards(df_subject)
 
         left_col = html.Div([
-            dcc.Graph(figure=fig, style={'height': '250px'}) if fig else dbc.Alert("予定されている学習はありません。", color="info"),
+            dcc.Graph(
+                figure=fig, 
+                responsive=True,
+                className="main-progress-graph"
+            ) if fig else dbc.Alert("予定されている学習はありません。", color="info"),
             summary_cards
         ])
 
