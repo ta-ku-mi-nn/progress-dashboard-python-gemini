@@ -75,10 +75,13 @@ def register_report_callbacks(app):
         """
         function(n_clicks) {
             if (n_clicks > 0) {
-                // 印刷前に少し待機して、全グラフが完全に描画されるのを待つ
+                // 1. グラフのサイズを印刷用に強制調整（再描画を促す）
+                window.dispatchEvent(new Event('resize'));
+                
+                // 2. 描画時間を十分に確保（1秒〜1.5秒推奨）
                 setTimeout(function() {
                     window.print();
-                }, 1000); 
+                }, 1200);
             }
             return window.dash_clientside.no_update;
         }
