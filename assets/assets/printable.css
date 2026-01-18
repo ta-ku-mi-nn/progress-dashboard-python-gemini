@@ -1,117 +1,87 @@
-/* assets/assets/printable.css の改良案 */
+/* assets/assets/printable.css の完全版 */
 
-/* --- 画面表示用プレビュー設定 --- */
+/* --- 1. 共通設定（印刷・画面両方） --- */
+:root {
+    --print-margin: 10mm; /* ここで余白を一括管理 */
+}
+
+/* --- 2. 画面プレビュー用 (WYSIWYG) --- */
 @media screen {
+    body {
+        background-color: #e0e0e0;
+    }
     .printable-container {
-        background-color: #f4f4f4;
-        padding: 20px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 0;
     }
     .printable-page {
         background: white;
-        width: 210mm; /* A4サイズ */
-        min-height: 297mm;
-        margin: 0 auto 20px auto;
-        padding: 15mm;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        display: flex;
-        flex-direction: column;
+        width: 210mm;           /* A4横幅 */
+        height: 297mm;          /* A4縦幅 */
+        margin-bottom: 20px;
+        padding: var(--print-margin);
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        box-sizing: border-box;
+        overflow: hidden;       /* はみ出し防止 */
+        position: relative;
     }
-    .no-print { display: block !important; }
 }
 
-/* --- 印刷用設定 --- */
+/* --- 3. 印刷用設定 --- */
 @media print {
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 0 !important; /* ブラウザの余白をゼロにする */
     }
-    
-    body {
-        background: white !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+
+    html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
     }
 
     .printable-page {
-        width: 100% !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        padding: var(--print-margin) !important;
         margin: 0 !important;
-        padding: 5mm !important;
-        box-shadow: none !important;
+        page-break-after: always;
+        box-sizing: border-box;
     }
 
-    /* 非表示にする要素 */
-    #report-header,
-    .no-print,
-    #report-comment-input,
-    .btn,
-    .dash-loading {
+    /* 印刷に不要な要素 */
+    #report-header, .no-print, .btn, .dash-loading {
         display: none !important;
     }
 
-    /* 改ページ制御 */
-    .page-break {
-        page-break-after: always;
-    }
-
-    /* グラフの最適化 */
+    /* Plotlyグラフのサイズ固定 */
     .js-plotly-plot {
         width: 100% !important;
-        height: 300px !important; /* 見やすさを考慮して少し大きく */
+        height: 300px !important;
     }
-
-    /* 4分割されている科目別グラフの調整 */
-    #subject-charts-row > * {
-        flex: 0 0 50% !important; /* 25%だと印刷では小さすぎるため50%（2列）に推奨 */
-        max-width: 50% !important;
+    
+    /* BootstrapのRow/Colが印刷時に崩れるのを防ぐ */
+    .row {
+        display: flex !important;
+        flex-wrap: nowrap !important; /* 折り返しを強制防止 */
     }
 }
 
-/* --- デザイン・装飾 --- */
-.report-title {
-    font-weight: bold;
-    color: #2c3e50;
-    border-left: 8px solid #3498db;
-    padding-left: 15px;
-    margin-bottom: 0;
-}
-
-.report-hr {
-    border-top: 2px solid #2c3e50;
-    opacity: 1;
-}
-
+/* --- 4. 装飾用スタイル --- */
 .section-title {
-    background-color: #f8f9fa;
-    padding: 8px 12px;
-    border-bottom: 2px solid #dee2e6;
-    margin-bottom: 15px;
-    font-size: 1.1rem;
-    font-weight: bold;
+    border-left: 5px solid #007bff;
+    padding-left: 10px;
+    background: #f8f9fa;
+    margin: 20px 0 10px;
 }
-
-.student-info-box {
-    border: 1px solid #dee2e6;
-    padding: 10px 20px;
-    display: inline-block;
-    border-radius: 4px;
-}
-
-.label { font-size: 0.9rem; color: #6c757d; }
-.value-name { font-size: 1.3rem; font-weight: bold; text-decoration: underline; }
-
 .comment-print-box {
-    display: none; /* 通常は見せない */
-    border: 1px solid #ccc;
+    border: 1px solid #dee2e6;
     padding: 15px;
-    background-color: #fff;
-    min-height: 300px;
-    white-space: pre-wrap;
-    font-size: 10pt;
-    line-height: 1.6;
-}
-
-@media print {
-    .comment-print-box {
-        display: block !important; /* 印刷時のみ表示 */
-    }
+    min-height: 400px;
+    font-size: 10.5pt;
+    line-height: 1.8;
 }

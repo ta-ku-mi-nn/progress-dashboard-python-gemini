@@ -94,5 +94,32 @@ def create_report_layout(student_name):
 
     return html.Div([
         action_header,
-        dbc.Container(printable_area, fluid=True)
-    ], style={'backgroundColor': '#f4f4f4', 'minHeight': '100vh'})
+        html.Div([ # 全体を包むコンテナ
+            # 【1ページ目】
+            html.Div([
+                html.H2("学習進捗報告書", className="text-center mb-4"),
+                dbc.Row([
+                    dbc.Col(html.H4(f"生徒名: {student_name} 様"), width=6),
+                    dbc.Col(html.P(id="report-creation-date", className="text-end"), width=6),
+                ], className="mb-4"),
+                
+                html.Div("■ 総評グラフ", className="section-title"),
+                dcc.Loading(html.Div(id="report-dashboard-content")),
+            ], className="printable-page"), # CSSでA4に固定
+
+            # 【2ページ目】
+            html.Div([
+                dbc.Row([
+                    dbc.Col([
+                        html.Div("■ 過去問実施結果", className="section-title"),
+                        dcc.Loading(html.Div(id="report-past-exam-content")),
+                    ], width=7),
+                    dbc.Col([
+                        html.Div("■ 講師コメント", className="section-title"),
+                        dbc.Textarea(id="report-comment-input", rows=15, className="no-print"),
+                        html.Div(id="printable-comment-output", className="comment-print-box")
+                    ], width=5),
+                ]),
+            ], className="printable-page"),
+        ], className="printable-container")
+    ])
